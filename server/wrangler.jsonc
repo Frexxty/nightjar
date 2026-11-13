@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stratus-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "stratus-api.k3s.lat", "custom_domain": true }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "stratus",
+      "database_id": "7552926d-6f27-4c44-afbc-76c1f19a9e49",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "browser": { "binding": "BROWSER" },
+  "observability": { "enabled": true }
+}

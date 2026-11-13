@@ -73,6 +73,7 @@ src/stores/player.ts     queue, shuffle, repeat, audio/HLS, media session
 src/stores/library.ts    likes, reposts, follows, history
 src/components/          chrome, LCD, waveform, drawer, immersive player, lists, cards
 src/views/               one file per route
+server/                  the hosted backend (Cloudflare Worker + D1) at stratus-api.k3s.lat, see server/README.md
 ```
 
 The window uses `contextIsolation`, `sandbox` and no `nodeIntegration`. The renderer can only send playback state and a few window actions to the main process. Cider runs with `webSecurity: false` and `nodeIntegration: true`, which I didn't copy.

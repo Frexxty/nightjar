@@ -27,9 +27,11 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
 
 - Send the token as `Authorization: Bearer <token>` on every request. Tokens last 90 days and are stored server-side as a hash.
 - Usernames: 3 to 30 characters, letters, digits, `_`, `-`, `.`; unique, case-insensitive. Passwords: at least 8 characters.
-- Errors are JSON `{ "error": "human readable message", "code": "short_code" }` with a 4xx status. Codes include `invalid_credentials`, `username_taken`, `email_taken`, `weak_password`, `invalid_input`, `rate_limited`, `unauthorized`.
-- `/v1/me`, `/v1/me/*`, `/v1/feed`, likes/reposts/follows and comment posting require a token. Signed out they return 401 `{ "code": "unauthorized" }`. Catalogue routes work signed out.
-- `User` for the signed-in account: `id` is `"me:<uuid>"`-style opaque string, `username`, `avatarUrl: null`, counts from D1.
+- Errors are JSON `{ "error": "human readable message", "code": "short_code" }`. Codes include `invalid_credentials` (401), `username_taken` and `email_taken` (409), `weak_password` and `invalid_input` (400), `rate_limited` (429, with `Retry-After`), `unauthorized` (401) and `not_found` (404). Server-side failures use `not_supported` (501), `not_streamable` (403), `import_failed` (422), `upstream_rate_limited` (503 with `Retry-After`, when SoundCloud answers 429), `upstream_error` (502) and `internal` (500).
+- Signup, login and account deletion are limited to 10 requests a minute per IP. Spotify imports are limited to 10 a minute per IP; a list read in the last 10 minutes comes from the cache and doesn't count.
+- `/v1/me`, `/v1/me/*`, `/v1/feed`, likes/reposts/follows and comment posting require a token. Signed out they return 401 `{ "code": "unauthorized" }`. Catalogue routes work signed out. With a token, every `Track` in a response carries `liked` and `reposted`, and every SoundCloud `User` carries `following`.
+- `User` for the signed-in account: `id` is `"me:<uuid>"`-style opaque string, `username`, `avatarUrl: null`, counts from D1. `GET /v1/users/me:<uuid>` serves the same user to anyone, `/v1/users/me:<uuid>/playlists` lists that account's public playlists, and its tracks, likes and top tracks are empty.
+- Stratus can't post to SoundCloud, so `POST /v1/tracks/{id}/comments` answers 501 `{ "code": "not_supported" }` (401 when signed out). Clients should hide the comment box when they see that code. `GET /v1/me/likes/playlists` returns `[]`, because there is no route to like a playlist.
 
 ## Account playlists
 
@@ -39,7 +41,7 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
 | PATCH | `/v1/me/playlists/{id}` | any of `{ "title", "description", "public", "trackIds" }` (`trackIds` replaces the whole order) | `Playlist` |
 | DELETE | `/v1/me/playlists/{id}` | none | 204 |
 
-`GET /v1/me/playlists` lists them (newest first). Track IDs are SoundCloud track IDs; the server hydrates them into full `Track` objects on read, in the saved order, skipping tracks SoundCloud no longer has.
+`GET /v1/me/playlists` lists them (newest first). Track IDs are SoundCloud track IDs; the server hydrates them into full `Track` objects on read, in the saved order, skipping tracks SoundCloud no longer has. The list leaves out `tracks` and reports `trackCount`, `duration` and `artworkUrl` as of the last write. A playlist holds at most 5,000 tracks and an account at most 500 playlists. `GET /v1/playlists/sp_…` returns a private playlist only to its owner and a public one to anyone.
 
 ## History
 
@@ -47,6 +49,8 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
 | --- | --- | --- | --- |
 | POST | `/v1/me/history` | `{ "trackId": string }` | 204 |
 | GET | `/v1/me/history?cursor=` | | `Page<Track>`, most recent first, one entry per track |
+
+The server keeps the 500 most recent tracks per account.
 
 ## Spotify import
 
@@ -58,11 +62,21 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
   "tracks": [{ "spotifyId": "…", "title": "…", "artists": ["…"], "durationMs": 225834, "explicit": false }] }
 ```
 
-The desktop app keeps reading Spotify itself (full playlists through a hidden window). The web player has no such window, so it calls this endpoint. The server reads the embed page (up to 100 tracks) and, when Cloudflare Browser Rendering is available, the full page for longer lists. Matching against SoundCloud still happens in the client through `/v1/search/tracks`.
+The desktop app keeps reading Spotify itself (full playlists through a hidden window). The web player has no such window, so it calls this endpoint. The server reads the embed page (up to 100 tracks) and, for lists that hit that cap, loads the full page in Cloudflare Browser Rendering and replays Spotify's own paging request, so `source` is `"page"`. A 1,223-track playlist takes about 15 seconds. If the browser step fails you get the embed's 100 tracks with `truncated: true` and a `notice`. Links that aren't Spotify playlists or albums get 400 `invalid_input`; private or missing lists get 422 `import_failed` with a readable `error`. Matching against SoundCloud still happens in the client through `/v1/search/tracks`.
 
 ## Streams
 
-`GET /v1/tracks/{id}/stream` resolves a transcoding to a short-lived URL and returns `StreamInfo`. It prefers unencrypted HLS (`protocol: "hls"`, AAC) and falls back to progressive MP3. SoundCloud's CDN sends `Access-Control-Allow-Origin: *` on both the playlist and its segments, so clients play it directly; the server never proxies audio. Tracks that only have a 30-second preview (`policy: SNIP`) come back with `streamable: true` but a `duration` of 30000 and a `preview: true` flag on `Track`; the UI labels them.
+`GET /v1/tracks/{id}/stream` resolves a transcoding to a short-lived URL and returns `StreamInfo`. It prefers unencrypted HLS (`protocol: "hls"`, AAC) and falls back to progressive MP3. SoundCloud's CDN sends `Access-Control-Allow-Origin: *` on both the playlist and its segments, so clients play it directly; the server never proxies audio. Tracks that only have a 30-second preview (`policy: SNIP`) come back with `streamable: true` but a `duration` of 30000 and a `preview: true` flag on `Track`; the UI labels them. Tracks with `policy: BLOCK` or only encrypted transcodings have `streamable: false`, and their stream route answers 403 `not_streamable`. Stream responses are `Cache-Control: no-store`.
+
+## Home and feed
+
+- `/v1/home` signed out: "Trending on SoundCloud" (`/charts?kind=trending`, all genres), the "Curated by SoundCloud", "Trending by genre" and "Artists to watch out for" playlist shelves from `/mixed-selections`, and "Artists in the charts". These are cached for 30 minutes. Signed in, "Because you liked …" (related tracks of the latest like) and "New from artists you follow" go first, and the list stops at six sections.
+- "Trending by genre" playlists have IDs like `soundcloud:system-playlists:trending-by-genre:trap`. `GET /v1/playlists/{id}` accepts them.
+- `/v1/feed` merges the latest 30 uploads of each followed user (up to 50 users), newest first, 20 per page. SoundCloud's public API has no reposts feed, so there is no `repostedBy`.
+
+## Caching
+
+The server caches SoundCloud responses with the Cache API: search 5 minutes, tracks, users and related tracks 1 hour, comments and user track lists 10 minutes, waveforms a day. Personal routes and streams aren't cached.
 
 ## CORS
 

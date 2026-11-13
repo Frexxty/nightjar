@@ -1,0 +1,192 @@
+{
+ "allow": {
+  "id": 305234029,
+  "kind": "track",
+  "title": "Like Rihanna",
+  "artwork_url": "https://i1.sndcdn.com/artworks-000205419980-1z48ee-large.jpg",
+  "duration": 174311,
+  "full_duration": 174357,
+  "genre": "",
+  "tag_list": "R&B/Soul",
+  "description": "",
+  "created_at": "2017-01-30T13:00:00Z",
+  "display_date": "2017-01-30T13:00:00Z",
+  "playback_count": 86336,
+  "likes_count": 1158,
+  "reposts_count": 8,
+  "comment_count": 7,
+  "waveform_url": "https://wave.sndcdn.com/fw5dW2VGGcrQ_m.json",
+  "permalink_url": "https://soundcloud.com/tali-adut/like-rihanna-1",
+  "streamable": true,
+  "policy": "ALLOW",
+  "media": {
+   "transcodings": [
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:305234029/3b8c39b6-8e1e-493e-90b0-53f3dfa1446e/stream/hls",
+     "preset": "aac_160k",
+     "duration": 174311,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+     },
+     "quality": "sq",
+     "is_legacy_transcoding": false
+    },
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:305234029/2fb406af-87d5-4907-a1df-ef944cb37c10/stream/hls",
+     "preset": "aac_96k",
+     "duration": 174311,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+     },
+     "quality": "lq",
+     "is_legacy_transcoding": false
+    },
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:305234029/d75f11fe-fead-469e-bf08-32ad91e74f45/stream/hls",
+     "preset": "abr_sq",
+     "duration": 174311,
+     "snipped": false,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mpegurl"
+     },
+     "quality": "sq",
+     "is_legacy_transcoding": false
+    }
+   ]
+  },
+  "monetization_model": "NOT_APPLICABLE",
+  "user": {
+   "id": 154252339,
+   "username": "t",
+   "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+   "verified": false,
+   "city": "",
+   "country_code": "US",
+   "followers_count": 264,
+   "followings_count": 19,
+   "track_count": 43,
+   "playlist_count": 0,
+   "permalink_url": "https://soundcloud.com/tali-adut"
+  },
+  "track_authorization": "REDACTED"
+ },
+ "snip": {
+  "id": 1308462301,
+  "kind": "track",
+  "title": "Like Rihanna",
+  "artwork_url": "https://i1.sndcdn.com/artworks-5579cb07Q1xB-0-large.jpg",
+  "duration": 30000,
+  "full_duration": 160425,
+  "genre": "Pop",
+  "tag_list": "",
+  "description": null,
+  "created_at": "2022-07-20T09:46:20Z",
+  "display_date": "2016-02-13T00:00:00Z",
+  "playback_count": 205516,
+  "likes_count": 3905,
+  "reposts_count": 15,
+  "comment_count": 10,
+  "waveform_url": "https://wave.sndcdn.com/O1oMK1cDSCYx_m.json",
+  "permalink_url": "https://soundcloud.com/youngzerka/like-rihanna",
+  "streamable": true,
+  "policy": "SNIP",
+  "media": {
+   "transcodings": [
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1308462301/814a5ac8-ff2d-4077-8c0a-61f1cbd96fe9/preview/hls",
+     "preset": "mp3_1_0",
+     "duration": 30000,
+     "snipped": true,
+     "format": {
+      "protocol": "hls",
+      "mime_type": "audio/mpeg"
+     },
+     "quality": "sq",
+     "is_legacy_transcoding": true
+    },
+    {
+     "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1308462301/814a5ac8-ff2d-4077-8c0a-61f1cbd96fe9/preview/progressive",
+     "preset": "mp3_1_0",
+     "duration": 30000,
+     "snipped": true,
+     "format": {
+      "protocol": "progressive",
+      "mime_type": "audio/mpeg"
+     },
+     "quality": "sq",
+     "is_legacy_transcoding": true
+    }
+   ]
+  },
+  "monetization_model": "NOT_APPLICABLE",
+  "user": {
+   "id": 896209027,
+   "username": "Young Zerka",
+   "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+   "verified": false,
+   "city": null,
+   "country_code": null,
+   "followers_count": 184,
+   "followings_count": 0,
+   "track_count": 18,
+   "playlist_count": 0,
+   "permalink_url": "https://soundcloud.com/youngzerka"
+  },
+  "track_authorization": "REDACTED"
+ },
+ "comments": [
+  {
+   "kind": "comment",
+   "id": 2594028152,
+   "body": "this is my vibe \ud83e\udef6",
+   "created_at": "2026-09-19T12:42:53Z",
+   "timestamp": 114792,
+   "track_id": 305234029,
+   "user_id": 1664559956,
+   "user": {
+    "id": 1664559956,
+    "username": "listener",
+    "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+    "verified": false
+   }
+  },
+  {
+   "kind": "comment",
+   "id": 2580476037,
+   "body": "This song is fire",
+   "created_at": "2026-08-17T09:13:10Z",
+   "timestamp": 22732,
+   "track_id": 305234029,
+   "user_id": 1305429612,
+   "user": {
+    "id": 1305429612,
+    "username": "listener",
+    "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+    "verified": false
+   }
+  }
+ ],
+ "waveform": {
+  "width": 12,
+  "height": 140,
+  "samples": [
+   8,
+   8,
+   7,
+   140,
+   70,
+   35,
+   0,
+   14,
+   28,
+   56,
+   112,
+   140
+  ]
+ }
+}

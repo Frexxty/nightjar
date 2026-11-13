@@ -1,0 +1,26 @@
+{
+  "name": "stratus-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hosted backend for Stratus: a Cloudflare Worker with a D1 database.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migrate:local": "wrangler d1 migrations apply stratus --local",
+    "migrate:remote": "wrangler d1 migrations apply stratus --remote",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\"",
+    "smoke": "node scripts/smoke.mjs",
+    "match": "node scripts/match-spotify.mjs"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "1.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261028.1",
+    "typescript": "6.0.3",
+    "wrangler": "4.149.0"
+  }
+}
