@@ -4,3 +4,5 @@ release
 .env.release
 .daupdatea-build/
 .DS_Store
+release-notes.md
+build/release-notes.md

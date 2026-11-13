@@ -7,15 +7,18 @@ import AppDrawer from "@/components/AppDrawer.vue";
 import AppSidebar from "@/components/AppSidebar.vue";
 import ContextMenu from "@/components/ContextMenu.vue";
 import ImmersivePlayer from "@/components/ImmersivePlayer.vue";
+import UpdateDialog from "@/components/UpdateDialog.vue";
 import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
+import { useUpdates } from "@/stores/updates";
 
 const player = usePlayer();
 const library = useLibrary();
 const settings = useSettings();
 const ui = useUi();
+const updates = useUpdates();
 const router = useRouter();
 const route = useRoute();
 const content = ref<HTMLElement>();
@@ -30,6 +33,7 @@ watchEffect(() => {
   document.documentElement.style.setProperty("--accent", settings.accent);
   window.stratus?.window("set-theme", settings.theme);
 });
+watchEffect(() => window.stratus?.window("set-tray-on-close", settings.keepPlayingInTray));
 
 watch(api, () => void library.refresh(), { immediate: true });
 watch(() => route.fullPath, () => content.value?.scrollTo({ top: 0 }));
@@ -50,6 +54,7 @@ function onCommand(command: string, payload?: unknown) {
     case "focus-search": ui.immersive = false; ui.searchFocus++; return;
     case "toggle-drawer": return ui.toggleDrawer(payload === "comments" ? "comments" : "queue");
     case "immersive": ui.immersive = !ui.immersive; return;
+    case "check-updates": return void updates.check();
   }
 }
 
@@ -69,6 +74,7 @@ function onKey(e: KeyboardEvent) {
 
 onMounted(() => {
   offCommand = window.stratus?.onCommand(onCommand);
+  void updates.init();
   window.addEventListener("keydown", onKey);
 });
 onBeforeUnmount(() => {
@@ -98,6 +104,7 @@ onBeforeUnmount(() => {
       <ImmersivePlayer v-if="ui.immersive" />
     </Transition>
     <ContextMenu />
+    <UpdateDialog />
     <Transition name="toast">
       <div v-if="ui.toast" class="toast">{{ ui.toast }}</div>
     </Transition>
