@@ -14,6 +14,7 @@ import Artwork from "./Artwork.vue";
 import ArtworkBackdrop from "./ArtworkBackdrop.vue";
 import CommentFeed from "./CommentFeed.vue";
 import QueueList from "./QueueList.vue";
+import SpotifyIcon from "./SpotifyIcon.vue";
 import VolumeControl from "./VolumeControl.vue";
 import Waveform from "./Waveform.vue";
 
@@ -53,7 +54,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
             <h1 class="ellipsis"><a @click="go(`/track/${track.id}`)">{{ track.title }}</a></h1>
             <p class="ellipsis"><a @click="go(`/user/${track.user.id}`)">{{ track.user.username }}</a></p>
           </div>
-          <button class="icon-btn" :class="{ on: library.isReposted(track) }" title="Repost" @click="library.toggleRepost(track)">
+          <span v-if="track.source === 'spotify'" class="spotify-badge" title="Playing from Spotify"><SpotifyIcon :size="18" /></span>
+          <button v-else class="icon-btn" :class="{ on: library.isReposted(track) }" title="Repost" @click="library.toggleRepost(track)">
             <Repeat2 :size="20" />
           </button>
           <button class="icon-btn" :class="{ on: library.isLiked(track) }" title="Like" @click="library.toggleLike(track)">
@@ -137,6 +139,7 @@ main {
 h1 { margin: 0; font-size: 24px; font-weight: 750; letter-spacing: -0.01em; }
 .info p { margin: 2px 0 0; font-size: 16px; color: var(--text-2); }
 .info a { cursor: pointer; }
+.spotify-badge { display: grid; place-items: center; width: 34px; height: 34px; color: #1ed760; }
 .controls { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .icon-btn { color: var(--text-2); }
 .icon-btn.big { width: 48px; height: 48px; color: #fff; }

@@ -20,7 +20,8 @@ const draft = ref("");
 const posting = ref(false);
 
 // Hidden for backends that answered 501 to a comment once (the hosted one does).
-const canComment = computed(() => !!api.value.postComment && !isUnsupported("comments"));
+const isSpotify = computed(() => player.current?.source === "spotify");
+const canComment = computed(() => !isSpotify.value && !!api.value.postComment && !isUnsupported("comments"));
 const askSignIn = computed(() => library.accounts && library.signedOut);
 
 const timed = computed(() => player.comments.filter((c) => c.timestamp != null));
@@ -72,6 +73,7 @@ async function post() {
   <div class="feed" :class="{ large }">
     <div ref="list" class="list">
       <p v-if="!player.current" class="empty">Play something to see its comments.</p>
+      <p v-else-if="isSpotify" class="empty">Spotify tracks don't have comments.</p>
       <p v-else-if="!player.comments.length" class="empty">No comments on this track yet.</p>
       <button
         v-for="(c, i) in timed"

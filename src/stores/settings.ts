@@ -15,6 +15,8 @@ export interface Settings {
   musicSource: MusicSource | null;
   /** Spotify tracks: play inside Stratus, or remote-control the user's Spotify app. */
   spotifyPlayback: "this-device" | "remote";
+  /** Connect target for "remote", from GET /me/player/devices. Null picks the active device. */
+  spotifyDeviceId: string | null;
 }
 
 const KEY = "stratus.settings";
@@ -37,6 +39,7 @@ const defaults: Settings = {
   keepPlayingInTray: true,
   musicSource: null,
   spotifyPlayback: defaultSpotifyPlayback(),
+  spotifyDeviceId: null,
 };
 
 export const useSettings = defineStore("settings", () => {

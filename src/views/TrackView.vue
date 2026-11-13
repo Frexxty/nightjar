@@ -14,6 +14,8 @@ import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
+import SpotifyIcon from "@/components/SpotifyIcon.vue";
+import { catalogueFor } from "@/spotify/catalogue";
 
 const props = defineProps<{ id: string }>();
 const player = usePlayer();
@@ -22,7 +24,8 @@ const settings = useSettings();
 const ui = useUi();
 const menus = useMenus();
 
-const { data, loading, error, reload } = useLoad(async (b) => {
+const { data, loading, error, needsSpotify, reload } = useLoad(async () => {
+  const b = catalogueFor(props.id);
   const [track, comments, related] = await Promise.all([
     b.track(props.id),
     b.trackComments(props.id).catch(() => []),
@@ -32,6 +35,7 @@ const { data, loading, error, reload } = useLoad(async (b) => {
 });
 
 const track = computed(() => data.value?.track ?? null);
+const isSpotify = computed(() => track.value?.source === "spotify");
 const current = computed(() => !!track.value && player.isCurrent(track.value));
 const comments = computed(() => (current.value ? player.comments : data.value?.comments ?? []));
 
@@ -44,12 +48,17 @@ function play(at?: number) {
 
 <template>
   <div>
-    <LoadState :loading="loading" :error="error" @retry="reload">
+    <LoadState :loading="loading" :error="error" :needs-spotify="needsSpotify" @retry="reload">
       <template v-if="track">
-        <PageHero :art="track.artworkUrl" :title="track.title" :eyebrow="track.genre ? `#${track.genre}` : 'Track'">
+        <PageHero :art="track.artworkUrl" :title="track.title" :eyebrow="isSpotify ? 'Spotify track' : track.genre ? `#${track.genre}` : 'Track'">
           <template #meta>
             <RouterLink :to="`/user/${track.user.id}`" class="artist">{{ track.user.username }}</RouterLink>
-            <div class="stats muted">
+            <div v-if="isSpotify" class="stats muted">
+              <span class="spotify"><SpotifyIcon :size="12" /> Spotify</span>
+              <RouterLink v-if="track.album" :to="`/playlist/${track.album.id}`">{{ track.album.title }}</RouterLink>
+              <span>{{ duration(track.duration) }}<template v-if="track.createdAt"> · {{ new Date(track.createdAt).getUTCFullYear() }}</template></span>
+            </div>
+            <div v-else class="stats muted">
               <span><Play :size="12" fill="currentColor" /> {{ count(track.playbackCount) }}</span>
               <span><Heart :size="12" /> {{ count(track.likesCount) }}</span>
               <span><Repeat2 :size="12" /> {{ count(track.repostsCount) }}</span>
@@ -66,7 +75,7 @@ function play(at?: number) {
             <button class="btn" :class="{ on: library.isLiked(track) }" @click="library.toggleLike(track)">
               <Heart :size="15" :fill="library.isLiked(track) ? 'currentColor' : 'none'" /> {{ library.isLiked(track) ? "Liked" : "Like" }}
             </button>
-            <button class="btn" :class="{ on: library.isReposted(track) }" @click="library.toggleRepost(track)">
+            <button v-if="!isSpotify" class="btn" :class="{ on: library.isReposted(track) }" @click="library.toggleRepost(track)">
               <Repeat2 :size="15" /> {{ library.isReposted(track) ? "Reposted" : "Repost" }}
             </button>
             <button class="btn" @click="menus.startStation(track)"><Radio :size="15" /> Station</button>
@@ -92,7 +101,7 @@ function play(at?: number) {
               <div v-if="track.tags?.length" class="tags">
                 <span v-for="tag in track.tags" :key="tag" class="tag">#{{ tag }}</span>
               </div>
-              <h2 class="section-title">{{ comments.length }} comments</h2>
+              <h2 v-if="!isSpotify" class="section-title">{{ comments.length }} comments</h2>
               <div class="comments">
                 <div v-for="c in comments" :key="c.id" class="comment">
                   <Artwork :src="c.user.avatarUrl" :size="34" round />
@@ -122,6 +131,7 @@ function play(at?: number) {
 .artist { font-size: 17px; font-weight: 600; color: var(--text-2); }
 .stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12.5px; }
 .stats span { display: inline-flex; align-items: center; gap: 4px; }
+.stats .spotify { color: #1ed760; }
 .wave { position: relative; margin-top: 26px; }
 .body { padding-top: 8px; }
 .description { white-space: pre-line; color: var(--text-2); max-width: 720px; user-select: text; }

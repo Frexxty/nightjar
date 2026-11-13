@@ -252,6 +252,7 @@ function apply() {
       <p v-if="spotify.connected && !spotify.isPremium" class="error small hint">
         Spotify only plays in other apps for Premium accounts, so Spotify songs won't play with this account.
       </p>
+      <p v-else-if="spotify.premiumMessage" class="error small hint" role="alert">{{ spotify.premiumMessage }}</p>
       <p v-if="spotify.status === 'error' && spotify.error" class="error small hint">{{ spotify.error }}</p>
       <div class="row indent">
         <template v-if="spotify.clientId">

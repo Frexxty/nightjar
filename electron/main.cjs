@@ -1,10 +1,11 @@
 // Electron main process. Mirrors the shape of Cider's shell: one frameless
 // window, persisted window state, an app menu and dock menu that follow the
 // renderer's playback state, and commands sent back to the renderer over IPC.
-const { app, BrowserWindow, Menu, ipcMain, shell, nativeTheme } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, shell, nativeTheme, safeStorage } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { registerSpotifyIpc } = require("./spotify.cjs");
+const { registerSpotifyAuthIpc } = require("./spotify-auth.cjs");
 const updater = require("./updater.cjs");
 const { createTray, updateTray, hasTray } = require("./tray.cjs");
 const drm = require("./drm.cjs");
@@ -245,6 +246,7 @@ ipcMain.on("window", (_event, action, value) => {
 
 ipcMain.handle("platform", () => process.platform);
 registerSpotifyIpc(ipcMain);
+registerSpotifyAuthIpc(ipcMain, { app, shell, safeStorage });
 
 app.on("before-quit", () => {
   quitting = true;

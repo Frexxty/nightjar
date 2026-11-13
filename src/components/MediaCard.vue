@@ -3,11 +3,13 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { BadgeCheck, MoreHorizontal, Pause, Play } from "lucide-vue-next";
-import { api, type Playlist, type Track, type User } from "@/api";
+import type { Playlist, Track, User } from "@/api";
 import { count } from "@/lib/format";
 import { useMenus } from "@/lib/menus";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
+import { catalogueFor } from "@/spotify/catalogue";
+import { isSpotifyId } from "@/spotify/ids";
 import Artwork from "./Artwork.vue";
 
 const props = defineProps<
@@ -25,7 +27,7 @@ const href = computed(() => `/${props.kind}/${props.item.id}`);
 const art = computed(() => (props.kind === "user" ? props.item.avatarUrl : props.item.artworkUrl));
 const title = computed(() => (props.kind === "user" ? props.item.username : props.item.title));
 const subtitle = computed(() => {
-  if (props.kind === "user") return `${count(props.item.followersCount)} followers`;
+  if (props.kind === "user") return isSpotifyId(props.item.id) ? "Artist" : `${count(props.item.followersCount)} followers`;
   if (props.kind === "playlist") return `${props.item.isAlbum ? "Album" : "Playlist"} · ${props.item.user.username}`;
   return props.item.user.username;
 });
@@ -44,7 +46,7 @@ async function play() {
     else player.playTracks(list, i, source.value);
   } else if (props.kind === "playlist") {
     if (player.queueSource === source.value) return player.toggle();
-    const tracks = props.item.tracks?.length ? props.item.tracks : (await api.value.playlist(props.item.id)).tracks ?? [];
+    const tracks = props.item.tracks?.length ? props.item.tracks : (await catalogueFor(props.item.id).playlist(props.item.id)).tracks ?? [];
     player.playTracks(tracks, 0, source.value);
   }
 }

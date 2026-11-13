@@ -1,4 +1,7 @@
 import { createRouter, createWebHashHistory } from "vue-router";
+// Must run before createWebHashHistory(), which takes its base from the address:
+// it moves a Spotify sign-in redirect (/spotify-callback?code=…) back to /#/….
+import "./spotify/callback";
 import { useSettings } from "./stores/settings";
 
 export const router = createRouter({

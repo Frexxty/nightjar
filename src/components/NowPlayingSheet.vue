@@ -18,6 +18,7 @@ import Artwork from "./Artwork.vue";
 import ArtworkBackdrop from "./ArtworkBackdrop.vue";
 import CommentFeed from "./CommentFeed.vue";
 import QueueList from "./QueueList.vue";
+import SpotifyIcon from "./SpotifyIcon.vue";
 import Waveform from "./Waveform.vue";
 
 const player = usePlayer();
@@ -104,7 +105,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
           <div class="info">
             <div class="titles">
               <h1 class="ellipsis"><a @click="go(`/track/${track.id}`)">{{ track.title }}</a></h1>
-              <p class="ellipsis"><a @click="go(`/user/${track.user.id}`)">{{ track.user.username }}</a></p>
+              <p class="ellipsis">
+                <span v-if="track.source === 'spotify'" class="spotify" title="Playing from Spotify"><SpotifyIcon :size="14" /></span>
+                <a @click="go(`/user/${track.user.id}`)">{{ track.user.username }}</a>
+              </p>
             </div>
             <button class="icon-btn" :class="{ on: library.isLiked(track) }" :title="library.isLiked(track) ? 'Unlike' : 'Like'" @click="library.toggleLike(track)">
               <Heart :size="24" :fill="library.isLiked(track) ? 'currentColor' : 'none'" />
@@ -149,7 +153,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
 
           <div class="actions">
             <button class="icon-btn" :class="{ on: ui.drawer === 'comments' }" title="Comments" @click="ui.drawer = 'comments'"><MessageSquareText :size="22" /></button>
-            <button class="icon-btn" :class="{ on: library.isReposted(track) }" title="Repost" @click="library.toggleRepost(track)"><Repeat2 :size="22" /></button>
+            <button v-if="track.source !== 'spotify'" class="icon-btn" :class="{ on: library.isReposted(track) }" title="Repost" @click="library.toggleRepost(track)"><Repeat2 :size="22" /></button>
             <button class="icon-btn" :class="{ on: ui.drawer === 'queue' }" title="Up Next" @click="ui.drawer = 'queue'"><ListMusic :size="22" /></button>
           </div>
         </template>
@@ -234,6 +238,7 @@ header .icon-btn { color: #fff; }
 h1 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; }
 .info p { margin: 2px 0 0; font-size: 17px; color: var(--text-2); }
 .info a { cursor: pointer; }
+.info .spotify { display: inline-flex; margin-right: 6px; vertical-align: -1px; color: #1ed760; }
 .info .icon-btn { margin-right: -10px; }
 
 /* The waveform's own time labels sit outside its edges, which this sheet clips. */

@@ -7,9 +7,12 @@ import { isPhone } from "@/lib/responsive";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import Artwork from "./Artwork.vue";
+import SpotifyDevicePicker from "./SpotifyDevicePicker.vue";
+import { useSettings } from "@/stores/settings";
 
 const player = usePlayer();
 const ui = useUi();
+const settings = useSettings();
 const menus = useMenus();
 const tab = ref<"next" | "history">("next");
 const dragFrom = ref<number | null>(null);
@@ -31,6 +34,7 @@ function drop(to: number) {
 
     <div class="list">
       <template v-if="tab === 'next'">
+        <SpotifyDevicePicker v-if="player.current?.source === 'spotify' && settings.spotifyPlayback === 'remote'" />
         <div v-if="player.current" class="now">
           <div class="label faint">Now playing</div>
           <div class="row current">

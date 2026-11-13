@@ -161,7 +161,7 @@ export interface Backend {
   updatePlaylist?(id: Id, patch: PlaylistPatch): Promise<Playlist>;
   deletePlaylist?(id: Id): Promise<void>;
 
-  /** Records a play. Called fire and forget. `track` as in `setTrackLiked`. */
+  /** Records a play. Called fire and forget. `track` is a snapshot, sent for Spotify IDs (docs/spotify.md). */
   addHistory?(trackId: Id, track?: Track): Promise<void>;
   /** Listening history, most recent first, one entry per track. */
   history?(cursor?: string | null): Promise<Page<Track>>;

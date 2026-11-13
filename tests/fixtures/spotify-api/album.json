@@ -1,0 +1,67 @@
+{
+  "album_type": "album",
+  "total_tracks": 18,
+  "external_urls": { "spotify": "https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy" },
+  "href": "https://api.spotify.com/v1/albums/4aawyAB9vmqN3uQ7FjRGTy",
+  "id": "4aawyAB9vmqN3uQ7FjRGTy",
+  "images": [
+    { "url": "https://i.scdn.co/image/ab67616d00001e022c5b24ecfa39523a75c993c4", "height": 300, "width": 300 },
+    { "url": "https://i.scdn.co/image/ab67616d000048512c5b24ecfa39523a75c993c4", "height": 64, "width": 64 },
+    { "url": "https://i.scdn.co/image/ab67616d0000b2732c5b24ecfa39523a75c993c4", "height": 640, "width": 640 }
+  ],
+  "name": "Global Warming",
+  "release_date": "2012-11-16",
+  "release_date_precision": "day",
+  "type": "album",
+  "uri": "spotify:album:4aawyAB9vmqN3uQ7FjRGTy",
+  "artists": [
+    {
+      "external_urls": { "spotify": "https://open.spotify.com/artist/0TnOYISbd1XYRBk9myaseg" },
+      "id": "0TnOYISbd1XYRBk9myaseg",
+      "name": "Pitbull",
+      "type": "artist",
+      "uri": "spotify:artist:0TnOYISbd1XYRBk9myaseg"
+    }
+  ],
+  "tracks": {
+    "href": "https://api.spotify.com/v1/albums/4aawyAB9vmqN3uQ7FjRGTy/tracks?offset=0&limit=2",
+    "limit": 2,
+    "next": "https://api.spotify.com/v1/albums/4aawyAB9vmqN3uQ7FjRGTy/tracks?offset=2&limit=2",
+    "offset": 0,
+    "previous": null,
+    "total": 18,
+    "items": [
+      {
+        "artists": [
+          { "id": "0TnOYISbd1XYRBk9myaseg", "name": "Pitbull", "type": "artist", "uri": "spotify:artist:0TnOYISbd1XYRBk9myaseg" },
+          { "id": "7iJrDbKM5fEkGdm5kpjFzS", "name": "Sensato", "type": "artist", "uri": "spotify:artist:7iJrDbKM5fEkGdm5kpjFzS" }
+        ],
+        "disc_number": 1,
+        "duration_ms": 85400,
+        "explicit": true,
+        "id": "6OmhkSOpvYBokMKQxpIGx2",
+        "is_playable": true,
+        "name": "Global Warming (feat. Sensato)",
+        "track_number": 1,
+        "type": "track",
+        "uri": "spotify:track:6OmhkSOpvYBokMKQxpIGx2",
+        "is_local": false
+      },
+      {
+        "artists": [
+          { "id": "0TnOYISbd1XYRBk9myaseg", "name": "Pitbull", "type": "artist", "uri": "spotify:artist:0TnOYISbd1XYRBk9myaseg" }
+        ],
+        "disc_number": 1,
+        "duration_ms": 206120,
+        "explicit": false,
+        "id": "2iblMMIgSznA464mNov7A8",
+        "is_playable": false,
+        "name": "Don't Stop the Party (feat. TJR)",
+        "track_number": 2,
+        "type": "track",
+        "uri": "spotify:track:2iblMMIgSznA464mNov7A8",
+        "is_local": false
+      }
+    ]
+  }
+}

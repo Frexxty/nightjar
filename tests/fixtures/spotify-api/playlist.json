@@ -1,0 +1,101 @@
+{
+  "collaborative": false,
+  "description": "A playlist for testing pourposes &amp; the &quot;Web API&quot; <a href=\"spotify:user:jmperezperez\">docs</a>",
+  "external_urls": { "spotify": "https://open.spotify.com/playlist/3cEYpjA9oz9GiPac4AsH4n" },
+  "href": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n",
+  "id": "3cEYpjA9oz9GiPac4AsH4n",
+  "images": [
+    { "height": null, "url": "https://image-cdn-ak.spotifycdn.com/image/ab67706c0000da84f0c8b8b7a1e4b9e4f6f6b0a1", "width": null }
+  ],
+  "name": "Spotify Web API Testing playlist",
+  "owner": {
+    "external_urls": { "spotify": "https://open.spotify.com/user/jmperezperez" },
+    "href": "https://api.spotify.com/v1/users/jmperezperez",
+    "id": "jmperezperez",
+    "type": "user",
+    "uri": "spotify:user:jmperezperez",
+    "display_name": "JMPerez²"
+  },
+  "public": true,
+  "snapshot_id": "MTgsZWFmNmZiNTIzYTg4ODM0OGQzZWQzOGI4NTdkNTJlMjU0OWFkYTUxMA==",
+  "type": "playlist",
+  "uri": "spotify:playlist:3cEYpjA9oz9GiPac4AsH4n",
+  "items": {
+    "href": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/items?offset=0&limit=100",
+    "limit": 100,
+    "next": null,
+    "offset": 0,
+    "previous": null,
+    "total": 4,
+    "items": [
+      {
+        "added_at": "2015-01-15T12:39:22Z",
+        "is_local": false,
+        "item": {
+          "album": {
+            "id": "2pANdqPvxInB0YvcDiw4ko",
+            "name": "Progressive Psy Trance Picks Vol.8",
+            "release_date": "2012-04-02",
+            "images": [{ "height": 640, "url": "https://i.scdn.co/image/ab67616d0000b273ce6d0eef0c1ce77e5f95bbbc", "width": 640 }],
+            "uri": "spotify:album:2pANdqPvxInB0YvcDiw4ko"
+          },
+          "artists": [{ "id": "6eSdhw46riw2OUHgMwR8B5", "name": "Odiseo", "uri": "spotify:artist:6eSdhw46riw2OUHgMwR8B5" }],
+          "duration_ms": 376000,
+          "id": "4rzfv0JLZfVhOhbSQ8o5jZ",
+          "is_playable": true,
+          "name": "Api",
+          "type": "track",
+          "uri": "spotify:track:4rzfv0JLZfVhOhbSQ8o5jZ",
+          "is_local": false
+        }
+      },
+      {
+        "added_at": "2015-01-15T12:40:03Z",
+        "is_local": false,
+        "track": {
+          "album": {
+            "id": "6nlfkk5GoXRL1nktlATNsy",
+            "name": "Wellness & Dreaming Source",
+            "release_date": "2015-01-09",
+            "images": [{ "height": 640, "url": "https://i.scdn.co/image/ab67616d0000b273aa2ff29970d9a63a49dfaeb2", "width": 640 }],
+            "uri": "spotify:album:6nlfkk5GoXRL1nktlATNsy"
+          },
+          "artists": [{ "id": "5VQE4WOzPu9h3HnGLuBoA6", "name": "Vlasta Marek", "uri": "spotify:artist:5VQE4WOzPu9h3HnGLuBoA6" }],
+          "duration_ms": 730066,
+          "id": "5o3jMYOSbaVz3tkgwhELSV",
+          "name": "Is",
+          "type": "track",
+          "uri": "spotify:track:5o3jMYOSbaVz3tkgwhELSV",
+          "is_local": false
+        }
+      },
+      {
+        "added_at": "2015-01-15T12:22:30Z",
+        "is_local": false,
+        "item": {
+          "id": "0kLBX2cNr5GiNbDtOmn7Ux",
+          "name": "An episode",
+          "type": "episode",
+          "uri": "spotify:episode:0kLBX2cNr5GiNbDtOmn7Ux",
+          "duration_ms": 1000000,
+          "artists": []
+        }
+      },
+      {
+        "added_at": "2015-01-15T12:41:10Z",
+        "is_local": true,
+        "item": {
+          "album": { "id": null, "name": "", "images": [] },
+          "artists": [{ "id": null, "name": "Local Artist" }],
+          "duration_ms": 180000,
+          "id": null,
+          "name": "My demo.mp3",
+          "type": "track",
+          "uri": "spotify:local:Local+Artist::My+demo:180",
+          "is_local": true
+        }
+      },
+      { "added_at": "2015-01-15T12:41:11Z", "is_local": false, "item": null }
+    ]
+  }
+}
