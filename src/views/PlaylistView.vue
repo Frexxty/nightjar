@@ -95,7 +95,7 @@ function removeTrack(i: number) {
   if (isLocal) return local.removeTrack(props.id, i);
   if (!p?.tracks) return;
   const list = p.tracks.filter((_, k) => k !== i);
-  saveRemote(withTracks(p, list), { trackIds: list.map((t) => t.id) }, "remove the track");
+  saveRemote(withTracks(p, list), { trackIds: list.map((t) => t.id), tracks: list }, "remove the track");
 }
 
 function moveTrack(from: number, to: number) {
@@ -105,7 +105,7 @@ function moveTrack(from: number, to: number) {
   const list = [...p.tracks];
   const [t] = list.splice(from, 1);
   list.splice(to, 0, t);
-  saveRemote(withTracks(p, list), { trackIds: list.map((x) => x.id) }, "move the track");
+  saveRemote(withTracks(p, list), { trackIds: list.map((x) => x.id), tracks: list }, "move the track");
 }
 
 // Two clicks to delete, since there's no undo.

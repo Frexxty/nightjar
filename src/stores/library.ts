@@ -88,7 +88,8 @@ export const useLibrary = defineStore("library", () => {
 
   function toggleLike(t: Track) {
     const next = !isLiked(t);
-    return optimistic(liked, t.id, next, () => api.value.setTrackLiked(t.id, next), next ? "like" : "unlike");
+    // The track goes along so servers can keep a snapshot of Spotify tracks.
+    return optimistic(liked, t.id, next, () => api.value.setTrackLiked(t.id, next, t), next ? "like" : "unlike");
   }
   function toggleRepost(t: Track) {
     const next = !isReposted(t);
@@ -108,7 +109,7 @@ export const useLibrary = defineStore("library", () => {
       // History still works in memory.
     }
     // The account copy is best effort; a missed play isn't worth a toast.
-    if (me.value && api.value.addHistory) api.value.addHistory(t.id).catch(() => {});
+    if (me.value && api.value.addHistory) api.value.addHistory(t.id, t).catch(() => {});
   }
 
   function clearHistory() {

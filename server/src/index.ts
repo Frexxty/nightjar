@@ -2,12 +2,15 @@
 // plus every route in BACKEND.md, all under /v1.
 import { checkEmail, checkPassword, checkUsername, hashPassword, needsRehash, PBKDF2_ITERATIONS, verifyPassword } from "./auth.ts";
 import * as cat from "./catalogue.ts";
-import { type Account, accountUser, accountUserId, createSession, deleteSession, rateLimit, sessionAccount } from "./db.ts";
+import {
+  type Account, accountUser, accountUserId, createSession, deleteSession, loadSnapshots, pruneSnapshots, rateLimit, sessionAccount, snapshotWrites,
+} from "./db.ts";
 import type { Env } from "./env.ts";
 import {
   ApiError, CORS_HEADERS, b64url, badInput, encodeCursor, errorResponse, intOffset, isScId, json, noContent, notFound, unauthorized,
 } from "./http.ts";
 import { mapTrack } from "./map.ts";
+import { cleanSnapshot, isSpotifyTrackId, isTrackRef, mergeInOrder, readTrackList } from "./snapshot.ts";
 import { cachedJson, hydrateTracks } from "./soundcloud.ts";
 import { ImportError, fetchSpotifyList, parseSpotifyRef } from "./spotify.ts";
 import { fetchViaBrowser } from "./spotify-browser.ts";
@@ -131,7 +134,7 @@ route("DELETE", "/me", async (r) => {
   const ok = password && (await verifyPassword(password, { hash: account.pw_hash, salt: account.pw_salt, iterations: account.pw_iterations }));
   if (!ok) throw new ApiError(401, "invalid_credentials", "That password isn't right.");
   const db = r.env.DB;
-  await db.batch(["sessions", "likes", "reposts", "follows", "playlists", "history"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?1`).bind(account.id))
+  await db.batch(["sessions", "likes", "reposts", "follows", "playlists", "history", "track_snapshots"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?1`).bind(account.id))
     .concat(db.prepare("DELETE FROM users WHERE id = ?1").bind(account.id)));
   return noContent();
 }, true);
@@ -143,7 +146,7 @@ route("GET", "/home", async (r) => {
   const publicSections = await cat.publicHome(c(r));
   if (!r.account) return publicSections;
   const [like, follows] = await Promise.all([
-    r.env.DB.prepare("SELECT track_id FROM likes WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 1").bind(r.account.id).first<{ track_id: string }>(),
+    r.env.DB.prepare("SELECT track_id FROM likes WHERE user_id = ?1 AND track_id NOT LIKE 'spotify:%' ORDER BY created_at DESC LIMIT 1").bind(r.account.id).first<{ track_id: string }>(),
     followIds(r, 50),
   ]);
   const personal = await cat.personalHome(c(r), like?.track_id ?? null, follows);
@@ -207,12 +210,25 @@ route("GET", "/users/:id/playlists", async (r) => {
 
 const PAGE = 30;
 
+/**
+ * Full tracks for saved IDs, in order: SoundCloud IDs hydrated live, Spotify
+ * IDs from `ownerId`'s stored snapshots. Tracks that are gone are skipped.
+ */
+async function savedTracks(r: Req, ownerId: string, ids: string[]): Promise<Track[]> {
+  const [hydrated, snapshots] = await Promise.all([
+    hydrateTracks(r.env, r.ctx, ids.filter((id) => !isSpotifyTrackId(id))),
+    loadSnapshots(r.env, ownerId, ids),
+  ]);
+  return mergeInOrder(ids, hydrated.map(mapTrack), snapshots);
+}
+
 async function trackPage(r: Req, table: "likes" | "history", orderCol: string): Promise<{ items: Track[]; next: string | null }> {
   const offset = intOffset(r.url.searchParams.get("cursor"));
+  const account = me(r);
   const rows = await r.env.DB.prepare(`SELECT track_id FROM ${table} WHERE user_id = ?1 ORDER BY ${orderCol} DESC LIMIT ?2 OFFSET ?3`)
-    .bind(me(r).id, PAGE + 1, offset).all<{ track_id: string }>();
+    .bind(account.id, PAGE + 1, offset).all<{ track_id: string }>();
   const ids = rows.results.slice(0, PAGE).map((x) => x.track_id);
-  const items = (await hydrateTracks(r.env, r.ctx, ids)).map(mapTrack);
+  const items = await savedTracks(r, account.id, ids);
   return { items, next: rows.results.length > PAGE ? encodeCursor({ o: offset + PAGE }) : null };
 }
 
@@ -224,12 +240,22 @@ function toggle(table: "likes" | "reposts" | "follows", col: "track_id" | "sc_us
   const handler = (on: boolean): Handler => async (r) => {
     const account = me(r);
     const id = r.params.id;
-    if (!isScId(id)) throw badInput("That isn't a SoundCloud ID.");
+    const db = r.env.DB;
+    // Likes also take Spotify tracks, with a snapshot of the track in the body.
+    const spotify = table === "likes" && isSpotifyTrackId(id);
+    if (!spotify && !isScId(id)) throw badInput(table === "likes" ? "That isn't a SoundCloud or spotify:track: ID." : "That isn't a SoundCloud ID.");
     if (on) {
-      await r.env.DB.prepare(`INSERT INTO ${table} (user_id, ${col}, created_at) VALUES (?1, ?2, ?3) ON CONFLICT DO NOTHING`)
-        .bind(account.id, id, Date.now()).run();
+      const insert = db.prepare(`INSERT INTO ${table} (user_id, ${col}, created_at) VALUES (?1, ?2, ?3) ON CONFLICT DO NOTHING`)
+        .bind(account.id, id, Date.now());
+      if (spotify) {
+        const body = await readJson(r.request, 16 * 1024);
+        if (body.track === undefined) throw badInput("Liking a Spotify track needs { \"track\": Track } in the body.");
+        await db.batch([...snapshotWrites(r.env, account.id, [cleanSnapshot(body.track, id)]), insert]);
+      } else await insert.run();
     } else {
-      await r.env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ?1 AND ${col} = ?2`).bind(account.id, id).run();
+      const remove = db.prepare(`DELETE FROM ${table} WHERE user_id = ?1 AND ${col} = ?2`).bind(account.id, id);
+      if (spotify) await db.batch([remove, pruneSnapshots(r.env, account.id)]);
+      else await remove.run();
     }
     return noContent();
   };
@@ -252,17 +278,23 @@ const HISTORY_KEEP = 500;
 
 route("POST", "/me/history", async (r) => {
   const account = me(r);
-  const body = await readJson(r.request, 1024);
+  const body = await readJson(r.request, 16 * 1024);
   const trackId = typeof body.trackId === "string" ? body.trackId : typeof body.trackId === "number" ? String(body.trackId) : "";
-  if (!isScId(trackId)) throw badInput("Send { \"trackId\": \"<SoundCloud track ID>\" }.");
-  await r.env.DB.batch([
-    r.env.DB.prepare("INSERT INTO history (user_id, track_id, played_at) VALUES (?1, ?2, ?3) ON CONFLICT(user_id, track_id) DO UPDATE SET played_at = ?3")
+  if (!isTrackRef(trackId)) throw badInput("Send { \"trackId\": \"<SoundCloud track ID or spotify:track: ID>\" }.");
+  const spotify = isSpotifyTrackId(trackId);
+  if (spotify && body.track === undefined) throw badInput("Spotify plays need { \"trackId\", \"track\": Track } in the body.");
+  const db = r.env.DB;
+  await db.batch([
+    ...(spotify ? snapshotWrites(r.env, account.id, [cleanSnapshot(body.track, trackId)]) : []),
+    db.prepare("INSERT INTO history (user_id, track_id, played_at) VALUES (?1, ?2, ?3) ON CONFLICT(user_id, track_id) DO UPDATE SET played_at = ?3")
       .bind(account.id, trackId, Date.now()),
-    r.env.DB.prepare(
+    db.prepare(
       `DELETE FROM history WHERE user_id = ?1 AND track_id NOT IN
         (SELECT track_id FROM history WHERE user_id = ?1 ORDER BY played_at DESC LIMIT ${HISTORY_KEEP})`,
     ).bind(account.id),
   ]);
+  // Plays that fell off the end of the history can leave snapshots behind.
+  if (spotify && Math.random() < 0.05) await pruneSnapshots(r.env, account.id).run();
   return noContent();
 }, true);
 route("GET", "/me/history", async (r) => trackPage(r, "history", "played_at"), true);
@@ -312,8 +344,7 @@ async function accountPlaylist(r: Req, id: string, publicView: boolean): Promise
   const row = await r.env.DB.prepare(`${PLAYLIST_SELECT} WHERE p.id = ?1`).bind(id).first<PlaylistRow>();
   const mine = row && r.account?.id === row.user_id;
   if (!row || (!mine && !(publicView && row.public))) throw notFound("That playlist doesn't exist or isn't public.");
-  const ids = JSON.parse(row.track_ids) as string[];
-  const tracks = (await hydrateTracks(r.env, r.ctx, ids)).map(mapTrack);
+  const tracks = await savedTracks(r, row.user_id, JSON.parse(row.track_ids) as string[]);
   return playlistFromRow(row, tracks);
 }
 
@@ -327,8 +358,29 @@ function checkTrackIds(value: unknown): string[] {
   if (!Array.isArray(value)) throw badInput("trackIds must be an array of SoundCloud track IDs.");
   if (value.length > MAX_PLAYLIST_TRACKS) throw badInput(`Playlists can hold at most ${MAX_PLAYLIST_TRACKS} tracks.`);
   const ids = value.map((v) => (typeof v === "number" ? String(v) : v));
-  if (!ids.every((v) => typeof v === "string" && isScId(v))) throw badInput("trackIds must be SoundCloud track IDs.");
+  if (!ids.every(isTrackRef)) throw badInput("trackIds must be SoundCloud track IDs or spotify:track: IDs.");
   return ids as string[];
+}
+
+/** Playlist bodies can carry thousands of snapshots. */
+const PLAYLIST_BODY_BYTES = 6 * 1024 * 1024;
+
+/**
+ * The new track order from a playlist body, and the snapshots to store.
+ * `tracks` wins over `trackIds` when both are sent. Spotify IDs in `trackIds`
+ * alone must already have a snapshot on this account (a reorder of a saved list).
+ */
+async function playlistTracks(r: Req, body: Record<string, unknown>): Promise<{ ids: string[]; snapshots: Track[] } | null> {
+  if (body.tracks !== undefined) return readTrackList(body.tracks, MAX_PLAYLIST_TRACKS);
+  if (body.trackIds === undefined) return null;
+  const ids = checkTrackIds(body.trackIds);
+  const spotify = ids.filter(isSpotifyTrackId);
+  if (spotify.length) {
+    const known = await loadSnapshots(r.env, me(r).id, spotify);
+    const missing = spotify.find((id) => !known.has(id));
+    if (missing) throw badInput(`Send "tracks" with a snapshot for ${missing}; this account has none saved.`);
+  }
+  return { ids, snapshots: [] };
 }
 
 function checkTitle(value: unknown): string {
@@ -350,9 +402,19 @@ function checkSourceUrl(value: unknown): string | null {
   return value;
 }
 
-/** Hydrates the IDs once at write time so lists can show artwork and length without SoundCloud. */
-async function summarize(r: Req, ids: string[]) {
-  const tracks = (await hydrateTracks(r.env, r.ctx, ids)).map(mapTrack);
+/**
+ * Resolves the IDs once at write time so lists can show artwork and length
+ * without SoundCloud. `fresh` are snapshots sent with this request; they win
+ * over stored ones and are written only once the whole request checks out.
+ */
+async function summarize(r: Req, ids: string[], fresh: Track[] = []) {
+  const freshIds = new Set(fresh.map((t) => t.id));
+  const [hydrated, stored] = await Promise.all([
+    hydrateTracks(r.env, r.ctx, ids.filter((id) => !isSpotifyTrackId(id))),
+    loadSnapshots(r.env, me(r).id, ids.filter((id) => !freshIds.has(id))),
+  ]);
+  for (const t of fresh) stored.set(t.id, t);
+  const tracks = mergeInOrder(ids, hydrated.map(mapTrack), stored);
   return {
     tracks,
     artwork: tracks.find((t) => t.artworkUrl)?.artworkUrl ?? null,
@@ -364,9 +426,9 @@ route("GET", "/me/playlists", async (r) => listAccountPlaylists(r, me(r), false)
 
 route("POST", "/me/playlists", async (r) => {
   const account = me(r);
-  const body = await readJson(r.request);
+  const body = await readJson(r.request, PLAYLIST_BODY_BYTES);
   const title = checkTitle(body.title);
-  const ids = checkTrackIds(body.trackIds ?? []);
+  const { ids, snapshots } = (await playlistTracks(r, body)) ?? { ids: [], snapshots: [] };
   if (body.public !== undefined && typeof body.public !== "boolean") throw badInput("public must be true or false.");
   const isPublic = body.public === true;
   const description = checkDescription(body.description);
@@ -374,13 +436,16 @@ route("POST", "/me/playlists", async (r) => {
   const count = await r.env.DB.prepare("SELECT COUNT(*) AS n FROM playlists WHERE user_id = ?1").bind(account.id).first<{ n: number }>();
   if ((count?.n ?? 0) >= 500) throw badInput("You have 500 playlists, which is the limit.");
 
-  const { tracks, artwork, duration } = await summarize(r, ids);
+  const { tracks, artwork, duration } = await summarize(r, ids, snapshots);
   const id = `sp_${b64url(crypto.getRandomValues(new Uint8Array(12)))}`;
   const now = Date.now();
-  await r.env.DB.prepare(
-    `INSERT INTO playlists (id, user_id, title, description, public, source_url, track_ids, track_count, artwork_url, duration_ms, created_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)`,
-  ).bind(id, account.id, title, description, isPublic ? 1 : 0, sourceUrl, JSON.stringify(ids), ids.length, artwork, duration, now).run();
+  await r.env.DB.batch([
+    ...snapshotWrites(r.env, account.id, snapshots, now),
+    r.env.DB.prepare(
+      `INSERT INTO playlists (id, user_id, title, description, public, source_url, track_ids, track_count, artwork_url, duration_ms, created_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)`,
+    ).bind(id, account.id, title, description, isPublic ? 1 : 0, sourceUrl, JSON.stringify(ids), ids.length, artwork, duration, now),
+  ]);
   const row: PlaylistRow = {
     id, user_id: account.id, username: account.username, title, description, public: isPublic ? 1 : 0, source_url: sourceUrl,
     track_ids: "[]", track_count: ids.length, artwork_url: artwork, duration_ms: duration, created_at: now,
@@ -392,7 +457,7 @@ route("PATCH", "/me/playlists/:id", async (r) => {
   const account = me(r);
   const row = await r.env.DB.prepare(`${PLAYLIST_SELECT} WHERE p.id = ?1 AND p.user_id = ?2`).bind(r.params.id, account.id).first<PlaylistRow>();
   if (!row) throw notFound("That playlist doesn't exist.");
-  const body = await readJson(r.request);
+  const body = await readJson(r.request, PLAYLIST_BODY_BYTES);
   const sets: string[] = [];
   const values: unknown[] = [];
   const set = (col: string, v: unknown) => {
@@ -406,26 +471,38 @@ route("PATCH", "/me/playlists/:id", async (r) => {
     set("public", (row.public = body.public ? 1 : 0));
   }
   let tracks: Track[] | undefined;
-  if ("trackIds" in body) {
-    const ids = checkTrackIds(body.trackIds);
-    const s = await summarize(r, ids);
+  let snapshots: Track[] = [];
+  const order = await playlistTracks(r, body);
+  if (order) {
+    const s = await summarize(r, order.ids, order.snapshots);
     tracks = s.tracks;
-    set("track_ids", JSON.stringify(ids));
-    set("track_count", ids.length);
+    snapshots = order.snapshots;
+    set("track_ids", JSON.stringify(order.ids));
+    set("track_count", order.ids.length);
     set("artwork_url", s.artwork);
     set("duration_ms", s.duration);
   }
   if (sets.length) {
-    set("updated_at", Date.now());
+    const now = Date.now();
+    set("updated_at", now);
     values.push(row.id);
-    await r.env.DB.prepare(`UPDATE playlists SET ${sets.join(", ")} WHERE id = ?${values.length}`).bind(...values).run();
+    await r.env.DB.batch([
+      ...snapshotWrites(r.env, account.id, snapshots, now),
+      r.env.DB.prepare(`UPDATE playlists SET ${sets.join(", ")} WHERE id = ?${values.length}`).bind(...values),
+      // Spotify tracks dropped from the list may not be needed any more.
+      ...(order && row.track_ids.includes("spotify:") ? [pruneSnapshots(r.env, account.id)] : []),
+    ]);
   }
-  tracks ??= (await hydrateTracks(r.env, r.ctx, JSON.parse(row.track_ids) as string[])).map(mapTrack);
+  tracks ??= await savedTracks(r, account.id, JSON.parse(row.track_ids) as string[]);
   return playlistFromRow(row, tracks);
 }, true);
 
 route("DELETE", "/me/playlists/:id", async (r) => {
-  const res = await r.env.DB.prepare("DELETE FROM playlists WHERE id = ?1 AND user_id = ?2").bind(r.params.id, me(r).id).run();
+  const account = me(r);
+  const [res] = await r.env.DB.batch([
+    r.env.DB.prepare("DELETE FROM playlists WHERE id = ?1 AND user_id = ?2").bind(r.params.id, account.id),
+    pruneSnapshots(r.env, account.id),
+  ]);
   if (!res.meta.changes) throw notFound("That playlist doesn't exist.");
   return noContent();
 }, true);

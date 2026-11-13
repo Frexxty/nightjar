@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from "vue-router";
+import { useSettings } from "./stores/settings";
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -18,5 +19,14 @@ export const router = createRouter({
     { path: "/import", name: "import", component: () => import("./views/ImportView.vue") },
     { path: "/settings", name: "settings", component: () => import("./views/SettingsView.vue") },
     { path: "/account", name: "account", component: () => import("./views/AccountView.vue") },
+    // First run: pick Spotify or SoundCloud. Full window, without the sidebar and player.
+    { path: "/welcome", name: "welcome", component: () => import("./views/WelcomeView.vue"), meta: { bare: true } },
   ],
+});
+
+// Until a music source is chosen (new installs, and installs from before the
+// choice existed), every page leads to the welcome page.
+router.beforeEach((to) => {
+  if (to.name === "welcome" || useSettings().musicSource) return true;
+  return { name: "welcome" };
 });

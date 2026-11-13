@@ -469,8 +469,11 @@ export class MockBackend implements Backend {
     return p;
   }
 
-  private setTracks(p: Playlist, trackIds: Id[]) {
-    const tracks = trackIds.map((id) => this.tracks.find((t) => t.id === id)).filter((t): t is MockTrack => !!t);
+  /** `given` supplies tracks the demo catalogue doesn't have, such as imported Spotify ones. */
+  private setTracks(p: Playlist, trackIds: Id[], given: Track[] = []) {
+    const tracks = trackIds
+      .map((id) => this.tracks.find((t) => t.id === id) ?? given.find((t) => t.id === id))
+      .filter((t): t is MockTrack | Track => !!t);
     p.tracks = tracks.map(strip);
     p.trackCount = tracks.length;
     p.duration = tracks.reduce((sum, t) => sum + t.duration, 0);
@@ -491,7 +494,7 @@ export class MockBackend implements Backend {
       createdAt: new Date().toISOString(),
       likesCount: 0,
     };
-    this.setTracks(playlist, trackIds);
+    this.setTracks(playlist, trackIds, extras.tracks);
     this.playlists.unshift(playlist);
     return this.playlistOut(playlist);
   }
@@ -504,7 +507,7 @@ export class MockBackend implements Backend {
       p.title = patch.title.trim();
     }
     if (patch.description !== undefined) p.description = patch.description;
-    if (patch.trackIds) this.setTracks(p, patch.trackIds);
+    if (patch.trackIds) this.setTracks(p, patch.trackIds, patch.tracks);
     return this.playlistOut(p);
   }
 

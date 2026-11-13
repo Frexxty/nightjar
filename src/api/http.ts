@@ -3,6 +3,12 @@ import type {
   AuthSession, Backend, Comment, FeedItem, Id, NewPlaylistExtras, Page, Playlist, PlaylistPatch, SearchKind, SearchResults,
   Section, SpotifyList, StreamInfo, Track, User,
 } from "./types";
+import { isSpotifyTrackId, snapshotsFor, trackSnapshot } from "./snapshot";
+
+/** Spotify entries go as snapshots; SoundCloud entries only need their ID, the server hydrates them. */
+function wireTracks(tracks: Track[] | undefined): Array<Track | { id: Id }> | undefined {
+  return snapshotsFor(tracks)?.map((t) => (isSpotifyTrackId(t.id) ? t : { id: t.id }));
+}
 
 export interface HttpBackendOptions {
   name?: string;
@@ -82,8 +88,9 @@ export class HttpBackend implements Backend {
   myPlaylists() { return this.get<Playlist[]>("/me/playlists"); }
   following() { return this.get<User[]>("/me/following"); }
 
-  setTrackLiked(id: Id, liked: boolean) {
-    return this.request<void>(liked ? "PUT" : "DELETE", `/me/likes/tracks/${encodeURIComponent(id)}`);
+  setTrackLiked(id: Id, liked: boolean, track?: Track) {
+    const body = liked && track && isSpotifyTrackId(id) ? { track: trackSnapshot(track) } : undefined;
+    return this.request<void>(liked ? "PUT" : "DELETE", `/me/likes/tracks/${encodeURIComponent(id)}`, undefined, body);
   }
   setReposted(id: Id, reposted: boolean) {
     return this.request<void>(reposted ? "PUT" : "DELETE", `/me/reposts/tracks/${encodeURIComponent(id)}`);
@@ -109,17 +116,20 @@ export class HttpBackend implements Backend {
   }
 
   createPlaylist(title: string, trackIds: Id[], isPublic: boolean, extras: NewPlaylistExtras = {}) {
-    return this.request<Playlist>("POST", "/me/playlists", undefined, { title, trackIds, public: isPublic, ...extras });
+    const { tracks, ...rest } = extras;
+    return this.request<Playlist>("POST", "/me/playlists", undefined, { title, trackIds, public: isPublic, ...rest, tracks: wireTracks(tracks) });
   }
   updatePlaylist(id: Id, patch: PlaylistPatch) {
-    return this.request<Playlist>("PATCH", `/me/playlists/${encodeURIComponent(id)}`, undefined, patch);
+    const { tracks, ...rest } = patch;
+    return this.request<Playlist>("PATCH", `/me/playlists/${encodeURIComponent(id)}`, undefined, { ...rest, tracks: wireTracks(tracks) });
   }
   deletePlaylist(id: Id) {
     return this.request<void>("DELETE", `/me/playlists/${encodeURIComponent(id)}`);
   }
 
-  addHistory(trackId: Id) {
-    return this.request<void>("POST", "/me/history", undefined, { trackId });
+  addHistory(trackId: Id, track?: Track) {
+    const snapshot = track && isSpotifyTrackId(trackId) ? trackSnapshot(track) : undefined;
+    return this.request<void>("POST", "/me/history", undefined, { trackId, track: snapshot });
   }
   history(cursor?: string | null) { return this.get<Page<Track>>("/me/history", { cursor }); }
 

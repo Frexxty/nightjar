@@ -37,6 +37,23 @@ Shortcuts: Space play/pause, ←/→ seek 5s, ⌘←/⌘→ previous/next, ⌘L 
 
 When the queue runs out it keeps going with `/tracks/{id}/related`, like SoundCloud's autoplay. You can turn that off in Settings, along with comments on waveforms and the immersive background animation. Settings also has theme (dark, light, system) and accent colour.
 
+## Spotify or SoundCloud
+
+On first launch Stratus asks where your music should come from. Installs from before this choice existed get the same question once. You can switch later in Settings > Music source.
+
+**SoundCloud** is free and needs nothing else. It plays what people have uploaded to SoundCloud. When you import a Spotify playlist, Stratus searches SoundCloud for each song and shows you the closest uploads. Some will be the right song, but most songs from a typical playlist won't be on SoundCloud at all, or only as covers, remixes and 30-second previews. The import page says so and lets you check every match before saving.
+
+**Spotify** plays Spotify's own audio, so imported playlists play as they are, with nothing to match. It needs two things:
+
+- Spotify Premium. Spotify only lets Premium accounts play music in other apps.
+- Your own Spotify developer app, made once at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard). Since February 2026 a Spotify developer app works for its owner and up to 5 accounts they invite, and opening it to more people requires a registered business. So Stratus can't ship one app for everyone, and each person makes their own. It's free and takes about 5 minutes.
+
+The welcome page walks through it. Create an app with any name, tick "Web API" and "Web Playback SDK", add the redirect URIs it shows (`http://127.0.0.1:43821/callback` for the desktop app, `https://stratus-app.k3s.lat/spotify-callback` for the web player), then paste the app's Client ID into Stratus and connect. Stratus only uses the Client ID. It signs in with PKCE and never asks for the Client secret. After connecting, the page shows your Spotify name and whether the account has Premium. If it doesn't, Spotify songs won't play, and the page offers SoundCloud instead.
+
+Settings > Music source shows who you're connected as, the Client ID (partly hidden), and buttons to reconnect, disconnect or change the Client ID. It also sets how Spotify songs play. "Play on this device" plays them inside Stratus. "Control my Spotify app" leaves the audio to your Spotify app and uses Stratus as the remote. Phone browsers can't play Spotify audio inside a web page, so the web player on phones starts with "Control my Spotify app". [docs/spotify.md](docs/spotify.md) has the details.
+
+With a Stratus account, liked Spotify songs, playlists with Spotify songs and Spotify plays in your history are saved in the account like SoundCloud ones. The server can't look Spotify songs up, so the app sends the song's title, artist, length and artwork along and the server keeps that copy ([docs/hosted-api.md](docs/hosted-api.md#spotify-tracks)).
+
 ## Accounts and backends
 
 Settings > Backend has three choices:
@@ -59,7 +76,9 @@ Library > Import from Spotify (or View > Import from Spotify…) takes a link to
 
 Stratus reads the list in the main process. It first fetches Spotify's embed page, which carries the track list as JSON but stops at 100 tracks. If the list has 100 tracks or the embed fails, it opens the normal open.spotify.com page in a hidden, muted window with a throwaway in-memory session. It waits for Spotify's own web player to request the first page from its internal API, copies that request, and asks for the rest 100 tracks at a time. A 1,223-track playlist takes about ten seconds. That internal API isn't public and Spotify changes it now and then. When it breaks, you still get the first 100 tracks and a message saying so. The hidden window is closed as soon as the first page arrives, and nothing from it is written to disk.
 
-For each track, Stratus searches your backend with "first artist + title", then with the title alone. It scores each result from 0 to 1:
+With Spotify as your music source, the list becomes a playlist of Spotify tracks straight away: the import page shows how many are ready, lists local files from the playlist owner's computer as skipped (Spotify can't play those), and goes to saving. "Match on SoundCloud instead" switches that list to the matching flow below.
+
+With SoundCloud as your music source, Stratus searches your backend for each track with "first artist + title", then with the title alone. It scores each result from 0 to 1:
 
 - Title similarity (half the score), after stripping things like "(Official Video)", "feat. X", "- Remastered 2011" and "(Radio Edit)", plus accents and punctuation.
 - Artist overlap (30%), checked against the uploader name and any artist written in the upload title ("Artist - Title").

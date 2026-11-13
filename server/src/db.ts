@@ -2,7 +2,8 @@
 import { ApiError } from "./http.ts";
 import { SESSION_DAYS, bearerToken, newToken, sha256 } from "./auth.ts";
 import type { Env } from "./env.ts";
-import type { User } from "./types.ts";
+import { chunkJson, isSpotifyTrackId } from "./snapshot.ts";
+import type { Track, User } from "./types.ts";
 
 export interface Account {
   id: string;
@@ -78,4 +79,55 @@ export async function rateLimit(env: Env, request: Request, scope: string, limit
     const retry = Math.max(1, Math.ceil((expires - now) / 1000));
     throw new ApiError(429, "rate_limited", "Too many attempts. Wait a minute and try again.", { "Retry-After": String(retry) });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Spotify track snapshots (migrations/0002_track_snapshots.sql)
+
+/**
+ * Statements that store or replace snapshots for an account. Each chunk is one
+ * JSON parameter expanded with json_each, so a 5,000-track playlist takes a
+ * handful of statements instead of one per track.
+ */
+export function snapshotWrites(env: Env, userId: string, snapshots: Track[], now = Date.now()): D1PreparedStatement[] {
+  return chunkJson(snapshots).map((chunk) =>
+    env.DB.prepare(
+      `INSERT INTO track_snapshots (user_id, track_id, json, updated_at)
+       SELECT ?1, json_extract(value, '$.id'), value, ?2 FROM json_each(?3) WHERE true
+       ON CONFLICT(user_id, track_id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at`,
+    ).bind(userId, now, chunk),
+  );
+}
+
+/** The account's snapshots for whichever of `ids` are Spotify tracks. */
+export async function loadSnapshots(env: Env, userId: string, ids: string[]): Promise<Map<string, Track>> {
+  const wanted = [...new Set(ids.filter(isSpotifyTrackId))];
+  const out = new Map<string, Track>();
+  if (!wanted.length) return out;
+  const results = await env.DB.batch<{ track_id: string; json: string }>(
+    chunkJson(wanted).map((chunk) =>
+      env.DB.prepare("SELECT track_id, json FROM track_snapshots WHERE user_id = ?1 AND track_id IN (SELECT value FROM json_each(?2))")
+        .bind(userId, chunk),
+    ),
+  );
+  for (const res of results) {
+    for (const row of res.results) {
+      try {
+        out.set(row.track_id, JSON.parse(row.json) as Track);
+      } catch {
+        // A broken row reads as a missing track.
+      }
+    }
+  }
+  return out;
+}
+
+/** Deletes the account's snapshots that no like, history entry or playlist points at any more. */
+export function pruneSnapshots(env: Env, userId: string): D1PreparedStatement {
+  return env.DB.prepare(
+    `DELETE FROM track_snapshots WHERE user_id = ?1
+       AND track_id NOT IN (SELECT track_id FROM likes WHERE user_id = ?1)
+       AND track_id NOT IN (SELECT track_id FROM history WHERE user_id = ?1)
+       AND track_id NOT IN (SELECT j.value FROM playlists p, json_each(p.track_ids) j WHERE p.user_id = ?1)`,
+  ).bind(userId);
 }

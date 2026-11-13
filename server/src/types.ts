@@ -41,6 +41,10 @@ export interface Track {
   permalinkUrl?: string | null;
   streamable: boolean;
   preview?: boolean;
+  /** Missing means "soundcloud". Spotify tracks are stored snapshots (docs/spotify.md). */
+  source?: "soundcloud" | "spotify";
+  uri?: string | null;
+  album?: { id: Id; title: string; artworkUrl: string | null } | null;
   liked?: boolean;
   reposted?: boolean;
 }

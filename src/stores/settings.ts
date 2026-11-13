@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
-import { reactive, watch } from "vue";
+import { reactive, toRefs, watch } from "vue";
+
+export type MusicSource = "soundcloud" | "spotify";
 
 export interface Settings {
   accent: string;
@@ -9,9 +11,23 @@ export interface Settings {
   immersiveMotion: boolean;
   /** Windows: closing the window hides it to the tray instead of quitting. */
   keepPlayingInTray: boolean;
+  /** Where music comes from. Null until chosen on /welcome (docs/spotify.md). */
+  musicSource: MusicSource | null;
+  /** Spotify tracks: play inside Stratus, or remote-control the user's Spotify app. */
+  spotifyPlayback: "this-device" | "remote";
 }
 
 const KEY = "stratus.settings";
+
+/**
+ * Phone and tablet browsers can't run Spotify's in-page player, so the web
+ * player there starts out controlling the Spotify app instead.
+ */
+export function defaultSpotifyPlayback(): Settings["spotifyPlayback"] {
+  if (window.stratus) return "this-device";
+  return window.matchMedia("(max-width: 760px), (hover: none) and (pointer: coarse)").matches ? "remote" : "this-device";
+}
+
 const defaults: Settings = {
   accent: "#ff5500",
   theme: "dark",
@@ -19,6 +35,8 @@ const defaults: Settings = {
   showCommentsOnWaveform: true,
   immersiveMotion: true,
   keepPlayingInTray: true,
+  musicSource: null,
+  spotifyPlayback: defaultSpotifyPlayback(),
 };
 
 export const useSettings = defineStore("settings", () => {
@@ -38,5 +56,8 @@ export const useSettings = defineStore("settings", () => {
     }
   });
 
-  return settings;
+  // Refs, not the reactive object itself: Pinia copies plain values out of a
+  // returned reactive, so writes through the store never reached `settings`
+  // and nothing was saved.
+  return toRefs(settings);
 });

@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ChevronDown, ClipboardList, CloudUpload, ExternalLink, Link2, LogIn, Monitor, RotateCcw, Save, TriangleAlert } from "lucide-vue-next";
+import { ChevronDown, CircleCheck, ClipboardList, CloudUpload, ExternalLink, Link2, LogIn, Monitor, RotateCcw, Save, Search, TriangleAlert } from "lucide-vue-next";
 import { api, ApiError, friendlyError, isUnauthorized, type SpotifyList } from "@/api";
 import Artwork from "@/components/Artwork.vue";
 import MatchPicker from "@/components/MatchPicker.vue";
 import { duration } from "@/lib/format";
+import type { SourceTrack } from "@/lib/match";
+import { spotifyImport } from "@/lib/spotifyImport";
 import { parseTrackList } from "@/lib/trackList";
-import { useImportSession, type ImportRow, type RowStatus } from "@/stores/importSession";
+import { useImportSession, type ImportList, type ImportRow, type RowStatus } from "@/stores/importSession";
 import { useLibrary } from "@/stores/library";
 import { useLocalPlaylists } from "@/stores/localPlaylists";
 import { usePlayer } from "@/stores/player";
+import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
 
 const session = useImportSession();
+const settings = useSettings();
 const local = useLocalPlaylists();
 const library = useLibrary();
 const player = usePlayer();
@@ -45,6 +49,15 @@ function readSpotify(url: string): Promise<SpotifyList> {
   });
 }
 
+// With Spotify as the music source, a list with Spotify IDs is saved as
+// Spotify tracks. Otherwise each track is matched against SoundCloud.
+const spotifyMode = computed(() => settings.musicSource === "spotify");
+
+function start(info: ImportList, tracks: SourceTrack[], coverUrl: string | null) {
+  if (spotifyMode.value && tracks.some((t) => t.spotifyId)) session.beginDirect(info, tracks, spotifyImport({ coverUrl, tracks }));
+  else session.begin(info, tracks);
+}
+
 async function importLink() {
   if (!canReadLinks.value || !link.value.trim()) return;
   fetching.value = true;
@@ -52,9 +65,10 @@ async function importLink() {
   try {
     const list = await readSpotify(link.value.trim());
     if (!list.tracks.length) throw new Error("That list has no tracks.");
-    session.begin(
+    start(
       { name: list.name, owner: list.owner, coverUrl: list.coverUrl, total: list.total, truncated: list.truncated, notice: list.notice, source: list.source, url: list.url },
       list.tracks,
+      list.coverUrl,
     );
     saveName.value = list.name;
   } catch (err) {
@@ -71,9 +85,10 @@ function importPasted() {
     inputError.value = "Couldn't find any tracks. Use one \"Artist - Title\" per line, or paste a CSV with a \"Track Name\" column.";
     return;
   }
-  session.begin(
+  start(
     { name: "Imported playlist", owner: null, coverUrl: null, total: parsed.tracks.length, truncated: false, notice: null, source: "paste", url: null },
     parsed.tracks,
+    null,
   );
   saveName.value = "Imported playlist";
   if (parsed.skipped) ui.notify(`Skipped ${parsed.skipped} ${parsed.skipped === 1 ? "line" : "lines"} without a title`);
@@ -152,7 +167,15 @@ const saving = ref(false);
 const canSaveRemote = computed(() => typeof api.value.createPlaylist === "function");
 /** Saving to the account is possible once they sign in; the session waits here meanwhile. */
 const remoteNeedsSignIn = computed(() => canSaveRemote.value && library.accounts && library.signedOut);
-const leftOut = computed(() => session.rows.length - session.chosenTracks.length);
+const leftOut = computed(() => (session.direct ? session.direct.skipped.length : session.rows.length - session.chosenTracks.length));
+const canSave = computed(() => !!session.direct || (!session.matching && session.rows.length > 0));
+/** Direct imports keep every artist for display; the saved track names the first. */
+const directRows = computed(() => {
+  const d = session.direct;
+  if (!d) return [];
+  const sources = session.sourceTracks.filter((t) => t.spotifyId);
+  return d.tracks.map((track, i) => ({ track, artists: sources[i]?.artists ?? [] }));
+});
 
 function saveLocal() {
   const tracks = session.chosenTracks;
@@ -170,7 +193,8 @@ async function saveRemote() {
   try {
     const title = saveName.value || session.list?.name || "Imported playlist";
     const extras = session.list?.url ? { sourceUrl: session.list.url } : {};
-    const p = await create.call(api.value, title, tracks.map((t) => t.id), makePublic.value, extras);
+    // Full tracks go along so Spotify ones can be stored as snapshots.
+    const p = await create.call(api.value, title, tracks.map((t) => t.id), makePublic.value, { ...extras, tracks });
     ui.notify(`Saved "${p.title}" to your library`);
     void library.refresh();
     void router.push(`/playlist/${p.id}`);
@@ -197,7 +221,11 @@ function openExternal(url: string) {
 
     <!-- Step 1: where the tracks come from -->
     <template v-if="!session.list">
-      <p class="muted intro">
+      <p v-if="spotifyMode" class="muted intro">
+        Paste a link to a public Spotify playlist or album. Stratus reads the track list and saves it as a playlist that plays
+        from Spotify, with no matching.
+      </p>
+      <p v-else class="muted intro">
         Paste a link to a public Spotify playlist or album. Stratus reads the track list, searches SoundCloud for each track,
         and lets you check the matches before saving them as a playlist.
       </p>
@@ -239,7 +267,7 @@ function openExternal(url: string) {
         <textarea v-model="pasted" rows="10" spellcheck="false" placeholder="The Weeknd - Blinding Lights&#10;Daft Punk - One More Time" />
         <div class="row">
           <label class="btn file">Open a CSV file…<input type="file" accept=".csv,.txt,text/csv,text/plain" @change="readFile" /></label>
-          <button class="btn primary" :disabled="!pasted.trim()" @click="importPasted">Match tracks</button>
+          <button class="btn primary" :disabled="!pasted.trim()" @click="importPasted">{{ spotifyMode ? "Import tracks" : "Match tracks" }}</button>
         </div>
       </section>
 
@@ -254,7 +282,7 @@ function openExternal(url: string) {
           <h2>{{ session.list.name }}</h2>
           <div class="muted">
             <template v-if="session.list.owner">{{ session.list.owner }} · </template>
-            {{ session.rows.length }} tracks<template v-if="session.list.truncated && session.list.total"> of {{ session.list.total }}</template>
+            {{ session.sourceTracks.length }} tracks<template v-if="session.list.truncated && session.list.total"> of {{ session.list.total }}</template>
           </div>
           <div class="faint small">{{ sourceLabel }}</div>
         </div>
@@ -272,14 +300,38 @@ function openExternal(url: string) {
         </div>
       </div>
 
-      <div v-if="session.matching || session.counts.pending" class="progress">
+      <!-- Spotify as the music source: the list is saved as Spotify tracks. -->
+      <div v-if="session.direct" class="notice ready">
+        <CircleCheck :size="18" />
+        <div>
+          <strong>{{ session.direct.tracks.length }} Spotify tracks ready to save.</strong>
+          <p class="muted">They play from Spotify as they are, so there's nothing to match.</p>
+          <p v-if="session.direct.skipped.length" class="muted">
+            {{ session.direct.skipped.length }} {{ session.direct.skipped.length === 1 ? "track is a local file" : "tracks are local files" }}
+            on the playlist owner's computer, which Spotify can't play. {{ session.direct.skipped.length === 1 ? "It is" : "They are" }} skipped.
+          </p>
+          <div class="actions">
+            <button class="btn" @click="session.matchInstead()"><Search :size="14" /> Match on SoundCloud instead</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="notice warn">
+        <TriangleAlert :size="18" />
+        <div>
+          <strong>Most songs from a typical Spotify playlist aren't on SoundCloud.</strong>
+          <p class="muted">Check the matches before saving.</p>
+        </div>
+      </div>
+
+      <div v-if="!session.direct && (session.matching || session.counts.pending)" class="progress">
         <div class="bar"><div class="fill" :style="{ width: `${percent}%` }" /></div>
         <span class="muted small">Searched {{ session.done }} of {{ session.rows.length }}</span>
         <button v-if="session.matching" class="btn" @click="session.cancel()">Stop</button>
         <button v-else class="btn" @click="session.match()">Resume</button>
       </div>
 
-      <div v-if="!session.matching && session.rows.length" class="save card">
+      <div v-if="canSave" class="save card">
         <input v-model="saveName" class="name" aria-label="Playlist name" placeholder="Playlist name" />
         <template v-if="remoteNeedsSignIn">
           <button class="btn primary" :disabled="!session.chosenTracks.length" @click="library.signIn('/import')">
@@ -295,12 +347,35 @@ function openExternal(url: string) {
           <Save :size="15" /> Save on this computer
         </button>
         <label v-if="canSaveRemote && !remoteNeedsSignIn" class="check"><input v-model="makePublic" type="checkbox" /> Public</label>
-        <span class="faint small grow">
+        <span v-if="session.direct" class="faint small grow">
+          Saves {{ session.chosenTracks.length }} Spotify tracks.<template v-if="leftOut"> {{ leftOut }} skipped.</template>
+        </span>
+        <span v-else class="faint small grow">
           Saves {{ session.chosenTracks.length }} tracks<template v-if="session.counts.check">, {{ session.counts.check }} of them worth checking</template>.
           <template v-if="leftOut"> {{ leftOut }} without a match are left out.</template>
         </span>
       </div>
 
+      <div v-if="session.direct" class="direct">
+        <div v-for="(row, i) in directRows" :key="i" class="d">
+          <span class="idx faint">{{ i + 1 }}</span>
+          <span class="sp">
+            <span class="name ellipsis">{{ row.track.title }}</span>
+            <span class="by ellipsis">{{ row.artists.join(", ") || row.track.user.username }}</span>
+          </span>
+          <span class="faint dur">{{ duration(row.track.duration) }}</span>
+        </div>
+        <div v-for="(t, i) in session.direct.skipped" :key="`skipped-${i}`" class="d skipped">
+          <span class="idx faint">–</span>
+          <span class="sp">
+            <span class="name ellipsis">{{ t.title }}</span>
+            <span class="by ellipsis">{{ t.artists.join(", ") || "Unknown artist" }}</span>
+          </span>
+          <span class="pill skipped">Local file, skipped</span>
+        </div>
+      </div>
+
+      <template v-else>
       <div class="tabs filters">
         <button v-for="f in filters" :key="f.id" class="tab" :class="{ active: filter === f.id }" @click="filter = f.id">
           {{ f.label }} <span class="count">{{ f.n }}</span>
@@ -371,6 +446,7 @@ function openExternal(url: string) {
         @choose="choose"
         @skip="skip"
       />
+      </template>
     </template>
   </div>
 </template>
@@ -400,6 +476,14 @@ textarea { width: 100%; resize: vertical; font: 12.5px/1.5 ui-monospace, "SF Mon
 .notice .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .notice.warn { background: color-mix(in srgb, #ffb340 14%, transparent); }
 .notice.warn svg { color: #ffb340; }
+.notice.ready { background: color-mix(in srgb, #30d158 12%, transparent); }
+.notice.ready svg { color: #30d158; }
+
+.direct { display: flex; flex-direction: column; }
+.d { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px; border-radius: 8px; }
+.d:hover { background: var(--hover); }
+.d.skipped .sp { opacity: 0.55; }
+.dur { font-variant-numeric: tabular-nums; font-size: 12px; }
 
 .summary { display: flex; align-items: center; gap: 18px; margin: 14px 0 18px; }
 .summary-text { min-width: 0; }

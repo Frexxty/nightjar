@@ -140,7 +140,8 @@ export interface Backend {
   myPlaylists(): Promise<Playlist[]>;
   following(): Promise<User[]>;
 
-  setTrackLiked(id: Id, liked: boolean): Promise<void>;
+  /** `track` is the snapshot a server stores for Spotify IDs (docs/spotify.md); SoundCloud backends can ignore it. */
+  setTrackLiked(id: Id, liked: boolean, track?: Track): Promise<void>;
   setReposted(id: Id, reposted: boolean): Promise<void>;
   setFollowing(id: Id, following: boolean): Promise<void>;
   /** Backends may answer 501 `not_supported`; the comment box then hides itself for that backend. */
@@ -160,8 +161,8 @@ export interface Backend {
   updatePlaylist?(id: Id, patch: PlaylistPatch): Promise<Playlist>;
   deletePlaylist?(id: Id): Promise<void>;
 
-  /** Records a play. Called fire and forget. */
-  addHistory?(trackId: Id): Promise<void>;
+  /** Records a play. Called fire and forget. `track` as in `setTrackLiked`. */
+  addHistory?(trackId: Id, track?: Track): Promise<void>;
   /** Listening history, most recent first, one entry per track. */
   history?(cursor?: string | null): Promise<Page<Track>>;
 
@@ -210,10 +211,17 @@ export interface PlaylistPatch {
   public?: boolean;
   /** Replaces the whole track order. */
   trackIds?: Id[];
+  /**
+   * The same list as full tracks. Backends that store Spotify snapshots
+   * (docs/spotify.md) send them when the list holds any Spotify track.
+   */
+  tracks?: Track[];
 }
 
 export interface NewPlaylistExtras {
   description?: string;
   /** Where the tracks came from, such as a Spotify link. */
   sourceUrl?: string;
+  /** The tracks behind `trackIds`, for Spotify snapshots. See `PlaylistPatch.tracks`. */
+  tracks?: Track[];
 }

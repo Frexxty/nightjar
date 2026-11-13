@@ -13,7 +13,8 @@ src/auth.ts             PBKDF2 hashing, session tokens, input checks (pure)
 src/http.ts             JSON responses, errors, CORS, cursors (pure)
 src/spotify.ts          Spotify embed and pathfinder parsing, ported from electron/spotify*.cjs (pure)
 src/spotify-browser.ts  full-length Spotify lists through Browser Rendering
-src/db.ts               sessions, account users, per-IP rate limits
+src/snapshot.ts         checks and merges stored Spotify track snapshots (pure)
+src/db.ts               sessions, account users, per-IP rate limits, snapshot storage
 migrations/             D1 schema
 test/                   unit tests for the pure modules
 scripts/smoke.mjs       end-to-end test against a deployed URL

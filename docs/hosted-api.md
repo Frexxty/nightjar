@@ -15,6 +15,7 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
 
 - SoundCloud objects keep SoundCloud's numeric IDs as strings: tracks `"248639197"`, users `"1234"`, SoundCloud playlists `"987"`.
 - Playlists saved to a Stratus account use IDs prefixed `sp_` (e.g. `sp_k3j2…`). `GET /v1/playlists/{id}` serves both kinds.
+- Spotify tracks use their URI as the ID (`spotify:track:4uLU6hMCjMI75M1A2tKUQC`). Likes, playlists and history accept them alongside SoundCloud IDs; see [Spotify tracks](#spotify-tracks). Escape the colons in paths (`/v1/me/likes/tracks/spotify%3Atrack%3A4uLU…`).
 
 ## Accounts
 
@@ -37,20 +38,41 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
-| POST | `/v1/me/playlists` | `{ "title": string, "trackIds": string[], "public": boolean, "description"?: string, "sourceUrl"?: string }` | `Playlist` (201) |
-| PATCH | `/v1/me/playlists/{id}` | any of `{ "title", "description", "public", "trackIds" }` (`trackIds` replaces the whole order) | `Playlist` |
+| POST | `/v1/me/playlists` | `{ "title": string, "trackIds": string[], "tracks"?: Track[], "public": boolean, "description"?: string, "sourceUrl"?: string }` | `Playlist` (201) |
+| PATCH | `/v1/me/playlists/{id}` | any of `{ "title", "description", "public", "trackIds", "tracks" }` (`trackIds` or `tracks` replaces the whole order) | `Playlist` |
 | DELETE | `/v1/me/playlists/{id}` | none | 204 |
 
-`GET /v1/me/playlists` lists them (newest first). Track IDs are SoundCloud track IDs; the server hydrates them into full `Track` objects on read, in the saved order, skipping tracks SoundCloud no longer has. The list leaves out `tracks` and reports `trackCount`, `duration` and `artworkUrl` as of the last write. A playlist holds at most 5,000 tracks and an account at most 500 playlists. `GET /v1/playlists/sp_…` returns a private playlist only to its owner and a public one to anyone.
+`GET /v1/me/playlists` lists them (newest first). Track IDs are SoundCloud track IDs or Spotify track URIs. On read the server hydrates SoundCloud IDs into full `Track` objects and fills Spotify ones from stored snapshots, in the saved order, skipping tracks SoundCloud no longer has. Send `tracks` instead of (or with) `trackIds` when the list holds Spotify tracks; see [Spotify tracks](#spotify-tracks). The list leaves out `tracks` and reports `trackCount`, `duration` and `artworkUrl` as of the last write. A playlist holds at most 5,000 tracks and an account at most 500 playlists. `GET /v1/playlists/sp_…` returns a private playlist only to its owner and a public one to anyone.
 
 ## History
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |
-| POST | `/v1/me/history` | `{ "trackId": string }` | 204 |
+| POST | `/v1/me/history` | `{ "trackId": string, "track"?: Track }` (`track` required for Spotify IDs) | 204 |
 | GET | `/v1/me/history?cursor=` | | `Page<Track>`, most recent first, one entry per track |
 
 The server keeps the 500 most recent tracks per account.
+
+## Spotify tracks
+
+People who pick Spotify as their music source save Spotify tracks in their Stratus account (docs/spotify.md). The server has no Spotify token and can't look tracks up, so the client sends a snapshot of each Spotify `Track` and the server stores it.
+
+| Where | What to send |
+| --- | --- |
+| `PUT /v1/me/likes/tracks/spotify%3Atrack%3A{id}` | Body `{ "track": Track }`. Required. `DELETE` needs no body. |
+| `POST /v1/me/playlists`, `PATCH /v1/me/playlists/{id}` | `tracks: Track[]` in the new order. Spotify entries are full snapshots; SoundCloud entries only need `{ "id" }`. `tracks` wins over `trackIds` when both are sent. A `PATCH` with only `trackIds` (a reorder) works when the account already has a snapshot for every Spotify ID in it. |
+| `POST /v1/me/history` | `{ "trackId": "spotify:track:…", "track": Track }`. |
+
+Checks on every snapshot (400 `invalid_input` when one fails):
+
+- Its `id` must equal the ID it's saved under, and look like `spotify:track:<base62>`.
+- Only `Track` fields are kept: `id`, `title`, `user` (`id`, `username`, `avatarUrl`, `verified`), `artworkUrl`, `duration`, `genre`, `createdAt`, the four counts, `permalinkUrl`, `streamable`, `preview` and `album` (`id`, `title`, `artworkUrl`). `source` becomes `"spotify"`, `uri` becomes the ID, `waveform` becomes null, and anything else, including `liked` and `reposted`, is dropped.
+- Strings are trimmed and capped (titles 300 characters, names 200, IDs 100). URLs that aren't `https:` become null. Counts must be non-negative numbers, otherwise 0. A cleaned snapshot is at most 4 KB.
+- Like and history bodies are limited to 16 KB, playlist bodies to 6 MB.
+
+Storage: table `track_snapshots(user_id, track_id, json, updated_at)` with one row per account and track, written again on every save. Snapshots aren't shared between accounts, so nothing one account sends shows up in another account's lists. A public playlist shows its owner's snapshots to everyone who opens it. Rows that no like, history entry or playlist uses any more are deleted when the account unlikes, edits or deletes a playlist, and now and then after a play.
+
+Reads (`/v1/me/likes/tracks`, `/v1/me/history`, playlists) return the stored snapshot for Spotify IDs, in order with hydrated SoundCloud tracks, and set `liked` and `reposted` the same way for both. Reposts and follows stay SoundCloud-only. "Because you liked …" on Home uses the latest SoundCloud like.
 
 ## Spotify import
 

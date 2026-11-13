@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { CheckCircle2, CloudUpload, LogOut, RefreshCw, XCircle } from "lucide-vue-next";
 import { api, backendConfig, createBackend, friendlyError, HOSTED_BASE_URL, loadBackendConfig, useBackend, type BackendConfig } from "@/api";
 import Artwork from "@/components/Artwork.vue";
+import { useSpotify } from "@/spotify/auth";
 import { useAccount } from "@/stores/account";
 import { useLibrary } from "@/stores/library";
 import { useLocalPlaylists } from "@/stores/localPlaylists";
@@ -16,6 +18,8 @@ const updates = useUpdates();
 const library = useLibrary();
 const account = useAccount();
 const local = useLocalPlaylists();
+const spotify = useSpotify();
+const router = useRouter();
 const isWindows = window.stratus?.platform === "win32";
 const backend = reactive<BackendConfig>(loadBackendConfig());
 // Signing in or out elsewhere changes the saved tokens; keep the form in step.
@@ -61,7 +65,7 @@ async function uploadLocal() {
   const done: string[] = [];
   for (const p of [...local.playlists]) {
     try {
-      await create.call(api.value, p.title, p.tracks.map((t) => t.id), false, p.sourceUrl ? { sourceUrl: p.sourceUrl } : {});
+      await create.call(api.value, p.title, p.tracks.map((t) => t.id), false, { tracks: p.tracks, ...(p.sourceUrl ? { sourceUrl: p.sourceUrl } : {}) });
       done.push(p.id);
     } catch (err) {
       uploadFailed.value.push(`${p.title}: ${friendlyError(err)}`);
@@ -75,6 +79,31 @@ function removeUploaded() {
   for (const id of uploaded.value ?? []) local.remove(id);
   ui.notify(`Removed ${uploaded.value?.length ?? 0} playlists from this computer`);
   uploaded.value = null;
+}
+
+// Music source. Switching to Spotify before it's connected opens the setup guide.
+onMounted(() => void spotify.init());
+const spotifySetup = { path: "/welcome", query: { step: "spotify", from: "settings" } };
+function setSource(source: "spotify" | "soundcloud") {
+  if (source === settings.musicSource) return;
+  if (source === "spotify" && !spotify.connected) return void router.push(spotifySetup);
+  settings.musicSource = source;
+  ui.notify(source === "spotify" ? "Spotify is your music source" : "SoundCloud is your music source");
+}
+const maskedClientId = computed(() => {
+  const id = spotify.clientId;
+  return id && id.length > 8 ? `${id.slice(0, 4)}••••••••${id.slice(-4)}` : id || "Not set";
+});
+const premiumLabel = computed(() => {
+  if (!spotify.isPremium) return "no";
+  return spotify.profile?.product === "premium" ? "yes" : "not reported yet";
+});
+async function disconnectSpotify() {
+  await spotify.disconnect();
+  if (settings.musicSource === "spotify") {
+    settings.musicSource = "soundcloud";
+    ui.notify("Disconnected from Spotify. SoundCloud is your music source now.");
+  } else ui.notify("Disconnected from Spotify");
 }
 
 const accents = ["#ff5500", "#ff2d55", "#bf5af2", "#0a84ff", "#30d158", "#ffd60a", "#e5e5ea"];
@@ -188,6 +217,69 @@ function apply() {
           <RouterLink :to="{ path: '/account', query: { next: '/settings', mode: 'signup' } }" class="btn">Create account</RouterLink>
         </div>
       </template>
+    </section>
+
+    <section>
+      <h2>Music source</h2>
+      <p class="muted">Where songs play from. Imports from Spotify follow this too.</p>
+      <div class="field">
+        <label>Source</label>
+        <div class="seg">
+          <button :class="{ active: settings.musicSource === 'spotify' }" @click="setSource('spotify')">Spotify</button>
+          <button :class="{ active: settings.musicSource === 'soundcloud' }" @click="setSource('soundcloud')">SoundCloud</button>
+        </div>
+      </div>
+      <p v-if="settings.musicSource === 'spotify'" class="faint small hint">
+        Spotify's own audio, through your Spotify Premium account. Imported Spotify playlists play as they are.
+      </p>
+      <p v-else class="faint small hint">
+        Free. Imported Spotify playlists are matched to SoundCloud uploads, and most songs from a typical playlist won't be there.
+      </p>
+
+      <div class="field">
+        <label>Spotify</label>
+        <span v-if="spotify.connected && spotify.profile" class="spotify-who">
+          Connected as <strong>{{ spotify.profile.displayName }}</strong>
+          {{ " " }}<span class="muted">· Premium: {{ premiumLabel }}</span>
+        </span>
+        <span v-else-if="spotify.status === 'connecting'" class="muted">Connecting…</span>
+        <span v-else class="muted">Not connected</span>
+      </div>
+      <div v-if="spotify.clientId" class="field">
+        <label>Client ID</label>
+        <code class="client-id">{{ maskedClientId }}</code>
+      </div>
+      <p v-if="spotify.connected && !spotify.isPremium" class="error small hint">
+        Spotify only plays in other apps for Premium accounts, so Spotify songs won't play with this account.
+      </p>
+      <p v-if="spotify.status === 'error' && spotify.error" class="error small hint">{{ spotify.error }}</p>
+      <div class="row indent">
+        <template v-if="spotify.clientId">
+          <button class="btn" :disabled="spotify.status === 'connecting'" @click="spotify.connect()">
+            {{ spotify.connected ? "Reconnect" : "Connect" }}
+          </button>
+          <button v-if="spotify.connected" class="btn" @click="disconnectSpotify">Disconnect</button>
+          <RouterLink :to="spotifySetup" class="btn">Change Client ID</RouterLink>
+        </template>
+        <RouterLink v-else :to="spotifySetup" class="btn">Set up Spotify</RouterLink>
+      </div>
+
+      <div class="field playback">
+        <label>Play Spotify songs</label>
+        <div class="seg long">
+          <button :class="{ active: settings.spotifyPlayback === 'this-device' }" @click="settings.spotifyPlayback = 'this-device'">
+            Play on this device
+          </button>
+          <button :class="{ active: settings.spotifyPlayback === 'remote' }" @click="settings.spotifyPlayback = 'remote'">
+            Control my Spotify app
+          </button>
+        </div>
+      </div>
+      <p class="faint small hint">
+        <template v-if="settings.spotifyPlayback === 'this-device'">Stratus plays the audio itself.</template>
+        <template v-else>Your Spotify app plays the audio and Stratus works as its remote. Keep the Spotify app open.</template>
+        Phone browsers can't play Spotify audio inside a web page, so on phones the web player starts with "Control my Spotify app".
+      </p>
     </section>
 
     <section>
@@ -315,6 +407,10 @@ label { color: var(--text-2); }
 .check input { width: 15px; height: 15px; accent-color: var(--accent); }
 .update-status { color: var(--text-2); font-size: 12.5px; user-select: text; }
 .hint { margin: -4px 0 12px 132px; max-width: 460px; }
+.indent { margin: 0 0 16px 132px; }
+.playback { margin-top: 8px; }
+.spotify-who strong { color: var(--text); }
+.client-id { font: 12.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--text-2); user-select: text; }
 .account-row { display: flex; align-items: center; gap: 12px; }
 .account-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .account-text strong { font-size: 15px; }
@@ -329,6 +425,10 @@ a.btn:hover { text-decoration: none; }
 @media (max-width: 560px) {
   .field { grid-template-columns: 1fr; gap: 6px; }
   .hint { margin-left: 0; }
+  .indent { margin-left: 0; }
+  /* Two long labels don't fit side by side on a phone; stack them as a list. */
+  .seg.long { display: flex; flex-direction: column; flex-wrap: nowrap; width: 100%; }
+  .seg.long button { height: 36px; text-align: left; }
   .seg { flex-wrap: wrap; }
   .delete input { width: 100%; }
 }

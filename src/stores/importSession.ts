@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, markRaw, ref } from "vue";
 import { api, type Track } from "@/api";
+import type { SpotifyImport } from "@/lib/spotifyImport";
 import { CHECK, findMatches, rankCandidates, statusOf, type MatchStatus, type ScoredCandidate, type SourceTrack } from "@/lib/match";
 
 /** What is being imported, whichever way it came in. */
@@ -45,6 +46,10 @@ async function searchTracks(query: string): Promise<Track[]> {
 export const useImportSession = defineStore("importSession", () => {
   const list = ref<ImportList | null>(null);
   const rows = ref<ImportRow[]>([]);
+  /** Set when the list was taken as Spotify tracks, with no SoundCloud matching. */
+  const direct = ref<SpotifyImport | null>(null);
+  /** What was read, so a direct import can still switch to matching. */
+  const sourceTracks = ref<SourceTrack[]>([]);
   const matching = ref(false);
   let token = 0;
 
@@ -66,22 +71,40 @@ export const useImportSession = defineStore("importSession", () => {
     return c;
   });
   const chosenTracks = computed(() =>
-    rows.value.filter((r) => r.pick && !r.skipped && rowStatus(r) !== "pending").map((r) => r.pick!.track),
+    direct.value ? direct.value.tracks : rows.value.filter((r) => r.pick && !r.skipped && rowStatus(r) !== "pending").map((r) => r.pick!.track),
   );
 
   function begin(next: ImportList, tracks: SourceTrack[]) {
     cancel();
     list.value = next;
+    direct.value = null;
+    sourceTracks.value = tracks;
     rows.value = tracks.map((source, key) => ({
       key, source, state: "pending", error: null, candidates: [], pick: null, manual: false, skipped: false,
     }));
     void match();
   }
 
+  /** Takes the list as Spotify tracks (music source Spotify). Nothing to match. */
+  function beginDirect(next: ImportList, tracks: SourceTrack[], result: SpotifyImport) {
+    cancel();
+    list.value = next;
+    rows.value = [];
+    sourceTracks.value = tracks;
+    direct.value = { tracks: result.tracks.map((t) => markRaw(t)), skipped: result.skipped };
+  }
+
+  /** "Match on SoundCloud instead" for a direct import. */
+  function matchInstead() {
+    if (list.value) begin(list.value, sourceTracks.value);
+  }
+
   function reset() {
     cancel();
     list.value = null;
     rows.value = [];
+    direct.value = null;
+    sourceTracks.value = [];
   }
 
   // Candidates hold full Track objects; markRaw keeps Vue from proxying them.
@@ -152,5 +175,8 @@ export const useImportSession = defineStore("importSession", () => {
     row.skipped = skipped;
   }
 
-  return { list, rows, matching, done, counts, chosenTracks, rowStatus, begin, reset, match, cancel, research, choose, setSkipped };
+  return {
+    list, rows, direct, sourceTracks, matching, done, counts, chosenTracks,
+    rowStatus, begin, beginDirect, matchInstead, reset, match, cancel, research, choose, setSkipped,
+  };
 });

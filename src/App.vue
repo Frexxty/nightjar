@@ -29,6 +29,10 @@ const updates = useUpdates();
 const router = useRouter();
 const route = useRoute();
 const content = ref<HTMLElement>();
+// Nothing renders until the first route resolves, so a first run goes
+// straight to the welcome page without flashing the sidebar and player.
+const routed = ref(false);
+void router.isReady().then(() => (routed.value = true));
 
 // Theme and accent.
 const dark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -102,7 +106,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app" :class="{ phone: isPhone }" :style="isPhone ? { '--dock': dock } : undefined">
+  <!-- First run: the welcome page has the window to itself. -->
+  <div v-if="!routed" />
+  <div v-else-if="route.meta.bare" class="bare">
+    <div class="bare-titlebar drag" />
+    <main class="bare-content">
+      <RouterView />
+    </main>
+    <Transition name="toast">
+      <div v-if="ui.toast" class="toast">{{ ui.toast }}</div>
+    </Transition>
+  </div>
+  <div v-else class="app" :class="{ phone: isPhone }" :style="isPhone ? { '--dock': dock } : undefined">
     <AppSidebar v-if="!isPhone" />
     <div class="column">
       <AppChrome v-if="!isPhone" />
@@ -137,6 +152,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.bare { position: relative; height: 100dvh; display: flex; flex-direction: column; background: var(--panel); }
+/* Room for the macOS traffic lights and a strip to drag the window by. */
+.bare-titlebar { position: absolute; top: 0; left: 0; right: 0; height: 40px; z-index: 1; }
+.bare-content { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
 .app { display: flex; height: 100%; }
 .column { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .panel {

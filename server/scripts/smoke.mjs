@@ -274,7 +274,89 @@ await step("Spotify import (the user's 33-track playlist)", async () => {
   assert(r.data.tracks.length === 33 && r.data.truncated === false && r.data.source === "embed", JSON.stringify({ ...r.data, tracks: r.data.tracks.length }));
   const noLie = r.data.tracks.find((t) => t.title === "No Lie");
   assert(noLie && noLie.artists.length === 2, `artist split: ${JSON.stringify(noLie)}`);
+  ctx.spotifyList = r.data;
   return `"${r.data.name}" by ${r.data.owner}: ${r.data.tracks.length} tracks; "${noLie.title}" -> ${noLie.artists.join(" + ")}`;
+});
+
+// Spotify tracks are saved as snapshots the client sends (docs/spotify.md).
+// These build them from the imported list the way the app's import does.
+function spotifyTrack(t, extra = {}) {
+  const id = `spotify:track:${t.spotifyId}`;
+  return {
+    id, uri: id, source: "spotify", title: t.title,
+    user: { id: "spotify:artist:unknown", username: t.artists[0] ?? "Unknown artist", avatarUrl: null },
+    artworkUrl: ctx.spotifyList?.coverUrl ?? null, duration: t.durationMs ?? 0, createdAt: new Date(0).toISOString(),
+    playbackCount: 0, likesCount: 0, repostsCount: 0, commentCount: 0, streamable: true, album: null, ...extra,
+  };
+}
+const spotifyTracks = () => (ctx.spotifyList?.tracks ?? []).filter((t) => t.spotifyId).map((t) => spotifyTrack(t));
+const enc = encodeURIComponent;
+
+await step("Spotify like: snapshot required, checked, stored, listed", async () => {
+  const [a, b] = spotifyTracks();
+  assert(a && b, "no Spotify tracks from the import step");
+  const none = await call("PUT", `/me/likes/tracks/${enc(a.id)}`, { expect: 400 });
+  assert(none.data.code === "invalid_input", none.data.code);
+  await call("PUT", `/me/likes/tracks/${enc(a.id)}`, { body: { track: b }, expect: 400 });
+  await call("PUT", `/me/likes/tracks/${enc("spotify:album:4CSw2rcHARwaukSYUegs3R")}`, { body: { track: a }, expect: 400 });
+  const sneaky = { ...a, liked: false, evil: "x", artworkUrl: "http://insecure.example/a.jpg", permalinkUrl: "javascript:alert(1)" };
+  await call("PUT", `/me/likes/tracks/${enc(a.id)}`, { body: { track: sneaky }, expect: 204 });
+  await call("PUT", `/me/likes/tracks/${ctx.track.id}`, { expect: 204 });
+  const list = await call("GET", "/me/likes/tracks", { expect: 200 });
+  const ids = list.data.items.map((t) => t.id);
+  assert(ids.join() === [ctx.track.id, a.id].join(), `likes order: ${ids.join()}`);
+  const got = list.data.items[1];
+  assert(got.title === a.title && got.source === "spotify" && got.uri === a.id && got.liked === true, JSON.stringify(got).slice(0, 300));
+  assert(got.artworkUrl === null && got.permalinkUrl === null && !("evil" in got), `not cleaned: ${JSON.stringify(got).slice(0, 300)}`);
+  await call("DELETE", `/me/likes/tracks/${enc(a.id)}`, { expect: 204 });
+  await call("DELETE", `/me/likes/tracks/${ctx.track.id}`, { expect: 204 });
+  const after = await call("GET", "/me/likes/tracks", { expect: 200 });
+  assert(after.data.items.length === 0, "likes left");
+  return `"${got.title}" by ${got.user.username}`;
+});
+
+await step("playlist mixing SoundCloud and Spotify tracks", async () => {
+  const [a, b, c] = spotifyTracks();
+  const sc1 = ctx.track;
+  const sc2 = ctx.related[0];
+  // SoundCloud entries only need their id; Spotify ones are full snapshots.
+  const tracks = [{ id: sc1.id }, a, { id: sc2.id }, b];
+  const ids = tracks.map((t) => t.id);
+  const created = await call("POST", "/me/playlists", { body: { title: "Smoke mixed", trackIds: ids, tracks, public: false }, expect: 201 });
+  const p = created.data;
+  assert(p.tracks.map((t) => t.id).join() === ids.join(), `create order: ${p.tracks.map((t) => t.id).join()}`);
+  assert(p.trackCount === 4 && p.tracks[1].source === "spotify" && p.tracks[1].title === a.title && p.tracks[0].title === sc1.title, "create tracks");
+  const read = await call("GET", `/playlists/${p.id}`, { expect: 200 });
+  assert(read.data.tracks.map((t) => t.id).join() === ids.join(), "read order");
+  assert(read.data.tracks.every((t) => t.liked === false), "liked flags missing");
+  // A reorder that only sends IDs works for snapshots the account already has.
+  const reversed = [...ids].reverse();
+  const reorder = await call("PATCH", `/me/playlists/${p.id}`, { body: { trackIds: reversed, public: true }, expect: 200 });
+  assert(reorder.data.tracks.map((t) => t.id).join() === reversed.join(), "reorder");
+  const outsider = await call("GET", `/playlists/${p.id}`, { auth: false, expect: 200 });
+  assert(outsider.data.tracks[0].title === b.title, "public read of a snapshot");
+  const unknown = await call("PATCH", `/me/playlists/${p.id}`, { body: { trackIds: [...ids, c.id] }, expect: 400 });
+  assert(/snapshot/.test(unknown.data.error), unknown.data.error);
+  const swapped = await call("PATCH", `/me/playlists/${p.id}`, { body: { tracks: [c, { id: sc1.id }] }, expect: 200 });
+  assert(swapped.data.tracks.map((t) => t.id).join() === [c.id, sc1.id].join() && swapped.data.trackCount === 2, "replace with tracks");
+  const mine = await call("GET", "/me/playlists", { expect: 200 });
+  const listed = mine.data.find((x) => x.id === p.id);
+  assert(listed && listed.trackCount === 2 && listed.duration === c.duration + sc1.duration, `list summary ${JSON.stringify(listed)}`);
+  const bad = await call("POST", "/me/playlists", { body: { title: "Bad", tracks: [{ ...a, id: "spotify:track:../../x" }] }, expect: 400 });
+  assert(bad.data.code === "invalid_input", bad.data.code);
+  await call("DELETE", `/me/playlists/${p.id}`, { expect: 204 });
+  return `${p.id}: ${p.tracks.map((t) => `${t.source ?? "soundcloud"}:${t.title}`).join(" / ").slice(0, 160)}`;
+});
+
+await step("Spotify history", async () => {
+  const [a] = spotifyTracks();
+  await call("POST", "/me/history", { body: { trackId: a.id }, expect: 400 });
+  await call("POST", "/me/history", { body: { trackId: a.id, track: a }, expect: 204 });
+  const r = await call("GET", "/me/history", { expect: 200 });
+  const ids = r.data.items.map((t) => t.id);
+  assert(ids[0] === a.id && r.data.items[0].source === "spotify" && r.data.items[0].title === a.title, ids.join());
+  assert(ids.length === 3, `${ids.length} entries`);
+  return ids.join(", ");
 });
 
 await step("logout revokes the token", async () => {
