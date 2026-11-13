@@ -2,6 +2,18 @@
 
 Each release's section becomes its GitHub release notes and the notes shown in the in-app update dialog. Add a section before tagging.
 
+## 0.3.0
+
+Stratus can now play Spotify's own audio with a Spotify Premium account, so imported playlists play complete instead of being matched on SoundCloud.
+
+- First launch asks where your music should come from: Spotify (Premium) or SoundCloud (free). With SoundCloud, imported Spotify playlists are matched to SoundCloud uploads, and most songs from a typical playlist won't be there. You can switch in Settings.
+- Spotify sign-in with your own free Spotify developer app (Spotify allows 5 accounts per app, so everyone creates one). The setup guide walks through it, including the redirect URIs to copy.
+- With Spotify as the source, Home, Search and Likes show your Spotify library, imports play as they are, and Spotify tracks can sit in the same queue as SoundCloud tracks.
+- Spotify plays inside Stratus on the desktop, or Stratus can work as a remote for your Spotify app. The web player on phones starts in remote mode, since phone browsers stop in-page Spotify audio when the screen locks.
+- Likes, playlists and history in your Stratus account can hold Spotify tracks.
+- The desktop app now runs on castlabs' Electron, which includes the Widevine module Spotify's audio needs. It downloads on first launch.
+- Linux build (AppImage).
+
 ## 0.2.0
 
 Stratus now works with real SoundCloud music out of the box, and your library follows you between the Mac, Windows and your phone.
