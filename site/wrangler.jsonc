@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stratus-site",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-01",
+  "account_id": "f2cf5d525fceb6c6c5fccbbd10a94bb4",
+  "workers_dev": true,
+  "routes": [{ "pattern": "stratus.k3s.lat", "custom_domain": true }],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash",
+    // Only these paths hit the Worker first. Everything else is a static file.
+    "run_worker_first": ["/api/*", "/download/*"]
+  },
+  "observability": { "enabled": true }
+  // Optional: `npx wrangler secret put GITHUB_TOKEN` raises the GitHub API rate limit.
+}

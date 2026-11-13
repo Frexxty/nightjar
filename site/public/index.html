@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stratus · Hear every layer. A desktop SoundCloud player</title>
+<meta name="description" content="Stratus is a free, open-source SoundCloud player for macOS and Windows. Clickable waveforms, timed comments that scroll with the music, a full-screen player, and Spotify playlist import.">
+<link rel="canonical" href="https://stratus.k3s.lat/">
+<meta name="theme-color" content="#101012">
+<meta name="color-scheme" content="dark">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Stratus">
+<meta property="og:url" content="https://stratus.k3s.lat/">
+<meta property="og:title" content="Stratus · Hear every layer.">
+<meta property="og:description" content="Free and open source for macOS and Windows. Clickable waveforms, timed comments, a full-screen player, and Spotify playlist import.">
+<meta property="og:image" content="https://stratus.k3s.lat/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Stratus. Hear every layer. An open-source SoundCloud player for macOS and Windows.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Stratus · Hear every layer.">
+<meta name="twitter:description" content="Free and open source for macOS and Windows. Clickable waveforms, timed comments, a full-screen player, and Spotify playlist import.">
+<meta name="twitter:image" content="https://stratus.k3s.lat/og-image.png">
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add("js")</script>
+<script src="/main.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="top">
+  <div class="nav-inner">
+    <a class="brand" href="/" aria-label="Stratus home">
+      <img class="brand-logo" src="/logo-wordmark.svg" alt="Stratus" width="135" height="22">
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#import">Spotify import</a>
+      <a href="#backend">Backend</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-end">
+      <a class="nav-gh" href="https://github.com/Frexxty/stratus" aria-label="Stratus on GitHub">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.69 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+      </a>
+      <a class="btn btn-sm btn-primary" href="#download" data-nav-dl>Download</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- Hero -->
+  <section class="hero" id="download" aria-labelledby="hero-title">
+    <div class="hero-bg" aria-hidden="true">
+      <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
+    </div>
+
+    <div class="wrap hero-copy">
+      <p class="eyebrow reveal"><span class="dot"></span>Free and open source · macOS and Windows</p>
+      <h1 id="hero-title" class="reveal">Hear every layer.</h1>
+      <p class="lede reveal">Stratus is a free SoundCloud player for your desktop. Waveforms you can click, comments that scroll with the music, a full-screen mode, and Spotify playlist import.</p>
+
+      <div class="dl reveal" data-dl>
+        <div class="dl-buttons">
+          <a class="btn btn-primary btn-lg" href="/download/mac" data-dl-btn="mac">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Download for Mac</span>
+          </a>
+          <a class="btn btn-primary btn-lg" href="/download/windows" data-dl-btn="windows">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Download for Windows</span>
+          </a>
+        </div>
+        <p class="dl-meta"><span data-dl-version hidden></span><span data-dl-detail>For Apple Silicon and Intel Macs, and Windows</span></p>
+        <p class="dl-alt" data-dl-alt>
+          <a href="/download/mac-intel">Mac with Intel chip</a>
+          <a href="https://github.com/Frexxty/stratus/releases">All releases</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="hero-shot reveal">
+      <div class="glow" aria-hidden="true"></div>
+      <img src="/img/hero-window.webp"
+           srcset="/img/hero-window-720.webp 720w, /img/hero-window.webp 1280w"
+           sizes="(max-width: 1180px) 92vw, 1120px"
+           width="1280" height="780" fetchpriority="high"
+           alt="The Stratus window on macOS showing the Home page with a sidebar of library sections and playlists, transport controls in the top bar, and shelves of artwork.">
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features" aria-label="Features">
+
+    <article class="feature">
+      <div class="feature-copy reveal">
+        <p class="kicker">Waveforms and timed comments</p>
+        <h2>Click the waveform to seek. Watch the comments go by.</h2>
+        <p>Every track shows its SoundCloud waveform, in lists, on its own page, and in the top bar. Click anywhere on it to jump there. Timed comments sit on the waveform as avatars and scroll in a side drawer in time with the song, the way lyrics do in other players. Type in the box at the bottom to post one at the current position.</p>
+
+        <div class="wave-demo" data-wave-demo>
+          <div class="wd-head">
+            <span class="wd-art" aria-hidden="true"></span>
+            <span class="wd-title"><strong>Velvet Rain</strong><span>Moth Choir</span></span>
+            <span class="wd-time" data-wd-time>0:00</span>
+          </div>
+          <div class="wd-wave" data-wd-wave role="slider" tabindex="0" aria-label="Demo waveform, click to seek" aria-valuemin="0" aria-valuemax="90" aria-valuenow="0" aria-valuetext="0:00">
+            <div class="wd-bars" data-wd-bars></div>
+            <div class="wd-bars wd-played" data-wd-played></div>
+            <div class="wd-pins" data-wd-pins></div>
+          </div>
+          <div class="wd-lyrics" aria-live="polite"><ol data-wd-list></ol></div>
+        </div>
+        <p class="demo-note">A small demo. Click or drag on the waveform.</p>
+      </div>
+      <figure class="feature-shot reveal">
+        <img src="/img/track.webp" srcset="/img/track-680.webp 680w, /img/track.webp 1360w" sizes="(max-width: 980px) 92vw, 760px" width="1360" height="820" loading="lazy" decoding="async"
+             alt="A track page in Stratus. The waveform has comment avatars along it and the comments drawer on the right highlights the comment at the current time.">
+      </figure>
+    </article>
+
+    <article class="feature flip">
+      <div class="feature-copy reveal">
+        <p class="kicker">Immersive player</p>
+        <h2>Full screen, with the artwork drifting behind it.</h2>
+        <p>Press <kbd>⇧</kbd><kbd>⌘</kbd><kbd>F</kbd> and the window turns into a player. The cover art blurs and drifts slowly across the background, the waveform gets big with comment avatars along it, and the right side shows either the live comments or what's up next.</p>
+        <p class="small">You can turn the background animation off in Settings.</p>
+      </div>
+      <figure class="feature-shot reveal">
+        <img src="/img/immersive.webp" srcset="/img/immersive-680.webp 680w, /img/immersive.webp 1360w" sizes="(max-width: 980px) 92vw, 760px" width="1360" height="820" loading="lazy" decoding="async"
+             alt="The immersive player: large artwork on the left with a waveform and playback controls, and timed comments listed on the right over a blurred background.">
+      </figure>
+    </article>
+
+    <article class="feature feature-import" id="import">
+      <div class="feature-copy reveal">
+        <p class="kicker">Spotify playlist import</p>
+        <h2>Paste a Spotify playlist link. Get it back on SoundCloud.</h2>
+        <p>Copy the link to any public Spotify playlist and paste it into Stratus. It looks up every track on SoundCloud and shows you what it found. Check the matches, then save the result as a playlist.</p>
+        <p class="small">Works with any public Spotify playlist.</p>
+      </div>
+      <div class="import-mock reveal" role="img" aria-label="Illustration of the import screen: a pasted playlist link, a list of tracks each paired with the SoundCloud match that was found, one track without a match, and a Save playlist button.">
+        <div class="im-bar">
+          <span class="im-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="im-heading">Import playlist</span>
+        </div>
+        <div class="im-body">
+          <div class="im-input">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <span>open.spotify.com/playlist/4vQ7…</span>
+          </div>
+          <div class="im-status">
+            <span><strong>Late Night Drive</strong> · 24 tracks</span>
+            <span class="im-count"><b>23</b> matched</span>
+          </div>
+          <div class="im-progress" aria-hidden="true"><span></span></div>
+          <ul class="im-rows">
+            <li><span class="im-art a1"></span><span class="im-t"><b>Golden Machines</b><span>Paper Satellites</span></span><span class="im-ok" aria-label="matched"><svg viewBox="0 0 24 24" width="14" height="14"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+            <li><span class="im-art a2"></span><span class="im-t"><b>Hollow Rooms</b><span>Nadia Sol</span></span><span class="im-ok" aria-label="matched"><svg viewBox="0 0 24 24" width="14" height="14"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+            <li><span class="im-art a3"></span><span class="im-t"><b>Velvet Weather (Extended Mix)</b><span>Moth Choir</span></span><span class="im-ok" aria-label="matched"><svg viewBox="0 0 24 24" width="14" height="14"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+            <li class="im-miss"><span class="im-art a4"></span><span class="im-t"><b>Glass Rooms</b><span>Marrow &amp; Moss</span></span><span class="im-tag">No match</span></li>
+            <li><span class="im-art a5"></span><span class="im-t"><b>Distant Orbit (Edit)</b><span>Rooftop Weather</span></span><span class="im-ok" aria-label="matched"><svg viewBox="0 0 24 24" width="14" height="14"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></li>
+          </ul>
+          <div class="im-foot">
+            <span>Review the matches, then save.</span>
+            <span class="btn btn-sm btn-primary im-save">Save playlist</span>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="feature flip">
+      <div class="feature-copy reveal">
+        <p class="kicker">Stream</p>
+        <h2>Your SoundCloud stream, reposts and all.</h2>
+        <p>New posts and reposts from the people you follow, each with its own waveform you can play and seek right in the feed. Like, repost, or send a track to Next Up without leaving the list.</p>
+      </div>
+      <figure class="feature-shot reveal">
+        <img src="/img/stream.webp" srcset="/img/stream-680.webp 680w, /img/stream.webp 1360w" sizes="(max-width: 980px) 92vw, 760px" width="1360" height="820" loading="lazy" decoding="async"
+             alt="The Stream page in Stratus with posts and reposts, each showing artwork, a play button, a waveform, and like, repost and Next up buttons.">
+      </figure>
+    </article>
+  </section>
+
+  <!-- The rest -->
+  <section class="more wrap" aria-labelledby="more-title">
+    <h2 id="more-title" class="reveal">The rest of what you'd expect.</h2>
+    <ul class="grid">
+      <li class="cell reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 12h11M4 18h7m9-3-3 3-3-3m3 3V9" /></svg>
+        <h3>Queue</h3>
+        <p>Up Next with drag to reorder, remove and clear, plus a History tab. When the queue runs out it keeps going with related tracks, or stops if you'd rather.</p>
+      </li>
+      <li class="cell reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z" /></svg>
+        <h3>Your library</h3>
+        <p>Likes with a filter, playlists, albums, the people you follow, and your listening history.</p>
+      </li>
+      <li class="cell reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>
+        <h3>Media keys and Now Playing</h3>
+        <p>Play, pause and skip from your keyboard, and see the current track in the system's Now Playing controls. Most actions have a shortcut too.</p>
+      </li>
+      <li class="cell reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17A8.5 8.5 0 0 0 12 3.5Z" fill="currentColor" stroke="none"/></svg>
+        <h3>Dark, light, or system</h3>
+        <p>Pick a theme and an accent colour. Orange is the default, but there are others and a custom picker.</p>
+        <span class="swatches" aria-hidden="true"><i style="--c:#ff5500"></i><i style="--c:#ff2d55"></i><i style="--c:#bf5af2"></i><i style="--c:#0a84ff"></i><i style="--c:#30d158"></i><i style="--c:#ffd60a"></i></span>
+      </li>
+      <li class="cell reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM9 8h6M9 12h6M9 16h3"/></svg>
+        <h3>Demo mode</h3>
+        <p>Without a backend, Stratus runs on built-in demo data with generated artwork, waveforms, comments and audio, so you can click through everything first.</p>
+      </li>
+      <li class="cell reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <h3>Locked-down window</h3>
+        <p>The renderer runs with context isolation and the sandbox on, and no Node integration. It can only send playback state and a few window actions to the main process.</p>
+      </li>
+    </ul>
+  </section>
+
+  <!-- Backend -->
+  <section class="backend" id="backend" aria-labelledby="backend-title">
+    <div class="wrap backend-inner">
+      <div class="backend-copy reveal">
+        <p class="kicker">For developers</p>
+        <h2 id="backend-title">Bring your own backend.</h2>
+        <p>Stratus is only the interface. It never talks to SoundCloud directly. It calls a small REST API that you run, and your server does the SoundCloud part. The contract is 23 routes that return JSON, documented route by route in BACKEND.md.</p>
+        <p>Point Settings at your server's URL, add a bearer token if you use one, and press Apply. If you'd rather skip HTTP entirely, implement the <code>Backend</code> interface in TypeScript and plug it in.</p>
+        <a class="btn btn-ghost" href="https://github.com/Frexxty/stratus/blob/main/BACKEND.md">
+          Read BACKEND.md
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+      <div class="code reveal" aria-label="Excerpt of the routes in BACKEND.md">
+        <div class="code-bar"><span class="im-lights" aria-hidden="true"><i></i><i></i><i></i></span><span>BACKEND.md</span></div>
+<pre><code><span class="c-m">GET</span>  <span class="c-p">/me</span>                     <span class="c-t">User</span>
+<span class="c-m">GET</span>  <span class="c-p">/home</span>                   <span class="c-t">Section[]</span>
+<span class="c-m">GET</span>  <span class="c-p">/feed?cursor=</span>           <span class="c-t">Page&lt;FeedItem&gt;</span>
+<span class="c-m">GET</span>  <span class="c-p">/search?q=</span>              <span class="c-t">SearchResults</span>
+<span class="c-m">GET</span>  <span class="c-p">/tracks/{id}</span>            <span class="c-t">Track</span>
+<span class="c-m">GET</span>  <span class="c-p">/tracks/{id}/comments</span>   <span class="c-t">Comment[]</span>
+<span class="c-m">POST</span> <span class="c-p">/tracks/{id}/comments</span>   <span class="c-t">Comment</span>
+<span class="c-m">GET</span>  <span class="c-p">/tracks/{id}/stream</span>     <span class="c-t">StreamInfo</span>
+<span class="c-m">GET</span>  <span class="c-p">/playlists/{id}</span>         <span class="c-t">Playlist</span>
+<span class="c-d">…</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Open source -->
+  <section class="oss wrap" aria-labelledby="oss-title">
+    <div class="oss-card reveal">
+      <div class="oss-glow" aria-hidden="true"></div>
+      <img class="oss-icon" src="/img/app-icon.webp" alt="" width="112" height="112" loading="lazy" decoding="async">
+      <h2 id="oss-title">MIT licensed. The whole thing is on GitHub.</h2>
+      <p>Electron, Vue 3 and Vite. Read the code, file an issue, send a pull request, or fork it and make your own.</p>
+      <div class="oss-actions">
+        <a class="btn btn-light btn-lg" href="https://github.com/Frexxty/stratus">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.69 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+          <span>View on GitHub</span>
+        </a>
+        <a class="btn btn-ghost btn-lg" href="#download">Download</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq wrap" id="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title" class="reveal">Questions</h2>
+    <div class="faq-list">
+      <details class="reveal">
+        <summary>macOS says the app can't be opened. What do I do?</summary>
+        <div><p>The Mac build isn't signed or notarized yet, so Gatekeeper blocks a normal double-click the first time. In Finder, right-click (or Control-click) Stratus in Applications and choose <strong>Open</strong>, then click <strong>Open</strong> again in the dialog. You only have to do this once.</p>
+        <p>On recent macOS versions the dialog may not offer Open. In that case, try to open the app once, then go to System Settings, Privacy &amp; Security, scroll down and click <strong>Open Anyway</strong>.</p></div>
+      </details>
+      <details class="reveal">
+        <summary>Windows shows "Windows protected your PC".</summary>
+        <div><p>That's SmartScreen, which warns about installers that haven't built up a reputation yet. Click <strong>More info</strong>, then <strong>Run anyway</strong>.</p></div>
+      </details>
+      <details class="reveal">
+        <summary>Is Stratus made by SoundCloud or Spotify?</summary>
+        <div><p>No. Stratus is an independent open-source project and isn't affiliated with, endorsed by, or connected to SoundCloud or Spotify.</p></div>
+      </details>
+      <details class="reveal">
+        <summary>Do I need SoundCloud Go+?</summary>
+        <div><p>It depends on your backend. Stratus plays whatever stream URL your server hands it, so what you can hear in full comes down to the account and API access your backend uses. The app itself has no subscription and costs nothing.</p></div>
+      </details>
+      <details class="reveal">
+        <summary>Can I try it without setting up a server?</summary>
+        <div><p>Yes. Out of the box it runs in demo mode with generated tracks, artwork, waveforms and comments. Switch to "HTTP server" in Settings when your backend is ready.</p></div>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="/" aria-label="Stratus home">
+        <img class="brand-logo" src="/logo-wordmark.svg" alt="Stratus" width="123" height="20">
+      </a>
+      <p>A desktop SoundCloud player. MIT licensed.</p>
+    </div>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="https://github.com/Frexxty/stratus">GitHub</a>
+      <a href="https://github.com/Frexxty/stratus/releases">Releases</a>
+      <a href="https://github.com/Frexxty/stratus/blob/main/BACKEND.md">Backend docs</a>
+    </nav>
+  </div>
+  <p class="wrap disclaimer">Stratus is not affiliated with SoundCloud or Spotify. SoundCloud and Spotify are trademarks of their respective owners.</p>
+</footer>
+</body>
+</html>
