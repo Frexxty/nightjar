@@ -43,6 +43,8 @@ export interface Track {
   permalinkUrl?: string | null;
   /** False for tracks the backend can't stream (Go+ only, region blocked, etc). */
   streamable: boolean;
+  /** True when only a 30-second preview can be played (SoundCloud Go+ tracks). */
+  preview?: boolean;
   liked?: boolean;
   reposted?: boolean;
 }
