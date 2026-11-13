@@ -1,29 +1,35 @@
 import { ref, shallowRef, watch, type Ref } from "vue";
-import { api, type Backend } from "@/api";
+import { api, isUnauthorized, type Backend } from "@/api";
 
 /** Runs `load` now and whenever the backend changes, tracking loading and error state. */
 export function useLoad<T>(load: (backend: Backend) => Promise<T>) {
   const data = shallowRef<T | null>(null) as Ref<T | null>;
   const error = ref<string | null>(null);
   const loading = ref(true);
+  /** The last error was a 401: signed out, or the session ended. */
+  const needsAuth = ref(false);
   let token = 0;
 
   async function run() {
     const mine = ++token;
     loading.value = true;
     error.value = null;
+    needsAuth.value = false;
     try {
       const result = await load(api.value);
       if (mine === token) data.value = result;
     } catch (err) {
-      if (mine === token) error.value = (err as Error).message;
+      if (mine === token) {
+        error.value = (err as Error).message;
+        needsAuth.value = isUnauthorized(err);
+      }
     } finally {
       if (mine === token) loading.value = false;
     }
   }
 
   watch(api, run, { immediate: true });
-  return { data, error, loading, reload: run };
+  return { data, error, loading, needsAuth, reload: run };
 }
 
 /** Cursor pagination on top of useLoad, for "load more" lists. */
@@ -53,5 +59,5 @@ export function usePaged<T>(load: (backend: Backend, cursor: string | null) => P
     }
   }
 
-  return { items, next, more, loadingMore, loading: first.loading, error: first.error, reload: first.reload };
+  return { items, next, more, loadingMore, loading: first.loading, error: first.error, needsAuth: first.needsAuth, reload: first.reload };
 }

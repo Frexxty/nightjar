@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
-  Disc3, Heart, History, Home, Import, ListMusic, Radio, Search, Settings, Users,
+  Disc3, Heart, History, Home, Import, ListMusic, LogIn, Radio, Search, Settings, Users,
 } from "lucide-vue-next";
 import { useLibrary } from "@/stores/library";
 import { useLocalPlaylists } from "@/stores/localPlaylists";
@@ -11,7 +11,7 @@ import Artwork from "./Artwork.vue";
 
 const library = useLibrary();
 const local = useLocalPlaylists();
-const playlists = computed(() => [...local.playlists.map(local.asPlaylist), ...library.playlists]);
+const localPlaylists = computed(() => local.playlists.map(local.asPlaylist));
 const ui = useUi();
 const route = useRoute();
 const router = useRouter();
@@ -60,21 +60,31 @@ const lib = [
         <component :is="item.icon" :size="17" /> {{ item.label }}
       </RouterLink>
 
-      <template v-if="playlists.length">
+      <template v-if="library.playlists.length || localPlaylists.length">
         <div class="heading">Your playlists</div>
-        <RouterLink v-for="p in playlists" :key="p.id" :to="`/playlist/${p.id}`" class="item playlist">
+        <RouterLink v-for="p in library.playlists" :key="p.id" :to="`/playlist/${p.id}`" class="item playlist">
           <Artwork :src="p.artworkUrl" :size="20" :radius="4" />
           <span class="ellipsis">{{ p.title }}</span>
         </RouterLink>
+        <template v-if="localPlaylists.length">
+          <div class="subheading">On this computer</div>
+          <RouterLink v-for="p in localPlaylists" :key="p.id" :to="`/playlist/${p.id}`" class="item playlist">
+            <Artwork :src="p.artworkUrl" :size="20" :radius="4" />
+            <span class="ellipsis">{{ p.title }}</span>
+          </RouterLink>
+        </template>
       </template>
     </nav>
 
     <div class="footer">
-      <RouterLink v-if="library.me" :to="`/user/${library.me.id}`" class="me">
+      <RouterLink v-if="library.me" to="/account" class="me" title="Your account">
         <Artwork :src="library.me.avatarUrl" :size="26" round />
         <span class="ellipsis">{{ library.me.username }}</span>
       </RouterLink>
-      <span v-else class="me faint">Not signed in</span>
+      <button v-else-if="library.accounts && library.ready" class="me sign-in" @click="library.signIn()">
+        <LogIn :size="16" /> Sign in
+      </button>
+      <span v-else class="me faint">{{ library.ready ? "Not signed in" : "" }}</span>
       <RouterLink to="/settings" class="icon-btn" title="Settings"><Settings :size="17" /></RouterLink>
     </div>
   </aside>
@@ -126,4 +136,7 @@ nav { flex: 1; overflow-y: auto; padding: 0 10px 12px; }
 }
 .me { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; font-weight: 600; }
 .me:hover { text-decoration: none; }
+.sign-in { height: 32px; padding: 0 10px; margin-left: -4px; border-radius: 7px; color: var(--accent); }
+.sign-in:hover { background: var(--hover); }
+.subheading { margin: 10px 10px 4px; font-size: 11px; color: var(--text-3); }
 </style>

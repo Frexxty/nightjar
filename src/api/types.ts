@@ -21,6 +21,8 @@ export interface User extends UserSummary {
   playlistCount?: number;
   permalinkUrl?: string | null;
   following?: boolean;
+  /** Only on the signed-in account, and only if the backend shares it. */
+  email?: string | null;
 }
 
 export interface Track {
@@ -136,7 +138,77 @@ export interface Backend {
   setTrackLiked(id: Id, liked: boolean): Promise<void>;
   setReposted(id: Id, reposted: boolean): Promise<void>;
   setFollowing(id: Id, following: boolean): Promise<void>;
+  /** Backends may answer 501 `not_supported`; the comment box then hides itself for that backend. */
   postComment?(id: Id, body: string, timestamp: number | null): Promise<Comment>;
-  /** Creates a playlist on the user's account. Optional; the import page offers "Save to SoundCloud" only when it exists. */
-  createPlaylist?(title: string, trackIds: Id[], isPublic: boolean): Promise<Playlist>;
+
+  // Everything below is optional. The UI hides what a backend leaves out.
+
+  /** Accounts (docs/hosted-api.md). The UI keeps the returned token and rebuilds the backend with it. */
+  signup?(username: string, email: string, password: string): Promise<AuthSession>;
+  /** `login` is a username or an email address. */
+  login?(login: string, password: string): Promise<AuthSession>;
+  logout?(): Promise<void>;
+  deleteAccount?(password: string): Promise<void>;
+
+  /** Creates a playlist on the user's account. The import page offers "Save to my library" only when it exists. */
+  createPlaylist?(title: string, trackIds: Id[], isPublic: boolean, extras?: NewPlaylistExtras): Promise<Playlist>;
+  updatePlaylist?(id: Id, patch: PlaylistPatch): Promise<Playlist>;
+  deletePlaylist?(id: Id): Promise<void>;
+
+  /** Records a play. Called fire and forget. */
+  addHistory?(trackId: Id): Promise<void>;
+  /** Listening history, most recent first, one entry per track. */
+  history?(cursor?: string | null): Promise<Page<Track>>;
+
+  /** Reads a Spotify playlist or album server-side, for browsers that can't read Spotify pages themselves. */
+  importSpotify?(url: string): Promise<SpotifyList>;
+}
+
+/** A Spotify track as read from a playlist or album page. */
+export interface SpotifyListTrack {
+  /** Null for local files in a playlist. */
+  spotifyId: string | null;
+  title: string;
+  artists: string[];
+  durationMs: number | null;
+  explicit: boolean;
+}
+
+/** A Spotify playlist or album, from the desktop app's reader or `GET /import/spotify`. */
+export interface SpotifyList {
+  id: string;
+  kind: "playlist" | "album";
+  url: string;
+  name: string;
+  owner: string | null;
+  coverUrl: string | null;
+  /** Track count Spotify reports, or null when only the first 100 could be read. */
+  total: number | null;
+  /** True when `tracks` is missing part of the list. */
+  truncated: boolean;
+  /** "embed": the 100-track embed page. "page": the full web page. */
+  source: "embed" | "page";
+  /** Why the list is incomplete, in plain words. */
+  notice: string | null;
+  tracks: SpotifyListTrack[];
+}
+
+/** What signing up or in returns. */
+export interface AuthSession {
+  token: string;
+  user: User;
+}
+
+export interface PlaylistPatch {
+  title?: string;
+  description?: string | null;
+  public?: boolean;
+  /** Replaces the whole track order. */
+  trackIds?: Id[];
+}
+
+export interface NewPlaylistExtras {
+  description?: string;
+  /** Where the tracks came from, such as a Spotify link. */
+  sourceUrl?: string;
 }

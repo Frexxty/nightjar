@@ -1,6 +1,8 @@
+import { ApiError } from "./errors";
 import { arrange, artwork, hash, renderWav, rng, waveformFor, type Arrangement } from "./synth";
 import type {
-  Backend, Comment, FeedItem, Id, Page, Playlist, SearchKind, SearchResults, Section, StreamInfo, Track, User, UserSummary,
+  AuthSession, Backend, Comment, FeedItem, Id, NewPlaylistExtras, Page, Playlist, PlaylistPatch, SearchKind, SearchResults,
+  Section, SpotifyList, StreamInfo, Track, User, UserSummary,
 } from "./types";
 
 // Invented artists and titles. Nothing here refers to real SoundCloud accounts.
@@ -43,7 +45,31 @@ const delay = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms + Ma
 const LIKES_KEY = "stratus.mock.likes";
 const FOLLOW_KEY = "stratus.mock.following";
 const REPOST_KEY = "stratus.mock.reposts";
+const HISTORY_KEY = "stratus.mock.history";
+const ACCOUNT_KEY = "stratus.mock.account";
 const AUDIO_CACHE = 3;
+
+/**
+ * The demo's fake account, kept in localStorage. It starts signed in as "you"
+ * with no password so the demo works straight away. Signing up sets a password
+ * (stored as a non-cryptographic hash; this is demo data, not security).
+ */
+interface MockAccount {
+  username: string;
+  email: string;
+  passwordHash: number | null;
+  signedIn: boolean;
+}
+const DEFAULT_ACCOUNT: MockAccount = { username: "you", email: "you@example.com", passwordHash: null, signedIn: true };
+const USERNAME = /^[A-Za-z0-9_.-]{3,30}$/;
+
+function loadAccount(): MockAccount {
+  try {
+    return { ...DEFAULT_ACCOUNT, ...JSON.parse(localStorage.getItem(ACCOUNT_KEY) ?? "{}") };
+  } catch {
+    return { ...DEFAULT_ACCOUNT };
+  }
+}
 
 function loadSet(key: string, fallback: string[]): Set<string> {
   try {
@@ -63,7 +89,7 @@ function saveSet(key: string, set: Set<string>) {
 
 /** In-memory SoundCloud lookalike with generated art, waveforms, comments and audio. */
 export class MockBackend implements Backend {
-  readonly name = "Mock";
+  readonly name = "Demo data";
   private users: User[] = [];
   private tracks: MockTrack[] = [];
   private playlists: Playlist[] = [];
@@ -73,6 +99,8 @@ export class MockBackend implements Backend {
   private likes: Set<string>;
   private follows: Set<string>;
   private reposts: Set<string>;
+  private account: MockAccount = loadAccount();
+  private playedIds: string[];
 
   constructor() {
     const r = rng(42);
@@ -117,6 +145,8 @@ export class MockBackend implements Backend {
         commentCount: 0,
         waveform: waveformFor(arrangement),
         streamable: true,
+        // A few Go+ style 30-second previews so the "Preview" label shows in the demo.
+        preview: i % 13 === 6 || undefined,
         arrangement,
       });
       user.trackCount++;
@@ -174,24 +204,102 @@ export class MockBackend implements Backend {
       followingsCount: 6,
       trackCount: 0,
       playlistCount: 4,
-      description: "Mock account. Point Stratus at your backend in Settings.",
+      description: "Demo account. Switch to a Stratus account or your own server in Settings.",
     };
-    this.playlists.filter((p) => p.user.id === "me").forEach((p) => (p.user = summary(this.meUser)));
+    this.applyAccount();
 
     this.likes = loadSet(LIKES_KEY, this.tracks.filter((_, i) => i % 5 === 0).map((t) => t.id));
     this.follows = loadSet(FOLLOW_KEY, this.users.slice(0, 6).map((u) => u.id));
     this.reposts = loadSet(REPOST_KEY, []);
+    this.playedIds = [...loadSet(HISTORY_KEY, [])];
   }
 
-  private decorate = (t: MockTrack | Track): Track => ({ ...strip(t), liked: this.likes.has(t.id), reposted: this.reposts.has(t.id) });
-  private userOut = (u: User): User => ({ ...u, following: this.follows.has(u.id) });
+  private decorate = (t: MockTrack | Track): Track => {
+    const signedIn = this.account.signedIn;
+    return { ...strip(t), liked: signedIn && this.likes.has(t.id), reposted: signedIn && this.reposts.has(t.id) };
+  };
+  private userOut = (u: User): User => ({ ...u, following: this.account.signedIn && this.follows.has(u.id) });
   private trackById(id: Id) {
     const t = this.tracks.find((x) => x.id === id);
     if (!t) throw new Error(`No track ${id}`);
     return t;
   }
 
-  async me() { await delay(40); return this.meUser; }
+  // Account. Behaves like the hosted backend: personal routes answer 401
+  // `unauthorized` when signed out, and bad input gets the same error codes.
+
+  private applyAccount() {
+    this.meUser.username = this.account.username;
+    this.meUser.email = this.account.email;
+    for (const p of this.playlists) if (p.user.id === "me") p.user = summary(this.meUser);
+  }
+
+  private saveAccount() {
+    try {
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify(this.account));
+    } catch {
+      // The demo account lasts for this session.
+    }
+    this.applyAccount();
+  }
+
+  private requireAccount() {
+    if (!this.account.signedIn) throw new ApiError(401, "unauthorized", "Sign in to do that.");
+  }
+
+  private session(): AuthSession {
+    return { token: `demo-${Date.now().toString(36)}`, user: this.meUser };
+  }
+
+  async me() { await delay(40); return this.account.signedIn ? this.meUser : null; }
+
+  async signup(username: string, email: string, password: string) {
+    await delay(200);
+    if (!USERNAME.test(username)) {
+      throw new ApiError(400, "invalid_input", "Usernames are 3 to 30 letters, digits, _, - or .");
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError(400, "invalid_input", "That email address doesn't look right.");
+    if (password.length < 8) throw new ApiError(400, "weak_password", "Passwords need at least 8 characters.");
+    if (this.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
+      throw new ApiError(409, "username_taken", "That username is taken.");
+    }
+    this.account = { username, email, passwordHash: hash(password), signedIn: true };
+    this.saveAccount();
+    return this.session();
+  }
+
+  async login(login: string, password: string) {
+    await delay(200);
+    const a = this.account;
+    const known = [a.username, a.email].some((x) => x.toLowerCase() === login.trim().toLowerCase());
+    const passwordOk = a.passwordHash == null ? password.length >= 8 : hash(password) === a.passwordHash;
+    if (!known || !passwordOk) throw new ApiError(401, "invalid_credentials", "Wrong username, email or password.");
+    this.account = { ...a, signedIn: true };
+    this.saveAccount();
+    return this.session();
+  }
+
+  async logout() {
+    await delay(60);
+    this.account = { ...this.account, signedIn: false };
+    this.saveAccount();
+  }
+
+  async deleteAccount(password: string) {
+    await delay(200);
+    this.requireAccount();
+    const a = this.account;
+    if (a.passwordHash != null ? hash(password) !== a.passwordHash : password.length < 8) {
+      throw new ApiError(401, "invalid_credentials", "That password is wrong.");
+    }
+    for (const key of [LIKES_KEY, FOLLOW_KEY, REPOST_KEY, HISTORY_KEY]) localStorage.removeItem(key);
+    this.likes.clear();
+    this.follows.clear();
+    this.reposts.clear();
+    this.playedIds = [];
+    this.account = { ...DEFAULT_ACCOUNT, signedIn: false };
+    this.saveAccount();
+  }
 
   async home(): Promise<Section[]> {
     await delay();
@@ -211,6 +319,7 @@ export class MockBackend implements Backend {
 
   async feed(cursor?: string | null): Promise<Page<FeedItem>> {
     await delay();
+    this.requireAccount();
     const items: FeedItem[] = [];
     const r = rng(7);
     for (const t of this.tracks) {
@@ -304,32 +413,41 @@ export class MockBackend implements Backend {
 
   async likedTracks(cursor?: string | null) {
     await delay();
+    this.requireAccount();
     return page(this.tracks.filter((t) => this.likes.has(t.id)).map(this.decorate), cursor, 50);
   }
-  async likedPlaylists() { await delay(); return this.playlists.filter((p) => p.isAlbum); }
-  async myPlaylists() { await delay(); return this.playlists.filter((p) => p.user.id === "me"); }
-  async following() { await delay(); return this.users.filter((u) => this.follows.has(u.id)).map(this.userOut); }
+  async likedPlaylists() { await delay(); this.requireAccount(); return this.playlists.filter((p) => p.isAlbum); }
+  async myPlaylists() {
+    await delay();
+    this.requireAccount();
+    return this.playlists.filter((p) => p.user.id === "me").map((p) => this.playlistOut(p));
+  }
+  async following() { await delay(); this.requireAccount(); return this.users.filter((u) => this.follows.has(u.id)).map(this.userOut); }
 
   async setTrackLiked(id: Id, liked: boolean) {
     await delay(80);
+    this.requireAccount();
     if (liked) this.likes.add(id);
     else this.likes.delete(id);
     saveSet(LIKES_KEY, this.likes);
   }
   async setReposted(id: Id, reposted: boolean) {
     await delay(80);
+    this.requireAccount();
     if (reposted) this.reposts.add(id);
     else this.reposts.delete(id);
     saveSet(REPOST_KEY, this.reposts);
   }
   async setFollowing(id: Id, following: boolean) {
     await delay(80);
+    this.requireAccount();
     if (following) this.follows.add(id);
     else this.follows.delete(id);
     saveSet(FOLLOW_KEY, this.follows);
   }
   async postComment(id: Id, body: string, timestamp: number | null) {
     await delay(80);
+    this.requireAccount();
     const comment: Comment = { id: `${id}c${Date.now()}`, user: summary(this.meUser), body, timestamp, createdAt: new Date().toISOString() };
     const list = this.comments.get(id) ?? [];
     list.push(comment);
@@ -337,24 +455,116 @@ export class MockBackend implements Backend {
     this.comments.set(id, list);
     return comment;
   }
-  async createPlaylist(title: string, trackIds: Id[], _isPublic: boolean) {
-    await delay(200);
+
+  // Account playlists.
+
+  private playlistOut(p: Playlist): Playlist {
+    return { ...p, tracks: p.tracks?.map((t) => this.decorate(t)) };
+  }
+
+  private ownPlaylist(id: Id) {
+    this.requireAccount();
+    const p = this.playlists.find((x) => x.id === id && x.user.id === "me");
+    if (!p) throw new ApiError(404, "not_found", "That playlist doesn't exist.");
+    return p;
+  }
+
+  private setTracks(p: Playlist, trackIds: Id[]) {
     const tracks = trackIds.map((id) => this.tracks.find((t) => t.id === id)).filter((t): t is MockTrack => !!t);
+    p.tracks = tracks.map(strip);
+    p.trackCount = tracks.length;
+    p.duration = tracks.reduce((sum, t) => sum + t.duration, 0);
+  }
+
+  async createPlaylist(title: string, trackIds: Id[], _isPublic: boolean, extras: NewPlaylistExtras = {}) {
+    await delay(200);
+    this.requireAccount();
     const playlist: Playlist = {
-      id: `p${this.playlists.length + 1}`,
+      id: `p-${Date.now().toString(36)}`,
       title,
       user: summary(this.meUser),
       artworkUrl: artwork(hash(title), title),
-      description: null,
+      description: extras.description ?? null,
       isAlbum: false,
-      trackCount: tracks.length,
-      duration: tracks.reduce((sum, t) => sum + t.duration, 0),
+      trackCount: 0,
+      duration: 0,
       createdAt: new Date().toISOString(),
       likesCount: 0,
-      tracks: tracks.map(strip),
     };
-    this.playlists.push(playlist);
-    return { ...playlist, tracks: playlist.tracks?.map((t) => this.decorate(t)) };
+    this.setTracks(playlist, trackIds);
+    this.playlists.unshift(playlist);
+    return this.playlistOut(playlist);
+  }
+
+  async updatePlaylist(id: Id, patch: PlaylistPatch) {
+    await delay(120);
+    const p = this.ownPlaylist(id);
+    if (patch.title !== undefined) {
+      if (!patch.title.trim()) throw new ApiError(400, "invalid_input", "Playlists need a title.");
+      p.title = patch.title.trim();
+    }
+    if (patch.description !== undefined) p.description = patch.description;
+    if (patch.trackIds) this.setTracks(p, patch.trackIds);
+    return this.playlistOut(p);
+  }
+
+  async deletePlaylist(id: Id) {
+    await delay(120);
+    const p = this.ownPlaylist(id);
+    this.playlists = this.playlists.filter((x) => x !== p);
+  }
+
+  // History.
+
+  async addHistory(trackId: Id) {
+    this.requireAccount();
+    this.playedIds = [trackId, ...this.playedIds.filter((id) => id !== trackId)].slice(0, 200);
+    saveSet(HISTORY_KEY, new Set(this.playedIds));
+  }
+
+  async history(cursor?: string | null) {
+    await delay();
+    this.requireAccount();
+    const tracks = this.playedIds.map((id) => this.tracks.find((t) => t.id === id)).filter((t): t is MockTrack => !!t);
+    return page(tracks.map(this.decorate), cursor, 50);
+  }
+
+  /**
+   * A made-up Spotify playlist for the import page: mostly demo tracks with
+   * their titles written the way Spotify writes them, plus two songs the demo
+   * catalogue doesn't have, so every match state shows up.
+   */
+  async importSpotify(url: string): Promise<SpotifyList> {
+    await delay(400);
+    if (!/spotify/i.test(url) && !/^[A-Za-z0-9]{22}$/.test(url.trim())) {
+      throw new ApiError(400, "invalid_input", "That isn't a Spotify playlist or album link.");
+    }
+    const r = rng(hash(url));
+    const picks = [...this.tracks].sort(() => r() - 0.5).slice(0, 14);
+    const tracks = picks.map((t, i) => ({
+      spotifyId: `demo${i}`,
+      title: i % 4 === 1 ? `${t.title} - Remastered 2021` : t.title,
+      artists: [t.user.username],
+      durationMs: t.duration + Math.round((r() - 0.5) * 4000),
+      explicit: false,
+    }));
+    tracks.push(
+      { spotifyId: "demo-x1", title: "Song That Isn't Here", artists: ["Nobody Known"], durationMs: 201000, explicit: false },
+      { spotifyId: "demo-x2", title: "Another Missing One", artists: ["Unknown Band"], durationMs: 187000, explicit: true },
+    );
+    return {
+      id: "demo",
+      kind: "playlist",
+      url: url.trim(),
+      name: "Demo Spotify playlist",
+      owner: "Demo",
+      coverUrl: artwork(hash(url), "Demo"),
+      total: tracks.length,
+      truncated: false,
+      source: "embed",
+      notice: null,
+      tracks,
+    };
   }
 }
 

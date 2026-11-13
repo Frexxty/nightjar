@@ -3,8 +3,9 @@
 // Cider scrolls lyrics. Clicking a comment seeks to its timestamp.
 import { computed, nextTick, ref, watch } from "vue";
 import { Send } from "lucide-vue-next";
-import { api } from "@/api";
+import { api, friendlyError, isNotSupported, isUnauthorized, isUnsupported, markUnsupported } from "@/api";
 import { duration as fmt } from "@/lib/format";
+import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import Artwork from "./Artwork.vue";
@@ -12,10 +13,15 @@ import Artwork from "./Artwork.vue";
 withDefaults(defineProps<{ large?: boolean }>(), { large: false });
 
 const player = usePlayer();
+const library = useLibrary();
 const ui = useUi();
 const list = ref<HTMLDivElement>();
 const draft = ref("");
 const posting = ref(false);
+
+// Hidden for backends that answered 501 to a comment once (the hosted one does).
+const canComment = computed(() => !!api.value.postComment && !isUnsupported("comments"));
+const askSignIn = computed(() => library.accounts && library.signedOut);
 
 const timed = computed(() => player.comments.filter((c) => c.timestamp != null));
 const loose = computed(() => player.comments.filter((c) => c.timestamp == null));
@@ -51,7 +57,11 @@ async function post() {
     player.comments = [...player.comments, c].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
     draft.value = "";
   } catch (err) {
-    ui.notify(`Couldn't post comment: ${(err as Error).message}`);
+    if (isNotSupported(err)) {
+      markUnsupported("comments");
+      ui.notify("This server doesn't take comments");
+    } else if (isUnauthorized(err)) library.signIn();
+    else ui.notify(`Couldn't post comment: ${friendlyError(err)}`);
   } finally {
     posting.value = false;
   }
@@ -85,7 +95,10 @@ async function post() {
         </div>
       </template>
     </div>
-    <form v-if="player.current && api.postComment" class="compose" @submit.prevent="post">
+    <div v-if="player.current && canComment && askSignIn" class="compose signed-out">
+      <button class="link" @click="library.signIn()">Sign in</button> to comment
+    </div>
+    <form v-else-if="player.current && canComment" class="compose" @submit.prevent="post">
       <input v-model="draft" :placeholder="`Comment at ${fmt(player.currentTime * 1000)}`" :disabled="posting" />
       <button class="icon-btn" :disabled="!draft.trim() || posting" title="Post"><Send :size="15" /></button>
     </form>
@@ -121,4 +134,6 @@ async function post() {
 .divider { margin: 16px 8px 6px; font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
 .compose { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
 .compose input { flex: 1; }
+.signed-out { justify-content: center; gap: 4px; color: var(--text-3); font-size: 12.5px; }
+.link { color: var(--accent); font-weight: 600; }
 </style>

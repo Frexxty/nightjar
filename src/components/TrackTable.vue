@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { Clock, Heart, MoreHorizontal, Pause, Play } from "lucide-vue-next";
 import type { Track } from "@/api";
 import { count, duration } from "@/lib/format";
@@ -19,16 +20,25 @@ const props = withDefaults(
     showHeader?: boolean;
     /** Extra context-menu items for a row, e.g. "Remove from playlist". */
     menuExtra?: (track: Track, index: number) => MenuItem[];
+    /** Makes rows draggable; called with the old and new index when one is dropped. */
+    reorder?: (from: number, to: number) => void;
   }>(),
-  { source: undefined, numbered: false, showArtwork: true, showPlays: true, showHeader: true, menuExtra: undefined },
+  { source: undefined, numbered: false, showArtwork: true, showPlays: true, showHeader: true, menuExtra: undefined, reorder: undefined },
 );
 
 const player = usePlayer();
 const library = useLibrary();
 const ui = useUi();
 const menus = useMenus();
+const dragFrom = ref<number | null>(null);
+const dragOver = ref<number | null>(null);
 
 const menuFor = (t: Track, i: number) => menus.track(t, props.menuExtra?.(t, i) ?? []);
+
+function drop(to: number) {
+  if (dragFrom.value != null && dragFrom.value !== to) props.reorder?.(dragFrom.value, to);
+  dragFrom.value = dragOver.value = null;
+}
 
 function play(i: number) {
   const t = props.tracks[i];
@@ -51,7 +61,18 @@ function play(i: number) {
       v-for="(t, i) in tracks"
       :key="`${t.id}-${i}`"
       class="row"
-      :class="{ current: player.isCurrent(t), unavailable: !t.streamable }"
+      :class="{
+        current: player.isCurrent(t),
+        unavailable: !t.streamable,
+        dragging: dragFrom === i,
+        'over-above': dragOver === i && dragFrom != null && dragFrom > i,
+        'over-below': dragOver === i && dragFrom != null && dragFrom < i,
+      }"
+      :draggable="reorder ? 'true' : undefined"
+      @dragstart="reorder && (dragFrom = i)"
+      @dragover="reorder && dragFrom != null && ($event.preventDefault(), (dragOver = i))"
+      @drop="reorder && drop(i)"
+      @dragend="dragFrom = dragOver = null"
       @dblclick="play(i)"
       @contextmenu="ui.openMenu($event, menuFor(t, i))"
     >
@@ -67,8 +88,11 @@ function play(i: number) {
         <Artwork v-if="showArtwork" class="thumb" :src="t.artworkUrl" :size="38" :radius="5" />
       </span>
       <span class="title">
-        <RouterLink :to="`/track/${t.id}`" class="name ellipsis">{{ t.title }}</RouterLink>
-        <RouterLink :to="`/user/${t.user.id}`" class="by ellipsis">{{ t.user.username }}</RouterLink>
+        <span class="name-line">
+          <RouterLink :to="`/track/${t.id}`" class="name ellipsis" :draggable="reorder ? 'false' : undefined">{{ t.title }}</RouterLink>
+          <span v-if="t.preview" class="preview-pill" title="Only a 30-second preview can be played">Preview</span>
+        </span>
+        <RouterLink :to="`/user/${t.user.id}`" class="by ellipsis" :draggable="reorder ? 'false' : undefined">{{ t.user.username }}</RouterLink>
       </span>
       <span v-if="showPlays" class="num faint">{{ count(t.playbackCount) }}</span>
       <span class="like">
@@ -128,6 +152,11 @@ function play(i: number) {
 .row:hover .play-btn, .row.current .play-btn { opacity: 1; }
 .table:not(.art) .row.current:not(:hover) .play-btn { opacity: 0; }
 .title { display: flex; flex-direction: column; min-width: 0; }
+.name-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.row[draggable="true"] { cursor: grab; }
+.row.dragging { opacity: 0.4; }
+.row.over-above { box-shadow: inset 0 2px 0 var(--accent); }
+.row.over-below { box-shadow: inset 0 -2px 0 var(--accent); }
 .name { font-weight: 600; }
 .by { color: var(--text-2); font-size: 12px; }
 .num { text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; display: flex; justify-content: flex-end; }

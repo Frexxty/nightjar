@@ -4,32 +4,10 @@ interface ImportMetaEnv {
   readonly VITE_BACKEND_URL?: string;
 }
 
-interface SpotifyListTrack {
-  /** Null for local files in a playlist. */
-  spotifyId: string | null;
-  title: string;
-  artists: string[];
-  durationMs: number | null;
-  explicit: boolean;
-}
-
-interface SpotifyList {
-  id: string;
-  kind: "playlist" | "album";
-  url: string;
-  name: string;
-  owner: string | null;
-  coverUrl: string | null;
-  /** Track count Spotify reports, or null when only the first 100 could be read. */
-  total: number | null;
-  /** True when `tracks` is missing part of the list. */
-  truncated: boolean;
-  /** "embed": the 100-track embed page. "page": the full web page, read in a hidden window. */
-  source: "embed" | "page";
-  /** Why the list is incomplete, in plain words. */
-  notice: string | null;
-  tracks: SpotifyListTrack[];
-}
+// Defined in src/api/types.ts so the backend's Spotify import can share them.
+// Import types keep this file a global script (a top-level import would not).
+type SpotifyListTrack = import("./api/types").SpotifyListTrack;
+type SpotifyList = import("./api/types").SpotifyList;
 
 interface UpdateState {
   status: "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";

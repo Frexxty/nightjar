@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
-import { reactive, ref } from "vue";
-import { api, type Playlist, type Track, type User } from "@/api";
+import { computed, reactive, ref } from "vue";
+import { api, isUnauthorized, onSessionExpired, type Playlist, type Track, type User } from "@/api";
+import { router } from "@/router";
 import { useUi } from "./ui";
 
 const HISTORY_KEY = "stratus.history";
@@ -12,8 +13,15 @@ export const useLibrary = defineStore("library", () => {
   const reposted = reactive(new Map<string, boolean>());
   const followed = reactive(new Map<string, boolean>());
   const me = ref<User | null>(null);
+  /** False until the first `/me` answer, so nothing treats "still loading" as signed out. */
+  const ready = ref(false);
   const playlists = ref<Playlist[]>([]);
+  /** Plays on this computer. What History shows when signed out. */
   const history = ref<Track[]>(loadHistory());
+
+  /** The backend has accounts you can sign in to. */
+  const accounts = computed(() => typeof api.value.login === "function");
+  const signedOut = computed(() => ready.value && !me.value);
 
   function loadHistory(): Track[] {
     try {
@@ -23,13 +31,43 @@ export const useLibrary = defineStore("library", () => {
     }
   }
 
-  async function refresh() {
+  let latest: Promise<void> = Promise.resolve();
+  /** Reloads the account. Resolves once the newest refresh has finished, so callers see current state. */
+  function refresh() {
+    const run = load();
+    latest = run;
+    return run;
+  }
+  async function load(): Promise<void> {
     liked.clear();
     reposted.clear();
     followed.clear();
-    const [user, mine] = await Promise.allSettled([api.value.me(), api.value.myPlaylists()]);
-    me.value = user.status === "fulfilled" ? user.value : null;
-    playlists.value = mine.status === "fulfilled" ? mine.value : [];
+    const backend = api.value;
+    const user = await backend.me().catch(() => null);
+    const owned = user ? await backend.myPlaylists().catch(() => [] as Playlist[]) : [];
+    // A sign-in or backend switch can start a newer refresh while this one
+    // waits; that one's answer wins.
+    if (backend !== api.value) return latest;
+    me.value = user;
+    playlists.value = owned;
+    ready.value = true;
+  }
+
+  onSessionExpired(() => ui.notify("Signed out, please sign in again"));
+
+  /** Opens the sign-in page, coming back to `next` (default: the current page) afterwards. */
+  function signIn(next = router.currentRoute.value.fullPath) {
+    void router.push({ path: "/account", query: next && next !== "/account" ? { next } : {} });
+  }
+
+  /**
+   * True if the action can go ahead. When signed out of a backend with
+   * accounts, opens the sign-in page instead and returns false.
+   */
+  function requireAccount() {
+    if (!signedOut.value || !accounts.value) return true;
+    signIn();
+    return false;
   }
 
   const isLiked = (t: Track) => liked.get(t.id) ?? t.liked ?? false;
@@ -37,12 +75,14 @@ export const useLibrary = defineStore("library", () => {
   const isFollowing = (u: User) => followed.get(u.id) ?? u.following ?? false;
 
   async function optimistic(map: Map<string, boolean>, id: string, value: boolean, call: () => Promise<void>, label: string) {
+    if (!requireAccount()) return;
     map.set(id, value);
     try {
       await call();
     } catch (err) {
       map.set(id, !value);
-      ui.notify(`Couldn't ${label}: ${(err as Error).message}`);
+      if (isUnauthorized(err) && accounts.value) signIn();
+      else ui.notify(`Couldn't ${label}: ${(err as Error).message}`);
     }
   }
 
@@ -52,7 +92,7 @@ export const useLibrary = defineStore("library", () => {
   }
   function toggleRepost(t: Track) {
     const next = !isReposted(t);
-    if (next) ui.notify(`Reposted "${t.title}"`);
+    if (next && !signedOut.value) ui.notify(`Reposted "${t.title}"`);
     return optimistic(reposted, t.id, next, () => api.value.setReposted(t.id, next), "repost");
   }
   function toggleFollow(u: User) {
@@ -67,6 +107,8 @@ export const useLibrary = defineStore("library", () => {
     } catch {
       // History still works in memory.
     }
+    // The account copy is best effort; a missed play isn't worth a toast.
+    if (me.value && api.value.addHistory) api.value.addHistory(t.id).catch(() => {});
   }
 
   function clearHistory() {
@@ -74,5 +116,8 @@ export const useLibrary = defineStore("library", () => {
     localStorage.removeItem(HISTORY_KEY);
   }
 
-  return { me, playlists, history, refresh, isLiked, isReposted, isFollowing, toggleLike, toggleRepost, toggleFollow, addToHistory, clearHistory };
+  return {
+    me, ready, accounts, signedOut, playlists, history,
+    refresh, signIn, requireAccount, isLiked, isReposted, isFollowing, toggleLike, toggleRepost, toggleFollow, addToHistory, clearHistory,
+  };
 });

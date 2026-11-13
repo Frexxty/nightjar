@@ -29,7 +29,10 @@ const remaining = computed(() => Math.max(0, player.duration - player.currentTim
         <div class="meta">
           <span class="time">{{ seconds(player.currentTime) }}</span>
           <div class="lines">
-            <a class="title ellipsis" @click="router.push(`/track/${track.id}`)">{{ track.title }}</a>
+            <span class="title-line">
+              <a class="title ellipsis" @click="router.push(`/track/${track.id}`)">{{ track.title }}</a>
+              <span v-if="track.preview" class="preview-pill" title="Only a 30-second preview can be played">Preview</span>
+            </span>
             <a class="artist ellipsis" @click="router.push(`/user/${track.user.id}`)">{{ track.user.username }}</a>
           </div>
           <span class="time">-{{ seconds(remaining) }}</span>
@@ -85,6 +88,8 @@ const remaining = computed(() => Math.max(0, player.duration - player.currentTim
 .meta { display: flex; align-items: center; gap: 8px; }
 .lines { flex: 1; min-width: 0; text-align: center; line-height: 1.25; }
 .title { display: block; font-weight: 600; font-size: 12.5px; }
+.title-line { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; }
+.title-line .preview-pill { font-size: 9px; padding: 0 5px; }
 .artist { display: block; font-size: 11.5px; color: var(--text-2); }
 .time {
   flex: none;

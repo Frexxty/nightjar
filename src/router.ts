@@ -16,5 +16,6 @@ export const router = createRouter({
     { path: "/library/history", name: "history", component: () => import("./views/HistoryView.vue") },
     { path: "/import", name: "import", component: () => import("./views/ImportView.vue") },
     { path: "/settings", name: "settings", component: () => import("./views/SettingsView.vue") },
+    { path: "/account", name: "account", component: () => import("./views/AccountView.vue") },
   ],
 });

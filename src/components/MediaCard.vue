@@ -67,10 +67,13 @@ function menu(event: MouseEvent) {
         <button class="more" title="More" @click.stop="menu"><MoreHorizontal :size="16" /></button>
       </template>
     </div>
-    <RouterLink :to="href" class="title ellipsis">
-      {{ title }}
-      <BadgeCheck v-if="kind === 'user' && item.verified" :size="13" class="verified" />
-    </RouterLink>
+    <div class="title-line">
+      <RouterLink :to="href" class="title ellipsis">
+        {{ title }}
+        <BadgeCheck v-if="kind === 'user' && item.verified" :size="13" class="verified" />
+      </RouterLink>
+      <span v-if="kind === 'track' && item.preview" class="preview-pill" title="Only a 30-second preview can be played">Preview</span>
+    </div>
     <RouterLink v-if="kind !== 'user' && item.user.id !== 'local'" :to="`/user/${item.user.id}`" class="subtitle ellipsis">{{ subtitle }}</RouterLink>
     <div v-else class="subtitle ellipsis">{{ subtitle }}</div>
   </div>
@@ -113,6 +116,8 @@ function menu(event: MouseEvent) {
 }
 .cover:hover .fab, .cover:hover .more, .fab.active { opacity: 1; transform: none; }
 .title { display: block; font-weight: 600; }
+.title-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.card.user .title-line { justify-content: center; }
 .verified { color: var(--accent); vertical-align: -2px; }
 .subtitle { display: block; color: var(--text-2); font-size: 12px; margin-top: 1px; }
 </style>

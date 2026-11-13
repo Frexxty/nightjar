@@ -1,12 +1,28 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { CloudOff } from "lucide-vue-next";
+import { useLibrary } from "@/stores/library";
+import SignInPrompt from "./SignInPrompt.vue";
 
-defineProps<{ loading: boolean; error: string | null; empty?: boolean; emptyText?: string }>();
+const props = defineProps<{
+  loading: boolean;
+  error: string | null;
+  empty?: boolean;
+  emptyText?: string;
+  /** For pages that need an account: what signing in shows here. */
+  signInText?: string;
+  /** The load failed with a 401. */
+  needsAuth?: boolean;
+}>();
 defineEmits<{ retry: [] }>();
+
+const library = useLibrary();
+const askSignIn = computed(() => !!props.signInText && library.accounts && (library.signedOut || props.needsAuth));
 </script>
 
 <template>
-  <div v-if="error" class="empty">
+  <SignInPrompt v-if="askSignIn" :text="signInText!" />
+  <div v-else-if="error" class="empty">
     <CloudOff :size="34" />
     <div>Couldn't load this.</div>
     <code class="faint">{{ error }}</code>

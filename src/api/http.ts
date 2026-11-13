@@ -1,19 +1,27 @@
+import { ApiError, isUnauthorized, parseApiError } from "./errors";
 import type {
-  Backend, Comment, FeedItem, Id, Page, Playlist, SearchKind, SearchResults, Section, StreamInfo, Track, User,
+  AuthSession, Backend, Comment, FeedItem, Id, NewPlaylistExtras, Page, Playlist, PlaylistPatch, SearchKind, SearchResults,
+  Section, SpotifyList, StreamInfo, Track, User,
 } from "./types";
 
-export class HttpError extends Error {
-  constructor(public status: number, public url: string, body: string) {
-    super(`${status} from ${url}${body ? `: ${body.slice(0, 200)}` : ""}`);
-  }
+export interface HttpBackendOptions {
+  name?: string;
+  /** Called when `/me` rejects the token, so the app can forget an expired session. */
+  onUnauthorized?: () => void;
 }
 
-/** Talks to a REST server that follows the routes in BACKEND.md. */
+/** Talks to a REST server that follows BACKEND.md, plus the account routes in docs/hosted-api.md. */
 export class HttpBackend implements Backend {
-  readonly name = "HTTP";
+  readonly name: string;
+  private baseUrl: string;
+  private token: string | undefined;
+  private onUnauthorized: (() => void) | undefined;
 
-  constructor(private baseUrl: string, private token?: string) {
+  constructor(baseUrl: string, token?: string, options: HttpBackendOptions = {}) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
+    this.token = token || undefined;
+    this.name = options.name ?? "Custom server";
+    this.onUnauthorized = options.onUnauthorized;
   }
 
   private async request<T>(method: string, path: string, query?: Record<string, string | null | undefined>, body?: unknown): Promise<T> {
@@ -26,9 +34,10 @@ export class HttpBackend implements Backend {
     if (body !== undefined) headers["Content-Type"] = "application/json";
 
     const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-    if (!res.ok) throw new HttpError(res.status, url.toString(), await res.text().catch(() => ""));
+    if (!res.ok) throw parseApiError(res.status, await res.text().catch(() => ""), url.toString());
     if (res.status === 204) return undefined as T;
-    return res.json() as Promise<T>;
+    const text = await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;
   }
 
   private get<T>(path: string, query?: Record<string, string | null | undefined>) {
@@ -39,7 +48,11 @@ export class HttpBackend implements Backend {
     try {
       return await this.get<User>("/me");
     } catch (err) {
-      if (err instanceof HttpError && err.status === 401) return null;
+      if (err instanceof ApiError && err.status === 401) {
+        // With a token, a 401 means the session expired or was revoked.
+        if (this.token && isUnauthorized(err)) this.onUnauthorized?.();
+        return null;
+      }
       throw err;
     }
   }
@@ -81,7 +94,34 @@ export class HttpBackend implements Backend {
   postComment(id: Id, body: string, timestamp: number | null) {
     return this.request<Comment>("POST", `/tracks/${encodeURIComponent(id)}/comments`, undefined, { body, timestamp });
   }
-  createPlaylist(title: string, trackIds: Id[], isPublic: boolean) {
-    return this.request<Playlist>("POST", "/me/playlists", undefined, { title, trackIds, public: isPublic });
+
+  signup(username: string, email: string, password: string) {
+    return this.request<AuthSession>("POST", "/auth/signup", undefined, { username, email, password });
   }
+  login(login: string, password: string) {
+    return this.request<AuthSession>("POST", "/auth/login", undefined, { login, password });
+  }
+  logout() {
+    return this.request<void>("POST", "/auth/logout");
+  }
+  deleteAccount(password: string) {
+    return this.request<void>("DELETE", "/me", undefined, { password });
+  }
+
+  createPlaylist(title: string, trackIds: Id[], isPublic: boolean, extras: NewPlaylistExtras = {}) {
+    return this.request<Playlist>("POST", "/me/playlists", undefined, { title, trackIds, public: isPublic, ...extras });
+  }
+  updatePlaylist(id: Id, patch: PlaylistPatch) {
+    return this.request<Playlist>("PATCH", `/me/playlists/${encodeURIComponent(id)}`, undefined, patch);
+  }
+  deletePlaylist(id: Id) {
+    return this.request<void>("DELETE", `/me/playlists/${encodeURIComponent(id)}`);
+  }
+
+  addHistory(trackId: Id) {
+    return this.request<void>("POST", "/me/history", undefined, { trackId });
+  }
+  history(cursor?: string | null) { return this.get<Page<Track>>("/me/history", { cursor }); }
+
+  importSpotify(url: string) { return this.get<SpotifyList>("/import/spotify", { url }); }
 }

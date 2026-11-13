@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ChevronDown, ClipboardList, CloudUpload, ExternalLink, Link2, Monitor, RotateCcw, Save, TriangleAlert } from "lucide-vue-next";
-import { api } from "@/api";
+import { ChevronDown, ClipboardList, CloudUpload, ExternalLink, Link2, LogIn, Monitor, RotateCcw, Save, TriangleAlert } from "lucide-vue-next";
+import { api, ApiError, friendlyError, isUnauthorized, type SpotifyList } from "@/api";
 import Artwork from "@/components/Artwork.vue";
 import MatchPicker from "@/components/MatchPicker.vue";
 import { duration } from "@/lib/format";
@@ -20,21 +20,37 @@ const player = usePlayer();
 const ui = useUi();
 const router = useRouter();
 
-// Reading Spotify pages needs the main process; a plain browser tab can't.
+// A browser tab can't read Spotify's pages. The desktop app reads them in its
+// main process (full playlists); elsewhere the backend may read them for us.
 const desktop = !!window.stratus?.spotify;
+const viaBackend = computed(() => !desktop && typeof api.value.importSpotify === "function");
+const canReadLinks = computed(() => desktop || viaBackend.value);
 
-const tab = ref<"link" | "paste">(desktop ? "link" : "paste");
+const tab = ref<"link" | "paste">(canReadLinks.value ? "link" : "paste");
 const link = ref("");
 const pasted = ref("");
 const fetching = ref(false);
 const inputError = ref<string | null>(null);
 
+function readSpotify(url: string): Promise<SpotifyList> {
+  if (window.stratus?.spotify) return window.stratus.spotify.fetchPlaylist(url);
+  const read = api.value.importSpotify;
+  if (!read) throw new Error("Reading Spotify links needs the Stratus desktop app.");
+  return read.call(api.value, url).catch((err) => {
+    // A custom server without the route.
+    if (err instanceof ApiError && (err.status === 404 || err.status === 405) && !err.code) {
+      throw new Error("This server can't read Spotify links. Paste a track list instead.");
+    }
+    throw err;
+  });
+}
+
 async function importLink() {
-  if (!window.stratus?.spotify || !link.value.trim()) return;
+  if (!canReadLinks.value || !link.value.trim()) return;
   fetching.value = true;
   inputError.value = null;
   try {
-    const list = await window.stratus.spotify.fetchPlaylist(link.value);
+    const list = await readSpotify(link.value.trim());
     if (!list.tracks.length) throw new Error("That list has no tracks.");
     session.begin(
       { name: list.name, owner: list.owner, coverUrl: list.coverUrl, total: list.total, truncated: list.truncated, notice: list.notice, source: list.source, url: list.url },
@@ -42,7 +58,7 @@ async function importLink() {
     );
     saveName.value = list.name;
   } catch (err) {
-    inputError.value = (err as Error).message;
+    inputError.value = friendlyError(err);
   } finally {
     fetching.value = false;
   }
@@ -134,6 +150,8 @@ const saveName = ref(session.list?.name ?? "");
 const makePublic = ref(false);
 const saving = ref(false);
 const canSaveRemote = computed(() => typeof api.value.createPlaylist === "function");
+/** Saving to the account is possible once they sign in; the session waits here meanwhile. */
+const remoteNeedsSignIn = computed(() => canSaveRemote.value && library.accounts && library.signedOut);
 const leftOut = computed(() => session.rows.length - session.chosenTracks.length);
 
 function saveLocal() {
@@ -150,12 +168,15 @@ async function saveRemote() {
   if (!create || !tracks.length) return;
   saving.value = true;
   try {
-    const p = await create.call(api.value, saveName.value || "Imported playlist", tracks.map((t) => t.id), makePublic.value);
-    ui.notify(`Created "${p.title}" on SoundCloud`);
+    const title = saveName.value || session.list?.name || "Imported playlist";
+    const extras = session.list?.url ? { sourceUrl: session.list.url } : {};
+    const p = await create.call(api.value, title, tracks.map((t) => t.id), makePublic.value, extras);
+    ui.notify(`Saved "${p.title}" to your library`);
     void library.refresh();
     void router.push(`/playlist/${p.id}`);
   } catch (err) {
-    ui.notify(`Couldn't create the playlist: ${(err as Error).message}`);
+    if (isUnauthorized(err) && library.accounts) library.signIn("/import");
+    else ui.notify(`Couldn't save the playlist: ${friendlyError(err)}`);
   } finally {
     saving.value = false;
   }
@@ -186,7 +207,7 @@ function openExternal(url: string) {
       </div>
 
       <section v-if="tab === 'link'" class="card">
-        <div v-if="!desktop" class="notice">
+        <div v-if="!canReadLinks" class="notice">
           <Monitor :size="18" />
           <div>
             <strong>Importing from a link needs the Stratus desktop app.</strong>
@@ -196,16 +217,18 @@ function openExternal(url: string) {
         <form class="link-form" @submit.prevent="importLink">
           <input
             v-model="link"
-            :disabled="!desktop || fetching"
+            :disabled="!canReadLinks || fetching"
             placeholder="https://open.spotify.com/playlist/…"
             spellcheck="false"
             aria-label="Spotify playlist or album link"
           />
-          <button class="btn primary" type="submit" :disabled="!desktop || fetching || !link.trim()">
+          <button class="btn primary" type="submit" :disabled="!canReadLinks || fetching || !link.trim()">
             {{ fetching ? "Reading…" : "Import" }}
           </button>
         </form>
-        <p v-if="fetching" class="faint small">Playlists over 100 tracks take a few seconds while Stratus reads the full page.</p>
+        <p v-if="fetching" class="faint small">
+          {{ desktop ? "Playlists over 100 tracks take a few seconds while Stratus reads the full page." : "Reading the playlist through the Stratus server…" }}
+        </p>
       </section>
 
       <section v-else class="card">
@@ -258,13 +281,20 @@ function openExternal(url: string) {
 
       <div v-if="!session.matching && session.rows.length" class="save card">
         <input v-model="saveName" class="name" aria-label="Playlist name" placeholder="Playlist name" />
-        <button class="btn primary" :disabled="!session.chosenTracks.length" @click="saveLocal"><Save :size="15" /> Save locally</button>
-        <template v-if="canSaveRemote">
-          <button class="btn" :disabled="!session.chosenTracks.length || saving" @click="saveRemote">
-            <CloudUpload :size="15" /> {{ saving ? "Saving…" : "Save to SoundCloud" }}
+        <template v-if="remoteNeedsSignIn">
+          <button class="btn primary" :disabled="!session.chosenTracks.length" @click="library.signIn('/import')">
+            <LogIn :size="15" /> Sign in to save to my library
           </button>
-          <label class="check"><input v-model="makePublic" type="checkbox" /> Public</label>
         </template>
+        <template v-else-if="canSaveRemote">
+          <button class="btn primary" :disabled="!session.chosenTracks.length || saving" @click="saveRemote">
+            <CloudUpload :size="15" /> {{ saving ? "Saving…" : "Save to my library" }}
+          </button>
+        </template>
+        <button class="btn" :class="{ primary: !canSaveRemote }" :disabled="!session.chosenTracks.length" @click="saveLocal">
+          <Save :size="15" /> Save on this computer
+        </button>
+        <label v-if="canSaveRemote && !remoteNeedsSignIn" class="check"><input v-model="makePublic" type="checkbox" /> Public</label>
         <span class="faint small grow">
           Saves {{ session.chosenTracks.length }} tracks<template v-if="session.counts.check">, {{ session.counts.check }} of them worth checking</template>.
           <template v-if="leftOut"> {{ leftOut }} without a match are left out.</template>
@@ -297,7 +327,10 @@ function openExternal(url: string) {
             <template v-if="row.pick">
               <Artwork :src="row.pick.track.artworkUrl" :size="36" :radius="5" />
               <span class="text">
-                <span class="name ellipsis">{{ row.pick.track.title }}</span>
+                <span class="name-line">
+                  <span class="name ellipsis">{{ row.pick.track.title }}</span>
+                  <span v-if="row.pick.track.preview" class="preview-pill" title="Only a 30-second preview can be played">Preview</span>
+                </span>
                 <span class="by ellipsis">{{ row.pick.track.user.username }} · {{ duration(row.pick.track.duration) }}</span>
               </span>
             </template>
@@ -400,6 +433,7 @@ textarea { width: 100%; resize: vertical; font: 12.5px/1.5 ui-monospace, "SF Mon
 .sp, .text { display: flex; flex-direction: column; min-width: 0; }
 .sc { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .name { font-weight: 600; }
+.name-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .by { font-size: 12px; color: var(--text-2); }
 .r.skipped .sc, .r.none .sc { opacity: 0.55; }
 .line { width: 70%; height: 30px; }
