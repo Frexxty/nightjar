@@ -3,7 +3,8 @@
 // artist, and a scrubbable mini waveform that shows elapsed/remaining on hover.
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import { AudioLines, Maximize2 } from "lucide-vue-next";
+import { Maximize2 } from "lucide-vue-next";
+import logoMark from "@/assets/logo-mark.svg?raw";
 import { seconds } from "@/lib/format";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
@@ -46,9 +47,7 @@ const remaining = computed(() => Math.max(0, player.duration - player.currentTim
         />
       </div>
     </template>
-    <div v-else class="idle-mark">
-      <AudioLines :size="20" />
-    </div>
+    <div v-else class="idle-mark" aria-hidden="true" v-html="logoMark" />
   </div>
 </template>
 
@@ -63,6 +62,7 @@ const remaining = computed(() => Math.max(0, player.duration - player.currentTim
   overflow: hidden;
 }
 .lcd.idle { justify-content: center; align-items: center; color: var(--text-3); }
+.idle-mark { display: flex; width: 28px; height: 17px; opacity: 0.8; }
 .art { position: relative; flex: none; }
 .expand {
   position: absolute;
