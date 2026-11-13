@@ -71,7 +71,7 @@ function menu(event: MouseEvent) {
       {{ title }}
       <BadgeCheck v-if="kind === 'user' && item.verified" :size="13" class="verified" />
     </RouterLink>
-    <RouterLink v-if="kind !== 'user'" :to="`/user/${item.user.id}`" class="subtitle ellipsis">{{ subtitle }}</RouterLink>
+    <RouterLink v-if="kind !== 'user' && item.user.id !== 'local'" :to="`/user/${item.user.id}`" class="subtitle ellipsis">{{ subtitle }}</RouterLink>
     <div v-else class="subtitle ellipsis">{{ subtitle }}</div>
   </div>
 </template>
