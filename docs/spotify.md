@@ -1,0 +1,71 @@
+# Spotify playback (Premium)
+
+Stratus can play music from two sources:
+
+- **SoundCloud** (free). Catalogue and streams through the Stratus backend. Imported Spotify playlists are matched against SoundCloud uploads; many songs aren't on SoundCloud.
+- **Spotify** (Premium). The user signs in with their Spotify account and Stratus plays Spotify's own audio through the official [Web Playback SDK](https://developer.spotify.com/documentation/web-playback-sdk), or remote-controls their Spotify app through the Web API's Connect endpoints. Imported Spotify playlists play as-is, no matching.
+
+The user picks one on first run (`/welcome`) and can change it in Settings.
+
+## Why each user brings a Client ID
+
+Since February 2026 a Spotify developer app in Development Mode must be owned by a Premium account and allows 5 users; more users need a registered business with 250k MAU. An open-source app therefore can't ship one shared Client ID. Each user creates their own app at https://developer.spotify.com/dashboard (free with their Premium account), adds the redirect URIs below, and pastes the Client ID into Stratus. Only the Client ID is used (Authorization Code with PKCE); there is no client secret anywhere.
+
+Redirect URIs the user adds to their Spotify app:
+
+- Desktop: `http://127.0.0.1:43821/callback`
+- Web player: `https://stratus-app.k3s.lat/spotify-callback`
+
+Scopes: `streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative user-library-read user-library-modify user-follow-read`.
+
+## Shared types and IDs
+
+`Track` (src/api/types.ts) gains:
+
+- `source?: "soundcloud" | "spotify"`. Missing means `"soundcloud"`.
+- `uri?: string | null`. Spotify URI, e.g. `spotify:track:4uLU6hMCjMI75M1A2tKUQC`.
+- `album?: { id: Id; title: string; artworkUrl: string | null } | null`.
+
+IDs of Spotify objects are their URIs, so they never collide with SoundCloud's numeric IDs and routes can tell them apart by prefix:
+
+| Kind | `id` | Route |
+| --- | --- | --- |
+| Track | `spotify:track:<id>` | `/track/spotify:track:<id>` |
+| Artist (a `User` in Stratus terms) | `spotify:artist:<id>` | `/user/spotify:artist:<id>` |
+| Playlist | `spotify:playlist:<id>` | `/playlist/spotify:playlist:<id>` |
+| Album (a `Playlist` with `isAlbum: true`) | `spotify:album:<id>` | `/playlist/spotify:album:<id>` |
+
+Helper: `isSpotifyId(id)` in `src/spotify/ids.ts`.
+
+Spotify has no waveform data (audio-analysis is deprecated), so `waveform` is null for Spotify tracks; the UI draws its flat line. Comments don't exist on Spotify; the comments drawer says so for Spotify tracks.
+
+## Modules
+
+| Path | Owns |
+| --- | --- |
+| `src/spotify/ids.ts` | `isSpotifyId`, URI parsing |
+| `src/spotify/auth.ts` | Pinia store `useSpotify()`: `clientId`, `status` (`"disconnected" \| "connecting" \| "connected" \| "error"`), `profile` (`{ id, displayName, product, country }`), `isPremium`, `connect()`, `disconnect()`, `accessToken(): Promise<string>` (refreshes when needed). Tokens persist (Electron: main-process `safeStorage`; web: localStorage). |
+| `electron/spotify-auth.cjs` | Desktop OAuth: IPC `spotify-auth:authorize(authorizeUrl)` opens the system browser and listens once on `127.0.0.1:43821/callback`, resolves `{ code, state }` or an error, closes the server, times out after 5 minutes. |
+| `src/spotify/api.ts` | Web API client: bearer from `accessToken()`, retries once on 401 after refresh, honours 429 `Retry-After`. |
+| `src/spotify/catalogue.ts` | Maps Spotify objects to Stratus types and serves: search (tracks, artists, playlists, albums), track, album, playlist (paged items), artist (+ top tracks, albums), the user's saved tracks ("Liked Songs"), the user's playlists, save/unsave track. |
+| `src/player/engines.ts` | `PlaybackEngine` interface used by the player store: `load(track, { autoplay, startAt })`, `play()`, `pause()`, `seek(seconds)`, `setVolume(0..1)`, `destroy()`, events for time, duration, state, ended, error. `HtmlAudioEngine` (today's `<audio>` + hls.js), `SpotifySdkEngine` (Web Playback SDK device inside Stratus), `SpotifyConnectEngine` (controls another Spotify device: the phone's Spotify app). The player store picks the engine from `track.source` and settings. |
+| `src/views/WelcomeView.vue` | First-run source choice and Spotify setup guide. |
+
+Queue, shuffle, repeat and autoplay stay in Stratus's player store for both sources. For Spotify tracks the engine plays one URI at a time (`PUT /me/player/play` with `uris: [uri]` on the SDK device) and reports `ended` from the SDK state, so mixed SoundCloud and Spotify queues work.
+
+## Settings
+
+`settings.musicSource: "soundcloud" | "spotify" | null`. `null` means not chosen yet and sends the user to `/welcome` on launch. `settings.spotifyPlayback: "this-device" | "remote"` (web player on phones defaults to `"remote"`, desktop to `"this-device"`).
+
+## Saving Spotify tracks in a Stratus account
+
+The hosted backend can't call Spotify (it has no user token), so for IDs starting with `spotify:` the client sends a snapshot of the `Track` and the server stores it as-is:
+
+- `POST /v1/me/playlists` and `PATCH /v1/me/playlists/{id}` accept `tracks: Track[]` (snapshots) in addition to `trackIds`. Order is the order of `tracks` when given. Entries with `spotify:` IDs are stored as snapshots; SoundCloud IDs are still hydrated live.
+- `PUT /v1/me/likes/tracks/{id}` accepts an optional JSON body `{ "track": Track }`, required when `id` starts with `spotify:`.
+- `POST /v1/me/history` accepts `{ "trackId", "track"? }`, `track` required for `spotify:` IDs.
+- Reads return the stored snapshot for Spotify IDs, mixed in order with hydrated SoundCloud tracks.
+
+## Desktop Widevine
+
+Spotify's audio is DRM-protected (Widevine). Stock Electron has no Widevine CDM, so Stratus uses castlabs' Electron for Content Security (the same approach Cider uses for Apple Music), waits for `components.whenReady()` before loading the SDK, and VMP-signs release builds with castlabs EVS in CI. Linux and unsigned dev builds can play in development; signed builds are needed where Spotify enforces VMP.

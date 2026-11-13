@@ -47,6 +47,11 @@ export interface Track {
   streamable: boolean;
   /** True when only a 30-second preview can be played (SoundCloud Go+ tracks). */
   preview?: boolean;
+  /** Where the audio comes from. Missing means "soundcloud". See docs/spotify.md. */
+  source?: "soundcloud" | "spotify";
+  /** Spotify URI for Spotify tracks, e.g. "spotify:track:…". */
+  uri?: string | null;
+  album?: { id: Id; title: string; artworkUrl: string | null } | null;
   liked?: boolean;
   reposted?: boolean;
 }
