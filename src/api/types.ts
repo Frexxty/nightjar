@@ -168,6 +168,32 @@ export interface Backend {
 
   /** Reads a Spotify playlist or album server-side, for browsers that can't read Spotify pages themselves. */
   importSpotify?(url: string): Promise<SpotifyList>;
+
+  // Spotify sign-in kept in the account, shared by all its devices (docs/hosted-api.md).
+  spotifyLink?(): Promise<SpotifyAccountLink>;
+  linkSpotify?(input: { clientId: string; refreshToken: string; profile?: SpotifyLinkProfile | null }): Promise<SpotifyAccountLink & SpotifyAccessToken>;
+  spotifyToken?(force?: boolean): Promise<SpotifyAccessToken>;
+  updateSpotifyProfile?(profile: SpotifyLinkProfile): Promise<SpotifyAccountLink>;
+  unlinkSpotify?(): Promise<void>;
+}
+
+export interface SpotifyLinkProfile {
+  id: string;
+  displayName: string;
+  product: string | null;
+  country: string | null;
+  avatarUrl: string | null;
+}
+
+/** Whether the account holds a Spotify sign-in. Never carries tokens. */
+export type SpotifyAccountLink =
+  | { connected: false }
+  | { connected: true; clientId: string; scope: string; profile: SpotifyLinkProfile | null; updatedAt: string };
+
+export interface SpotifyAccessToken {
+  accessToken: string;
+  /** ISO 8601. */
+  expiresAt: string;
 }
 
 /** A Spotify track as read from a playlist or album page. */

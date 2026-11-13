@@ -1,7 +1,7 @@
 import { ApiError, isUnauthorized, parseApiError } from "./errors";
 import type {
   AuthSession, Backend, Comment, FeedItem, Id, NewPlaylistExtras, Page, Playlist, PlaylistPatch, SearchKind, SearchResults,
-  Section, SpotifyList, StreamInfo, Track, User,
+  Section, SpotifyAccessToken, SpotifyAccountLink, SpotifyLinkProfile, SpotifyList, StreamInfo, Track, User,
 } from "./types";
 import { isSpotifyTrackId, snapshotsFor, trackSnapshot } from "./snapshot";
 
@@ -134,4 +134,12 @@ export class HttpBackend implements Backend {
   history(cursor?: string | null) { return this.get<Page<Track>>("/me/history", { cursor }); }
 
   importSpotify(url: string) { return this.get<SpotifyList>("/import/spotify", { url }); }
+
+  spotifyLink() { return this.get<SpotifyAccountLink>("/me/spotify"); }
+  linkSpotify(input: { clientId: string; refreshToken: string; profile?: SpotifyLinkProfile | null }) {
+    return this.request<SpotifyAccountLink & SpotifyAccessToken>("PUT", "/me/spotify", undefined, input);
+  }
+  spotifyToken(force = false) { return this.request<SpotifyAccessToken>("POST", "/me/spotify/token", undefined, { force }); }
+  updateSpotifyProfile(profile: SpotifyLinkProfile) { return this.request<SpotifyAccountLink>("PATCH", "/me/spotify", undefined, { profile }); }
+  unlinkSpotify() { return this.request<void>("DELETE", "/me/spotify"); }
 }

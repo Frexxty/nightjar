@@ -249,6 +249,12 @@ function apply() {
         <label>Client ID</label>
         <code class="client-id">{{ maskedClientId }}</code>
       </div>
+      <p v-if="spotify.connected && spotify.viaAccount" class="faint small hint">
+        Saved in your Stratus account, so your other signed-in devices use it too. Disconnect disconnects all of them.
+      </p>
+      <p v-else-if="spotify.connected && library.accounts" class="faint small hint">
+        Only on this device. Sign in to your Stratus account and it's shared with your other devices.
+      </p>
       <p v-if="spotify.connected && !spotify.isPremium" class="error small hint">
         Spotify only plays in other apps for Premium accounts, so Spotify songs won't play with this account.
       </p>

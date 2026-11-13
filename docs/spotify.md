@@ -18,6 +18,10 @@ Redirect URIs the user adds to their Spotify app:
 
 Scopes: `streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative user-library-read user-library-modify user-follow-read`.
 
+## One sign-in for all devices
+
+When the user is signed in to a Stratus account on the hosted backend, connecting Spotify hands the refresh token to the account (`PUT /v1/me/spotify`) and the device keeps only short-lived access tokens, fetched from `POST /v1/me/spotify/token`. Every other device signed in to the same account is connected without signing in to Spotify, and a new device skips the source question. A sign-in made while signed out stays on that device and moves to the account the first time the user signs in. Disconnecting while signed in disconnects all devices. See docs/hosted-api.md, "Spotify sign-in".
+
 ## Shared types and IDs
 
 `Track` (src/api/types.ts) gains:

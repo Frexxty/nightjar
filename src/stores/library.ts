@@ -54,6 +54,8 @@ export const useLibrary = defineStore("library", () => {
     me.value = user;
     playlists.value = owned;
     ready.value = true;
+    // The account may hold a Spotify sign-in this device should use (or stop using).
+    void useSpotify().syncAccount(user ? `${backend.name}:${user.id}` : null);
   }
 
   onSessionExpired(() => ui.notify("Signed out, please sign in again"));

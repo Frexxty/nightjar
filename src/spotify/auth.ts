@@ -2,8 +2,15 @@
 // user's own Spotify developer app (docs/spotify.md explains why). Desktop
 // gets the code through a loopback server in the main process; the web player
 // redirects the page and finishes in `completeWebCallback` at boot.
+//
+// When the user is signed in to a Stratus account, the account keeps the
+// sign-in ("account" mode): the server holds the refresh token and hands out
+// access tokens, so every signed-in device is connected after one sign-in.
+// Spotify rotates refresh tokens on use, so devices must not keep copies.
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { api, errorCode, isUnauthorized, type Backend, type SpotifyAccountLink } from "@/api";
+import { useSettings } from "@/stores/settings";
 import {
   authorizeUrl, callbackErrorMessage, challengeFor, DESKTOP_REDIRECT_URI, isClientId, needsRefresh, randomState, randomVerifier,
   readTokenReply, TOKEN_URL, tokenErrorMessage, WEB_CALLBACK_PATH, type CallbackResult, type TokenSet,
@@ -80,6 +87,14 @@ export const useSpotify = defineStore("spotify", () => {
   let tokens: TokenSet | null = null;
   let refreshing: Promise<TokenSet> | null = null;
   let ready: Promise<void> | null = null;
+  /** "account": the Stratus account holds the sign-in and hands out tokens. "local": this device keeps its own. */
+  const mode = ref<"local" | "account">("local");
+  /** Signed in to a Stratus server that can keep the Spotify sign-in. */
+  const accountAvailable = ref(false);
+  let accountToken: { token: string; expiresAt: number } | null = null;
+  let accountFetch: Promise<string> | null = null;
+  /** The Stratus account the current state belongs to; `undefined` until the library first reports one. */
+  let accountKey: string | null | undefined;
 
   const connected = computed(() => status.value === "connected");
   /**
@@ -123,9 +138,80 @@ export const useSpotify = defineStore("spotify", () => {
     return readJson<TokenSet>(TOKENS_KEY);
   }
 
+  const linkApi = (): Backend | null => {
+    const b = api.value;
+    return b.spotifyLink && b.linkSpotify && b.spotifyToken ? b : null;
+  };
+
+  function applyLink(link: Extract<SpotifyAccountLink, { connected: true }>) {
+    mode.value = "account";
+    setClientId(link.clientId);
+    if (link.profile) {
+      profile.value = link.profile;
+      writeJson(PROFILE_KEY, profile.value);
+    }
+    status.value = "connected";
+    error.value = null;
+    // A new device signed in to an account that already uses Spotify skips the source question.
+    const settings = useSettings();
+    if (settings.musicSource == null) settings.musicSource = "spotify";
+  }
+
+  /** Hands a fresh refresh token to the account. The server rotates it at once, so this device's copy is spent. */
+  async function pushToAccount(refreshToken: string) {
+    const b = linkApi();
+    if (!b) throw new Error("This server can't keep a Spotify sign-in.");
+    const reply = await b.linkSpotify!({ clientId: clientId.value, refreshToken, profile: profile.value });
+    if (!reply.connected) throw new Error("The server didn't keep the Spotify sign-in.");
+    accountToken = { token: reply.accessToken, expiresAt: Date.parse(reply.expiresAt) };
+    applyLink(reply);
+    tokens = null;
+    await saveTokens(null).catch(() => {});
+  }
+
+  /** True when the account has a Spotify sign-in (possibly just handed over from this device). */
+  async function loadFromAccount(): Promise<boolean> {
+    const b = linkApi();
+    accountAvailable.value = false;
+    if (!b) return false;
+    let link: SpotifyAccountLink;
+    try {
+      link = await b.spotifyLink!();
+    } catch (err) {
+      if (isUnauthorized(err)) return false;
+      throw err;
+    }
+    accountAvailable.value = true;
+    if (link.connected) {
+      applyLink(link);
+      return true;
+    }
+    // Signed in, but the account has no Spotify yet: hand over this device's sign-in if there is one.
+    const local = await loadTokens();
+    if (local?.refreshToken && isClientId(clientId.value)) {
+      try {
+        await pushToAccount(local.refreshToken);
+        return true;
+      } catch {
+        // Keep using it on this device.
+      }
+    }
+    return false;
+  }
+
   /** Loads a saved session. Safe to call many times; runs once. */
   function init() {
     ready ??= (async () => {
+      let viaAccount = false;
+      try {
+        viaAccount = await loadFromAccount();
+      } catch {
+        // Server unreachable: fall back to whatever this device has.
+      }
+      if (viaAccount) {
+        void loadProfile().catch(() => {});
+        return;
+      }
       tokens = await loadTokens();
       if (!tokens) return;
       status.value = "connected";
@@ -133,6 +219,55 @@ export const useSpotify = defineStore("spotify", () => {
       void loadProfile().catch(() => {});
     })();
     return ready;
+  }
+
+  /**
+   * Called when the Stratus account changes (sign-in, sign-out, backend switch).
+   * The first call only records the account, since `init` already asked the server.
+   */
+  async function syncAccount(key: string | null) {
+    if (key === accountKey) return;
+    const first = accountKey === undefined;
+    accountKey = key;
+    if (first && ready) return;
+    const wasAccount = mode.value === "account";
+    mode.value = "local";
+    accountToken = null;
+    if (wasAccount) {
+      status.value = "disconnected";
+      profile.value = null;
+      writeJson(PROFILE_KEY, null);
+    }
+    ready = null;
+    await init();
+  }
+
+  async function accountAccessToken(force: boolean): Promise<string> {
+    if (!force && accountToken && accountToken.expiresAt - 60_000 > Date.now()) return accountToken.token;
+    accountFetch ??= (async () => {
+      const b = linkApi();
+      try {
+        if (!b) throw new SpotifyAuthError("Connect Spotify in Settings to use Spotify.");
+        const t = await b.spotifyToken!(force);
+        accountToken = { token: t.accessToken, expiresAt: Date.parse(t.expiresAt) };
+        return t.accessToken;
+      } catch (err) {
+        const code = errorCode(err);
+        if (code === "spotify_reauth" || code === "spotify_not_linked" || isUnauthorized(err)) {
+          mode.value = "local";
+          accountToken = null;
+          const message = isUnauthorized(err)
+            ? "Sign in to your Stratus account again to use Spotify."
+            : "Your Spotify sign-in ended. Connect Spotify again.";
+          fail(message);
+          throw new SpotifyAuthError(message, code);
+        }
+        throw err;
+      } finally {
+        accountFetch = null;
+      }
+    })();
+    return accountFetch;
   }
 
   async function postToken(params: Record<string, string>): Promise<Record<string, unknown>> {
@@ -153,10 +288,23 @@ export const useSpotify = defineStore("spotify", () => {
 
   async function exchange(code: string, verifier: string, redirect: string, id: string) {
     const body = await postToken({ grant_type: "authorization_code", code, redirect_uri: redirect, client_id: id, code_verifier: verifier });
-    await saveTokens(readTokenReply(body, Date.now()));
-    status.value = "connected";
-    error.value = null;
+    const next = readTokenReply(body, Date.now());
     sdkRejected.value = null;
+    error.value = null;
+    if (accountAvailable.value && next.refreshToken) {
+      // Read the profile with the fresh token first, so the account gets it too.
+      tokens = next;
+      mode.value = "local";
+      await loadProfile().catch(() => {});
+      try {
+        await pushToAccount(next.refreshToken);
+        return;
+      } catch {
+        // The server couldn't take it; keep the sign-in on this device instead.
+      }
+    }
+    await saveTokens(next);
+    status.value = "connected";
     await loadProfile().catch(() => {});
   }
 
@@ -261,6 +409,7 @@ export const useSpotify = defineStore("spotify", () => {
   /** A valid access token, refreshed when it's within a minute of expiring. `force` refreshes regardless (after a 401). */
   async function accessToken(force = false): Promise<string> {
     await init();
+    if (mode.value === "account") return accountAccessToken(force);
     if (!tokens) throw new SpotifyAuthError("Connect Spotify in Settings to use Spotify.");
     if (force || needsRefresh(tokens, Date.now())) return (await refresh()).accessToken;
     return tokens.accessToken;
@@ -271,14 +420,18 @@ export const useSpotify = defineStore("spotify", () => {
     const res = await fetch("https://api.spotify.com/v1/me", { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) throw new Error(`GET /me ${res.status}`);
     const me = await res.json();
-    profile.value = {
+    const next: SpotifyProfile = {
       id: me.id,
       displayName: me.display_name || me.id,
       product: typeof me.product === "string" ? me.product : null,
       country: typeof me.country === "string" ? me.country : null,
       avatarUrl: me.images?.[0]?.url ?? null,
     };
+    const changed = JSON.stringify(next) !== JSON.stringify(profile.value);
+    profile.value = next;
     writeJson(PROFILE_KEY, profile.value);
+    // Other devices show the account's copy until they load their own.
+    if (changed && mode.value === "account") void linkApi()?.updateSpotifyProfile?.(next).catch(() => {});
   }
 
   /** The SDK's `account_error`: the account can't stream (Free, or Premium Lite/Mini, which `/me` calls "premium"). */
@@ -289,6 +442,10 @@ export const useSpotify = defineStore("spotify", () => {
 
   async function disconnect() {
     desktop()?.cancel().catch(() => {});
+    // Disconnecting while signed in disconnects every device on the account.
+    if (mode.value === "account") await linkApi()?.unlinkSpotify?.().catch(() => {});
+    mode.value = "local";
+    accountToken = null;
     await saveTokens(null).catch(() => {});
     profile.value = null;
     writeJson(PROFILE_KEY, null);
@@ -297,8 +454,11 @@ export const useSpotify = defineStore("spotify", () => {
     error.value = null;
   }
 
+  /** The Stratus account holds this sign-in, so the user's other devices share it. */
+  const viaAccount = computed(() => mode.value === "account");
+
   return {
-    clientId, status, error, profile, connected, isPremium, premiumMessage, sdkRejected, redirectUri,
-    setClientId, init, connect, disconnect, accessToken, completeWebCallback, markNotPremium, loadProfile,
+    clientId, status, error, profile, connected, isPremium, premiumMessage, sdkRejected, redirectUri, viaAccount, accountAvailable,
+    setClientId, init, connect, disconnect, accessToken, completeWebCallback, markNotPremium, loadProfile, syncAccount,
   };
 });

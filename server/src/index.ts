@@ -14,6 +14,9 @@ import { cleanSnapshot, isSpotifyTrackId, isTrackRef, mergeInOrder, readTrackLis
 import { cachedJson, hydrateTracks } from "./soundcloud.ts";
 import { ImportError, fetchSpotifyList, parseSpotifyRef } from "./spotify.ts";
 import { fetchViaBrowser } from "./spotify-browser.ts";
+import {
+  type LinkRow, SpotifyGrantError, cachedTokenUsable, cleanProfile, importKey, open, publicLink, readLinkInput, refreshAtSpotify, seal,
+} from "./spotifyLink.ts";
 import type { Playlist, Section, Track, UserSummary } from "./types.ts";
 
 interface Req {
@@ -134,9 +137,117 @@ route("DELETE", "/me", async (r) => {
   const ok = password && (await verifyPassword(password, { hash: account.pw_hash, salt: account.pw_salt, iterations: account.pw_iterations }));
   if (!ok) throw new ApiError(401, "invalid_credentials", "That password isn't right.");
   const db = r.env.DB;
-  await db.batch(["sessions", "likes", "reposts", "follows", "playlists", "history", "track_snapshots"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?1`).bind(account.id))
+  await db.batch(["sessions", "likes", "reposts", "follows", "playlists", "history", "track_snapshots", "spotify_links"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?1`).bind(account.id))
     .concat(db.prepare("DELETE FROM users WHERE id = ?1").bind(account.id)));
   return noContent();
+}, true);
+
+// ---------------------------------------------------------------------------
+// Spotify sign-in, shared by all of an account's devices (src/spotifyLink.ts)
+
+const loadLink = (r: Req, userId: string) =>
+  r.env.DB.prepare("SELECT * FROM spotify_links WHERE user_id = ?1").bind(userId).first<LinkRow>();
+
+const tokenBody = (accessToken: string, expiresAt: number) => ({ accessToken, expiresAt: new Date(expiresAt).toISOString() });
+
+route("GET", "/me/spotify", async (r) => json(publicLink(await loadLink(r, me(r).id)), 200, { "Cache-Control": "no-store" }), true);
+
+// Takes over a device's fresh sign-in. The server refreshes once right away, which
+// both checks the token and rotates it, so the device's copy is spent and only the
+// server's stays valid.
+route("PUT", "/me/spotify", async (r) => {
+  const account = me(r);
+  await rateLimit(r.env, r.request, "spotify-link", 20);
+  const input = readLinkInput(await readJson(r.request, 8192));
+  const key = await importKey(r.env.SPOTIFY_TOKEN_KEY);
+  const now = Date.now();
+  let reply;
+  try {
+    reply = await refreshAtSpotify(input.clientId, input.refreshToken, now);
+  } catch (err) {
+    if (err instanceof SpotifyGrantError) throw new ApiError(400, "spotify_rejected", "Spotify didn't accept that sign-in. Connect Spotify again.");
+    throw err;
+  }
+  await r.env.DB.prepare(
+    `INSERT INTO spotify_links (user_id, client_id, refresh_enc, access_enc, access_expires_at, scope, profile_json, version, lock_until, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, NULL, ?8)
+     ON CONFLICT (user_id) DO UPDATE SET client_id = ?2, refresh_enc = ?3, access_enc = ?4, access_expires_at = ?5, scope = ?6,
+       profile_json = COALESCE(?7, profile_json), version = version + 1, lock_until = NULL, updated_at = ?8`,
+  ).bind(
+    account.id, input.clientId, await seal(key, reply.refreshToken, account.id), await seal(key, reply.accessToken, account.id),
+    reply.expiresAt, reply.scope, input.profile ? JSON.stringify(input.profile) : null, now,
+  ).run();
+  return json({ ...publicLink(await loadLink(r, account.id)), ...tokenBody(reply.accessToken, reply.expiresAt) }, 200, { "Cache-Control": "no-store" });
+}, true);
+
+route("PATCH", "/me/spotify", async (r) => {
+  const account = me(r);
+  const body = await readJson(r.request, 8192);
+  const profile = cleanProfile(body.profile);
+  if (!profile) throw badInput("Send a profile with at least an id.");
+  const res = await r.env.DB.prepare("UPDATE spotify_links SET profile_json = ?1 WHERE user_id = ?2").bind(JSON.stringify(profile), account.id).run();
+  if (!res.meta.changes) throw new ApiError(404, "spotify_not_linked", "This account isn't connected to Spotify.");
+  return json(publicLink(await loadLink(r, account.id)));
+}, true);
+
+route("DELETE", "/me/spotify", async (r) => {
+  await r.env.DB.prepare("DELETE FROM spotify_links WHERE user_id = ?1").bind(me(r).id).run();
+  return noContent();
+}, true);
+
+// A valid access token. Hands out the cached one while it has 5+ minutes left;
+// otherwise one request takes the lock and refreshes while others wait for it.
+route("POST", "/me/spotify/token", async (r) => {
+  const account = me(r);
+  const body = await readJson(r.request, 1024);
+  const force = body.force === true;
+  const key = await importKey(r.env.SPOTIFY_TOKEN_KEY);
+  const noStore = { "Cache-Control": "no-store" };
+  const notLinked = () => new ApiError(404, "spotify_not_linked", "This account isn't connected to Spotify.");
+
+  let row = await loadLink(r, account.id);
+  if (!row) throw notLinked();
+  const now = Date.now();
+  if (cachedTokenUsable(row, now, force)) return json(tokenBody(await open(key, row.access_enc!, account.id), row.access_expires_at!), 200, noStore);
+
+  const lock = await r.env.DB.prepare("UPDATE spotify_links SET lock_until = ?1 WHERE user_id = ?2 AND (lock_until IS NULL OR lock_until < ?3)")
+    .bind(now + 20_000, account.id, now).run();
+  if (!lock.meta.changes) {
+    // Another device is refreshing right now: wait for its result instead of spending the refresh token twice.
+    const seen = row.version;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((res) => setTimeout(res, 400));
+      row = await loadLink(r, account.id);
+      if (!row) throw notLinked();
+      if (row.version !== seen && cachedTokenUsable(row, Date.now(), false)) {
+        return json(tokenBody(await open(key, row.access_enc!, account.id), row.access_expires_at!), 200, noStore);
+      }
+    }
+    throw new ApiError(503, "spotify_busy", "Spotify sign-in is busy. Try again in a moment.", { "Retry-After": "2" });
+  }
+
+  try {
+    row = (await loadLink(r, account.id))!;
+    let reply;
+    try {
+      reply = await refreshAtSpotify(row.client_id, await open(key, row.refresh_enc, account.id), Date.now());
+    } catch (err) {
+      if (err instanceof SpotifyGrantError) {
+        // Revoked in Spotify's settings, the app was deleted, or the token was used elsewhere. Only a new sign-in fixes it.
+        await r.env.DB.prepare("DELETE FROM spotify_links WHERE user_id = ?1 AND version = ?2").bind(account.id, row.version).run();
+        throw new ApiError(409, "spotify_reauth", "Your Spotify sign-in ended. Connect Spotify again.");
+      }
+      throw err;
+    }
+    await r.env.DB.prepare(
+      `UPDATE spotify_links SET refresh_enc = ?1, access_enc = ?2, access_expires_at = ?3, scope = COALESCE(NULLIF(?4, ''), scope),
+         version = version + 1, lock_until = NULL, updated_at = ?5 WHERE user_id = ?6`,
+    ).bind(await seal(key, reply.refreshToken, account.id), await seal(key, reply.accessToken, account.id), reply.expiresAt, reply.scope, Date.now(), account.id).run();
+    return json(tokenBody(reply.accessToken, reply.expiresAt), 200, noStore);
+  } finally {
+    // Released on success by the UPDATE above; this covers errors.
+    await r.env.DB.prepare("UPDATE spotify_links SET lock_until = NULL WHERE user_id = ?1 AND lock_until IS NOT NULL").bind(account.id).run().catch(() => {});
+  }
 }, true);
 
 // ---------------------------------------------------------------------------

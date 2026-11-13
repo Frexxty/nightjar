@@ -103,3 +103,19 @@ The server caches SoundCloud responses with the Cache API: search 5 minutes, tra
 ## CORS
 
 `Access-Control-Allow-Origin: *`, allowed headers `Authorization, Content-Type`, methods `GET, POST, PUT, PATCH, DELETE, OPTIONS`. No cookies are used.
+
+## Spotify sign-in
+
+A Stratus account can keep the user's Spotify sign-in so every device signed in to the account is connected after one sign-in (docs/spotify.md). Spotify rotates the refresh token every time it's used, so devices never keep their own copy: the server holds it, refreshes it, and hands out access tokens.
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/v1/me/spotify` | | `{ "connected": false }` or `{ "connected": true, "clientId", "scope", "profile", "updatedAt" }`. Never contains tokens. |
+| PUT | `/v1/me/spotify` | `{ "clientId": string, "refreshToken": string, "profile"?: { id, displayName, product, country, avatarUrl } }` | The link plus `{ "accessToken", "expiresAt" }`. The server refreshes once immediately, which checks the token and rotates it, so the device's copy is spent. 400 `spotify_rejected` if Spotify refuses it. |
+| POST | `/v1/me/spotify/token` | `{ "force"?: boolean }` | `{ "accessToken", "expiresAt" }`. Reuses the cached token while it has 5 or more minutes left; `force` after a 401 from Spotify. 404 `spotify_not_linked`, 409 `spotify_reauth` (revoked; the link is removed and the user connects again), 503 `spotify_busy` with `Retry-After` in the rare case another device's refresh is still running. |
+| PATCH | `/v1/me/spotify` | `{ "profile": … }` | The link. Updates the stored profile shown on other devices. |
+| DELETE | `/v1/me/spotify` | | 204. Disconnects every device on the account. |
+
+- Tokens are encrypted with AES-256-GCM using the Worker secret `SPOTIFY_TOKEN_KEY` (32 random bytes, base64url, set with `wrangler secret put SPOTIFY_TOKEN_KEY`), with the account ID as authenticated data. Without the secret these routes answer 503 `not_configured`.
+- Refreshes take a 20-second per-account lock, so two devices asking at the same moment don't spend the same refresh token twice; the second one waits for the first one's result.
+- Deleting the account deletes the link.

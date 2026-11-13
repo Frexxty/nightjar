@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ArrowLeft, ArrowRight, Check, Copy, ExternalLink, Loader2, TriangleAlert } from "lucide-vue-next";
 import logoMark from "@/assets/logo-mark.svg?raw";
 import Artwork from "@/components/Artwork.vue";
 import { useSpotify } from "@/spotify/auth";
+import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
 
@@ -12,6 +13,7 @@ const route = useRoute();
 const router = useRouter();
 const settings = useSettings();
 const spotify = useSpotify();
+const library = useLibrary();
 const ui = useUi();
 
 const DASHBOARD = "https://developer.spotify.com/dashboard";
@@ -25,6 +27,15 @@ const step = computed(() => (route.query.step === "spotify" ? "spotify" : "choos
 const fromSettings = computed(() => route.query.from === "settings");
 
 onMounted(() => void spotify.init());
+
+// A new device signed in to an account that already uses Spotify has nothing to set up.
+watch(
+  () => spotify.viaAccount,
+  (shared) => {
+    if (shared && step.value === "choose" && !fromSettings.value) void router.replace("/");
+  },
+  { immediate: true },
+);
 
 function chooseSoundCloud() {
   settings.musicSource = "soundcloud";
@@ -149,6 +160,14 @@ async function useAnotherAccount() {
         <p class="muted lead">
           Stratus signs in through a Spotify developer app that you create. Each Spotify developer app works for up to 5 accounts,
           so everyone creates their own. It's free and takes about 5 minutes.
+        </p>
+        <p v-if="spotify.accountAvailable" class="muted lead">
+          You're signed in to Stratus, so the connection is saved in your account and your other devices get it too.
+        </p>
+        <p v-else-if="library.accounts" class="muted lead">
+          Using Stratus on more than one device?
+          <RouterLink :to="{ path: '/account', query: { next: route.fullPath } }">Sign in to your Stratus account</RouterLink>
+          first, and you only connect Spotify once for all of them.
         </p>
 
         <ol class="steps">
