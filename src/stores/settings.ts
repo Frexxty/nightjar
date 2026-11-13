@@ -7,6 +7,8 @@ export interface Settings {
   autoplayRelated: boolean;
   showCommentsOnWaveform: boolean;
   immersiveMotion: boolean;
+  /** Windows: closing the window hides it to the tray instead of quitting. */
+  keepPlayingInTray: boolean;
 }
 
 const KEY = "stratus.settings";
@@ -16,6 +18,7 @@ const defaults: Settings = {
   autoplayRelated: true,
   showCommentsOnWaveform: true,
   immersiveMotion: true,
+  keepPlayingInTray: true,
 };
 
 export const useSettings = defineStore("settings", () => {

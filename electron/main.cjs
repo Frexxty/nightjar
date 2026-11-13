@@ -5,8 +5,13 @@ const { app, BrowserWindow, Menu, ipcMain, shell, nativeTheme } = require("elect
 const fs = require("node:fs");
 const path = require("node:path");
 const { registerSpotifyIpc } = require("./spotify.cjs");
+const updater = require("./updater.cjs");
+const { createTray, updateTray, hasTray } = require("./tray.cjs");
 
 const isMac = process.platform === "darwin";
+const isWin = process.platform === "win32";
+// Test mode for the updater: never show a window or a Dock icon.
+const headless = process.env.STRATUS_HEADLESS_TEST === "1";
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 const stateFile = () => path.join(app.getPath("userData"), "window-state.json");
 // Performance harness hook (scripts/measure.mjs); inert unless the env var is set.
@@ -14,6 +19,7 @@ const measure = process.env.STRATUS_MEASURE === "1" ? require("./measure.cjs") :
 
 let win = null;
 let quitting = false;
+let keepPlayingInTray = true;
 let playback = { state: "stopped", track: null, liked: false };
 
 function readWindowState() {
@@ -38,8 +44,28 @@ function saveWindowState() {
 
 function send(command, payload) {
   if (!win || win.isDestroyed()) return;
-  win.show();
+  if (!headless) win.show();
   win.webContents.send("command", command, payload);
+}
+
+function showWindow() {
+  if (!win || win.isDestroyed()) return createWindow();
+  if (headless) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+// Windows draws its caption buttons over our content; keep their colour in
+// step with the app theme.
+function syncTitleBarOverlay() {
+  if (isMac || !win || win.isDestroyed()) return;
+  const symbolColor = nativeTheme.shouldUseDarkColors ? "#ffffff" : "#121214";
+  try {
+    win.setTitleBarOverlay({ color: "#00000000", symbolColor, height: 52 });
+  } catch {
+    // Not available on every Linux window manager.
+  }
 }
 
 function createWindow() {
@@ -55,7 +81,7 @@ function createWindow() {
     show: false,
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 18, y: 18 },
-    titleBarOverlay: isMac ? false : { color: "#00000000", symbolColor: "#ffffff", height: 52 },
+    titleBarOverlay: isMac ? false : { color: "#00000000", symbolColor: nativeTheme.shouldUseDarkColors ? "#ffffff" : "#121214", height: 52 },
     vibrancy: isMac ? "sidebar" : undefined,
     visualEffectState: "active",
     backgroundColor: isMac ? "#00000000" : "#141416",
@@ -71,7 +97,9 @@ function createWindow() {
     },
   });
 
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => {
+    if (!headless) win.show();
+  });
   measure?.attach(win);
   win.on("resize", saveWindowState);
   win.on("move", saveWindowState);
@@ -79,6 +107,9 @@ function createWindow() {
   // macOS convention: closing the window hides it and playback continues.
   win.on("close", (event) => {
     if (isMac && !quitting) {
+      event.preventDefault();
+      win.hide();
+    } else if (!isMac && !quitting && keepPlayingInTray && hasTray()) {
       event.preventDefault();
       win.hide();
     }
@@ -114,6 +145,7 @@ function buildMenus() {
           label: app.name,
           submenu: [
             { role: "about" },
+            { label: "Check for Updates…", enabled: updater.enabled(), click: () => send("check-updates") },
             { type: "separator" },
             { label: "Settings…", accelerator: "CmdOrCtrl+,", click: go("/settings") },
             { type: "separator" },
@@ -159,6 +191,12 @@ function buildMenus() {
     },
     { label: "Controls", submenu: controls },
     { role: "windowMenu" },
+    ...(isMac
+      ? []
+      : [{
+          role: "help",
+          submenu: [{ label: "Check for Updates…", enabled: updater.enabled(), click: () => send("check-updates") }],
+        }]),
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 
@@ -173,7 +211,10 @@ function buildMenus() {
 ipcMain.on("playback", (_event, next) => {
   const changed = next.state !== playback.state || next.track?.id !== playback.track?.id || next.liked !== playback.liked;
   playback = next;
-  if (changed) buildMenus();
+  if (changed) {
+    buildMenus();
+    updateTray(playback);
+  }
   if (win && !win.isDestroyed()) {
     win.setTitle(next.track ? `${next.track.title} — ${next.track.artist}` : "Stratus");
   }
@@ -190,6 +231,10 @@ ipcMain.on("window", (_event, action, value) => {
       break;
     case "set-theme":
       nativeTheme.themeSource = value;
+      syncTitleBarOverlay();
+      break;
+    case "set-tray-on-close":
+      keepPlayingInTray = Boolean(value);
       break;
     case "open-external":
       if (/^https?:/.test(value)) shell.openExternal(value);
@@ -205,15 +250,35 @@ app.on("before-quit", () => {
 });
 
 app.on("activate", () => {
-  if (win) win.show();
+  if (win) showWindow();
   else createWindow();
 });
+
+nativeTheme.on("updated", syncTitleBarOverlay);
 
 app.on("window-all-closed", () => {
   if (!isMac) app.quit();
 });
 
+// One instance per user. A second launch focuses the existing window instead.
+const primary = app.requestSingleInstanceLock();
+if (!primary) app.exit(0);
+app.on("second-instance", () => showWindow());
+
+// Taskbar grouping and notifications on Windows key off this ID.
+if (isWin) app.setAppUserModelId("dev.stratus.app");
+
 app.whenReady().then(() => {
+  if (!primary) return;
+  if (headless && app.dock) app.dock.hide();
+  updater.init({ beforeQuit: () => (quitting = true) });
   buildMenus();
   createWindow();
+  if (!isMac) {
+    createTray({
+      command: (name) => win && !win.isDestroyed() && win.webContents.send("command", name),
+      show: showWindow,
+      quit: () => app.quit(),
+    });
+  }
 });

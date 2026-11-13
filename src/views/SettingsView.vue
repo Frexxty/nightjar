@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
-import { CheckCircle2, XCircle } from "lucide-vue-next";
+import { computed, reactive, ref } from "vue";
+import { CheckCircle2, RefreshCw, XCircle } from "lucide-vue-next";
 import { api, createBackend, loadBackendConfig, useBackend, type BackendConfig } from "@/api";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
+import { useUpdates } from "@/stores/updates";
 
 const settings = useSettings();
 const ui = useUi();
+const updates = useUpdates();
+const isWindows = window.stratus?.platform === "win32";
 const backend = reactive<BackendConfig>(loadBackendConfig());
 const test = ref<{ ok: boolean; message: string } | null>(null);
 const testing = ref(false);
@@ -27,6 +30,27 @@ async function testConnection() {
     testing.value = false;
   }
 }
+
+const updateStatus = computed(() => {
+  const s = updates.state;
+  const info = updates.info;
+  if (!info?.enabled) return "Updates are turned off in development builds.";
+  switch (s.status) {
+    case "checking": return "Checking for updates…";
+    case "available":
+      return s.version === info.skippedVersion ? `Version ${s.version} is available (skipped).` : `Version ${s.version} is available.`;
+    case "downloading": return `Downloading ${s.version ?? "update"}… ${s.progress ?? 0}%`;
+    case "downloaded": return `Version ${s.version} is ready to install.`;
+    case "not-available": return "Stratus is up to date.";
+    case "error": return s.error ?? "The last check failed.";
+    default: return "Not checked yet.";
+  }
+});
+
+const lastChecked = computed(() => {
+  const t = updates.info?.lastChecked;
+  return t ? new Date(t).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Never";
+});
 
 function apply() {
   useBackend({ ...backend });
@@ -102,6 +126,32 @@ function apply() {
       <h2>Playback</h2>
       <label class="check"><input v-model="settings.autoplayRelated" type="checkbox" /> Keep playing related tracks when the queue ends</label>
       <label class="check"><input v-model="settings.showCommentsOnWaveform" type="checkbox" /> Show timed comments on waveforms</label>
+      <label v-if="isWindows" class="check"><input v-model="settings.keepPlayingInTray" type="checkbox" /> Keep playing in the tray when closed</label>
+    </section>
+
+    <section v-if="updates.info">
+      <h2>Updates</h2>
+      <div class="field">
+        <label>Version</label>
+        <span>Stratus {{ updates.info.currentVersion }}</span>
+      </div>
+      <div class="field">
+        <label>Last checked</label>
+        <span>{{ lastChecked }}</span>
+      </div>
+      <div class="row">
+        <button class="btn" :disabled="!updates.info.enabled || updates.state.status === 'checking'" @click="updates.check()">
+          <RefreshCw :size="14" :class="{ spin: updates.state.status === 'checking' }" /> Check now
+        </button>
+        <button v-if="['available', 'downloading', 'downloaded'].includes(updates.state.status)" class="btn primary" @click="updates.dialog = true">
+          View update
+        </button>
+        <span class="update-status" :class="{ error: updates.state.status === 'error' }">{{ updateStatus }}</span>
+      </div>
+      <label class="check">
+        <input :checked="updates.info.beta" type="checkbox" @change="updates.setBeta(($event.target as HTMLInputElement).checked)" />
+        Beta updates (get pre-release versions)
+      </label>
     </section>
   </div>
 </template>
@@ -127,4 +177,8 @@ label { color: var(--text-2); }
 .picker { width: 30px; height: 26px; padding: 0; border: 0; background: none; }
 .check { display: flex; align-items: center; gap: 8px; margin: 10px 0; color: var(--text); }
 .check input { width: 15px; height: 15px; accent-color: var(--accent); }
+.update-status { color: var(--text-2); font-size: 12.5px; user-select: text; }
+.update-status.error { color: #ff6b6b; }
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

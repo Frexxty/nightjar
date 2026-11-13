@@ -5,3 +5,5 @@ release
 .daupdatea-build/
 .DS_Store
 .claude/
+release-notes.md
+build/release-notes.md
