@@ -43,6 +43,7 @@ const delay = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms + Ma
 const LIKES_KEY = "stratus.mock.likes";
 const FOLLOW_KEY = "stratus.mock.following";
 const REPOST_KEY = "stratus.mock.reposts";
+const AUDIO_CACHE = 3;
 
 function loadSet(key: string, fallback: string[]): Set<string> {
   try {
@@ -257,9 +258,16 @@ export class MockBackend implements Backend {
 
   async stream(track: Track): Promise<StreamInfo> {
     let url = this.audio.get(track.id);
-    if (!url) {
-      url = URL.createObjectURL(renderWav(this.trackById(track.id).arrangement));
-      this.audio.set(track.id, url);
+    if (url) this.audio.delete(track.id);
+    else url = URL.createObjectURL(renderWav(this.trackById(track.id).arrangement));
+    // Each WAV is 2-4 MB held by the browser process until revoked. Keep the few
+    // most recent (Map order is recency) so previous/next stay instant, and
+    // never the one just requested, which is the one about to play.
+    this.audio.set(track.id, url);
+    for (const [id, old] of this.audio) {
+      if (this.audio.size <= AUDIO_CACHE) break;
+      URL.revokeObjectURL(old);
+      this.audio.delete(id);
     }
     return { url, protocol: "progressive", mimeType: "audio/wav" };
   }

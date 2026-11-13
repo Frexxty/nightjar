@@ -31,7 +31,9 @@ const canvas = ref<HTMLCanvasElement>();
 const width = ref(0);
 const hover = ref<number | null>(null);
 const activeComment = ref<Comment | null>(null);
-let observer: ResizeObserver | undefined;
+let resizeObserver: ResizeObserver | undefined;
+let viewObserver: IntersectionObserver | undefined;
+let onScreen = false;
 
 const pinned = computed(() => props.comments.filter((c) => c.timestamp != null && props.duration > 0));
 
@@ -48,40 +50,86 @@ function resample(samples: number[], count: number) {
   return out;
 }
 
-function draw() {
-  const el = canvas.value;
-  if (!el || !width.value) return;
-  const dpr = window.devicePixelRatio || 1;
-  const h = props.height;
-  el.width = Math.round(width.value * dpr);
-  el.height = Math.round(h * dpr);
-  const ctx = el.getContext("2d")!;
-  ctx.scale(dpr, dpr);
+// What's on the canvas right now. Playback only moves the playhead, so a
+// progress tick repaints just the bars that changed colour, which is usually
+// none. Anything else (size, samples, colours, hover) repaints everything.
+let peaks: number[] = [];
+let accent = "";
+let base = "";
+let paintedPlayed = 0;
+let full = true;
+let frame = 0;
 
-  const styles = getComputedStyle(el);
-  const accent = props.color || styles.getPropertyValue("--accent").trim() || "#ff5500";
-  const base = styles.getPropertyValue("--wave").trim() || "rgba(255,255,255,.3)";
+function schedule() {
+  if (!frame && onScreen) frame = requestAnimationFrame(paint);
+}
+function invalidate() {
+  full = true;
+  schedule();
+}
+
+/** Index of the first bar at or after `x`, i.e. how many bars lie left of it. */
+function barsBefore(x: number, step: number, count: number) {
+  return Math.min(count, Math.max(0, Math.ceil(x / step)));
+}
+
+function drawBar(ctx: CanvasRenderingContext2D, i: number, played: number, hovered: number) {
+  const h = props.height;
+  const top = props.reflection ? h * 0.7 : h;
+  const amp = Math.max(1, peaks[i] * top);
+  const isPlayed = i < played;
+  const inHover = hovered >= 0 && ((i >= played && i < hovered) || (i < played && i >= hovered));
+  const x = i * (props.bar + props.gap);
+  ctx.fillStyle = isPlayed ? accent : base;
+  ctx.globalAlpha = inHover ? 0.65 : 1;
+  ctx.fillRect(x, top - amp, props.bar, amp);
+  if (props.reflection) {
+    ctx.globalAlpha = (inHover ? 0.3 : 0.45) * (isPlayed ? 0.8 : 0.7);
+    ctx.fillRect(x, top + 1, props.bar, Math.max(1, peaks[i] * (h - top - 1)));
+  }
+}
+
+function paint() {
+  frame = 0;
+  const el = canvas.value;
+  if (!el || !width.value || !onScreen) return;
   const step = props.bar + props.gap;
   const count = Math.max(1, Math.floor(width.value / step));
-  const peaks = resample(props.samples ?? [], count);
-  const top = props.reflection ? h * 0.7 : h;
-  const played = props.progress == null ? -1 : props.progress * width.value;
-  const hovered = hover.value == null ? -1 : hover.value * width.value;
+  const played = props.progress == null ? 0 : barsBefore(props.progress * width.value, step, count);
+  const hovered = hover.value == null ? -1 : barsBefore(hover.value * width.value, step, count);
+  const ctx = el.getContext("2d")!;
 
-  for (let i = 0; i < count; i++) {
-    const x = i * step;
-    const amp = Math.max(1, peaks[i] * top);
-    const isPlayed = x < played;
-    const inHover = hovered >= 0 && ((x >= played && x < hovered) || (x < played && x >= hovered));
-    ctx.fillStyle = isPlayed ? accent : base;
-    ctx.globalAlpha = inHover ? 0.65 : 1;
-    ctx.fillRect(x, top - amp, props.bar, amp);
-    if (props.reflection) {
-      ctx.globalAlpha = (inHover ? 0.3 : 0.45) * (isPlayed ? 0.8 : 0.7);
-      ctx.fillRect(x, top + 1, props.bar, Math.max(1, peaks[i] * (h - top - 1)));
+  if (!full && hovered < 0) {
+    if (played === paintedPlayed) return;
+    for (let i = Math.min(played, paintedPlayed); i < Math.max(played, paintedPlayed); i++) {
+      ctx.clearRect(i * step - props.gap / 2, 0, step, props.height);
+      drawBar(ctx, i, played, -1);
     }
+    ctx.globalAlpha = 1;
+    paintedPlayed = played;
+    return;
   }
+
+  // 2x is plenty for 2-3px bars; higher ratios only cost memory.
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round(width.value * dpr);
+  const h = Math.round(props.height * dpr);
+  // Assigning width/height reallocates the backing store, so only do it when the size changes.
+  if (el.width !== w || el.height !== h) {
+    el.width = w;
+    el.height = h;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width.value, props.height);
+  if (peaks.length !== count) peaks = resample(props.samples ?? [], count);
+  const styles = getComputedStyle(el);
+  accent = props.color || styles.getPropertyValue("--accent").trim() || "#ff5500";
+  base = styles.getPropertyValue("--wave").trim() || "rgba(255,255,255,.3)";
+  for (let i = 0; i < count; i++) drawBar(ctx, i, played, hovered);
   ctx.globalAlpha = 1;
+  // Hover styling is spread across the canvas, so keep repainting fully until it's gone.
+  full = hovered >= 0;
+  paintedPlayed = played;
 }
 
 function fractionAt(event: MouseEvent) {
@@ -90,15 +138,30 @@ function fractionAt(event: MouseEvent) {
 }
 
 onMounted(() => {
-  observer = new ResizeObserver(([entry]) => {
+  resizeObserver = new ResizeObserver(([entry]) => {
     width.value = entry.contentRect.width;
-    draw();
+    invalidate();
   });
-  observer.observe(root.value!);
+  resizeObserver.observe(root.value!);
+  // Stream and user pages mount dozens of these; only the ones on screen paint.
+  viewObserver = new IntersectionObserver(([entry]) => {
+    onScreen = entry.isIntersecting;
+    schedule();
+  });
+  viewObserver.observe(root.value!);
 });
-onBeforeUnmount(() => observer?.disconnect());
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
+  viewObserver?.disconnect();
+  cancelAnimationFrame(frame);
+});
 const settings = useSettings();
-watch(() => [props.samples, props.progress, hover.value, props.height, props.color, settings.accent, settings.theme], () => requestAnimationFrame(draw));
+watch(() => props.progress, schedule);
+watch(() => props.samples, () => {
+  peaks = [];
+  invalidate();
+});
+watch(() => [hover.value, props.height, props.color, settings.accent, settings.theme], invalidate);
 </script>
 
 <template>

@@ -130,8 +130,9 @@ function play(i: number) {
 .like .icon-btn:not(.on), .more { opacity: 0; }
 .row:hover .like .icon-btn, .row:hover .more { opacity: 1; }
 .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 12px; }
-.bars i { width: 3px; background: var(--accent); animation: eq 0.9s ease-in-out infinite; }
+/* scaleY instead of height keeps this on the compositor: no layout or paint per frame. */
+.bars i { width: 3px; height: 12px; background: var(--accent); transform-origin: bottom; animation: eq 0.9s ease-in-out infinite; }
 .bars i:nth-child(2) { animation-delay: -0.3s; }
 .bars i:nth-child(3) { animation-delay: -0.6s; }
-@keyframes eq { 0%, 100% { height: 3px; } 50% { height: 12px; } }
+@keyframes eq { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
 </style>

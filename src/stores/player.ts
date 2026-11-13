@@ -48,7 +48,13 @@ export const usePlayer = defineStore("player", () => {
   });
   watch(muted, (m) => (audio.muted = m));
 
-  audio.addEventListener("timeupdate", () => (currentTime.value = audio.currentTime));
+  // Only the UI reads currentTime, so while the window is hidden skip the
+  // updates (and the re-renders they trigger) and catch up when it's shown.
+  const syncTime = () => {
+    if (!document.hidden) currentTime.value = audio.currentTime;
+  };
+  audio.addEventListener("timeupdate", syncTime);
+  document.addEventListener("visibilitychange", syncTime);
   audio.addEventListener("durationchange", () => {
     if (Number.isFinite(audio.duration)) duration.value = audio.duration;
   });

@@ -8,6 +8,8 @@ const path = require("node:path");
 const isMac = process.platform === "darwin";
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 const stateFile = () => path.join(app.getPath("userData"), "window-state.json");
+// Performance harness hook (scripts/measure.mjs); inert unless the env var is set.
+const measure = process.env.STRATUS_MEASURE === "1" ? require("./measure.cjs") : null;
 
 let win = null;
 let quitting = false;
@@ -61,11 +63,15 @@ function createWindow() {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
-      backgroundThrottling: false,
+      // Background throttling stays on: Chromium never throttles a page that's
+      // playing audio, and a hidden window then stops painting entirely.
+      spellcheck: false,
+      ...measure?.webPreferences,
     },
   });
 
   win.once("ready-to-show", () => win.show());
+  measure?.attach(win);
   win.on("resize", saveWindowState);
   win.on("move", saveWindowState);
 
