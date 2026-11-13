@@ -9,7 +9,7 @@ import { useUi } from "./ui";
 export type Repeat = "off" | "all" | "one";
 export type PlayState = "stopped" | "loading" | "playing" | "paused";
 
-const VOLUME_KEY = "cumulus.volume";
+const VOLUME_KEY = "stratus.volume";
 
 export const usePlayer = defineStore("player", () => {
   const library = useLibrary();
@@ -261,7 +261,7 @@ export const usePlayer = defineStore("player", () => {
         ? new MediaMetadata({
             title: t.title,
             artist: t.user.username,
-            album: "Cumulus",
+            album: "Stratus",
             artwork: t.artworkUrl ? [{ src: t.artworkUrl, sizes: "500x500" }] : [],
           })
         : null;
@@ -272,7 +272,7 @@ export const usePlayer = defineStore("player", () => {
     () => [state.value, current.value?.id, current.value && library.isLiked(current.value)] as const,
     () => {
       const t = current.value;
-      window.cumulus?.reportPlayback({
+      window.stratus?.reportPlayback({
         state: state.value === "loading" ? "playing" : state.value,
         track: t ? { id: t.id, title: t.title, artist: t.user.username } : null,
         liked: t ? library.isLiked(t) : false,

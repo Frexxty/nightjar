@@ -28,7 +28,7 @@ watchEffect(() => {
   const theme = settings.theme === "system" ? (systemDark.value ? "dark" : "light") : settings.theme;
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.setProperty("--accent", settings.accent);
-  window.cumulus?.window("set-theme", settings.theme);
+  window.stratus?.window("set-theme", settings.theme);
 });
 
 watch(api, () => void library.refresh(), { immediate: true });
@@ -61,14 +61,14 @@ function onKey(e: KeyboardEvent) {
     player.toggle();
   } else if (e.key === "ArrowRight" && !e.metaKey && !e.ctrlKey) player.seek(player.currentTime + 5);
   else if (e.key === "ArrowLeft" && !e.metaKey && !e.ctrlKey) player.seek(player.currentTime - 5);
-  else if (!window.cumulus && (e.metaKey || e.ctrlKey) && e.key === "f") {
+  else if (!window.stratus && (e.metaKey || e.ctrlKey) && e.key === "f") {
     e.preventDefault();
     ui.searchFocus++;
   }
 }
 
 onMounted(() => {
-  offCommand = window.cumulus?.onCommand(onCommand);
+  offCommand = window.stratus?.onCommand(onCommand);
   window.addEventListener("keydown", onKey);
 });
 onBeforeUnmount(() => {

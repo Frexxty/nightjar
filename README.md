@@ -1,4 +1,4 @@
-# Cumulus
+# Stratus
 
 A desktop SoundCloud player modelled on Cider's layout: vibrancy sidebar, a top bar with the transport controls and an "LCD" now-playing display, a right-hand drawer, and a full-window immersive player. It's only the UI. Data comes from a backend you write, described in [BACKEND.md](BACKEND.md). Until then it runs against a built-in mock with generated artwork, waveforms, comments and synthesized audio, so everything is clickable on day one.
 
@@ -11,12 +11,12 @@ npm install
 npm run dev        # Vite + Electron with hot reload
 npm run build      # typecheck and build the renderer into dist/
 npm start          # run Electron against dist/
-npm run dist       # Cumulus.app in release/mac-arm64 via electron-builder (not notarized)
+npm run dist       # Stratus.app in release/mac-arm64 via electron-builder (not notarized)
 ```
 
 ## What's in it
 
-| Cider | Cumulus |
+| Cider | Stratus |
 | --- | --- |
 | Top chrome with controls and LCD | Same, with a scrubbable mini waveform as the progress bar |
 | Lyrics drawer, synced to playback | Timed comments drawer, synced to playback, with a box to post at the current time |
@@ -35,7 +35,7 @@ When the queue runs out it keeps going with `/tracks/{id}/related`, like SoundCl
 
 ```
 electron/main.cjs        window, menus, dock, IPC
-electron/preload.cjs     the window.cumulus bridge (context-isolated, sandboxed)
+electron/preload.cjs     the window.stratus bridge (context-isolated, sandboxed)
 src/api/types.ts         the backend contract
 src/api/http.ts          REST client for BACKEND.md
 src/api/mock.ts          mock backend

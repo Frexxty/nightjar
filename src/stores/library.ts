@@ -3,7 +3,7 @@ import { reactive, ref } from "vue";
 import { api, type Playlist, type Track, type User } from "@/api";
 import { useUi } from "./ui";
 
-const HISTORY_KEY = "cumulus.history";
+const HISTORY_KEY = "stratus.history";
 
 /** Likes, reposts, follows and listening history, with optimistic updates. */
 export const useLibrary = defineStore("library", () => {

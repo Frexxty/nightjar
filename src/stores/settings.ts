@@ -9,7 +9,7 @@ export interface Settings {
   immersiveMotion: boolean;
 }
 
-const KEY = "cumulus.settings";
+const KEY = "stratus.settings";
 const defaults: Settings = {
   accent: "#ff5500",
   theme: "dark",

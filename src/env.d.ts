@@ -4,7 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_BACKEND_URL?: string;
 }
 
-interface CumulusBridge {
+interface StratusBridge {
   platform: string;
   reportPlayback(state: {
     state: "stopped" | "playing" | "paused";
@@ -17,7 +17,7 @@ interface CumulusBridge {
 
 interface Window {
   /** Present when running inside Electron; undefined in a plain browser. */
-  cumulus?: CumulusBridge;
+  stratus?: StratusBridge;
 }
 
 declare module "*.vue" {

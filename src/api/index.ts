@@ -11,7 +11,7 @@ export interface BackendConfig {
   token: string;
 }
 
-const KEY = "cumulus.backend";
+const KEY = "stratus.backend";
 
 export function loadBackendConfig(): BackendConfig {
   const fallback: BackendConfig = {

@@ -48,7 +48,7 @@ function createWindow() {
     y: saved.y,
     minWidth: 960,
     minHeight: 600,
-    title: "Cumulus",
+    title: "Stratus",
     show: false,
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 18, y: 18 },
@@ -167,7 +167,7 @@ ipcMain.on("playback", (_event, next) => {
   playback = next;
   if (changed) buildMenus();
   if (win && !win.isDestroyed()) {
-    win.setTitle(next.track ? `${next.track.title} — ${next.track.artist}` : "Cumulus");
+    win.setTitle(next.track ? `${next.track.title} — ${next.track.artist}` : "Stratus");
   }
 });
 

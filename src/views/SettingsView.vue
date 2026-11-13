@@ -40,7 +40,7 @@ function apply() {
 
     <section>
       <h2>Backend</h2>
-      <p class="muted">Cumulus is only the UI. Point it at a server that implements the routes in BACKEND.md, or use the built-in mock.</p>
+      <p class="muted">Stratus is only the UI. Point it at a server that implements the routes in BACKEND.md, or use the built-in mock.</p>
       <div class="field">
         <label>Source</label>
         <div class="seg">

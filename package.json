@@ -1,6 +1,6 @@
 {
-  "name": "cumulus",
-  "productName": "Cumulus",
+  "name": "stratus",
+  "productName": "Stratus",
   "version": "0.1.0",
   "private": true,
   "description": "A desktop SoundCloud client UI in the style of Cider, with a pluggable backend.",
@@ -14,8 +14,8 @@
     "dist": "npm run build && electron-builder --mac --dir"
   },
   "build": {
-    "appId": "dev.cumulus.app",
-    "productName": "Cumulus",
+    "appId": "dev.stratus.app",
+    "productName": "Stratus",
     "files": [
       "dist/**",
       "electron/**",

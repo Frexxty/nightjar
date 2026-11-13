@@ -1,6 +1,6 @@
 # Backend contract
 
-Cumulus never talks to SoundCloud. It talks to your server, which returns JSON shaped like the types in [`src/api/types.ts`](src/api/types.ts). Pick "HTTP server" in Settings, enter the base URL and an optional bearer token, and press Apply. You can also set `VITE_BACKEND_URL` at build time to make HTTP the default.
+Stratus never talks to SoundCloud. It talks to your server, which returns JSON shaped like the types in [`src/api/types.ts`](src/api/types.ts). Pick "HTTP server" in Settings, enter the base URL and an optional bearer token, and press Apply. You can also set `VITE_BACKEND_URL` at build time to make HTTP the default.
 
 If you'd rather not run a server, write a class that implements the `Backend` interface in `src/api/types.ts` and return it from `createBackend` in `src/api/index.ts`. The UI doesn't care which one it gets.
 

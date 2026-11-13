@@ -5,7 +5,7 @@ const commands = [
   "navigate", "back", "forward", "focus-search", "toggle-drawer", "immersive",
 ];
 
-contextBridge.exposeInMainWorld("cumulus", {
+contextBridge.exposeInMainWorld("stratus", {
   platform: process.platform,
   reportPlayback: (state) => ipcRenderer.send("playback", state),
   window: (action, value) => ipcRenderer.send("window", action, value),
