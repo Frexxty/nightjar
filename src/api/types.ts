@@ -135,4 +135,6 @@ export interface Backend {
   setReposted(id: Id, reposted: boolean): Promise<void>;
   setFollowing(id: Id, following: boolean): Promise<void>;
   postComment?(id: Id, body: string, timestamp: number | null): Promise<Comment>;
+  /** Creates a playlist on the user's account. Optional; the import page offers "Save to SoundCloud" only when it exists. */
+  createPlaylist?(title: string, trackIds: Id[], isPublic: boolean): Promise<Playlist>;
 }

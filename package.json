@@ -11,6 +11,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "start": "electron .",
     "typecheck": "vue-tsc --noEmit",
+    "test": "node --test tests/*.test.*",
     "dist": "npm run build && electron-builder --mac --dir"
   },
   "build": {

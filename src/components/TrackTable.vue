@@ -5,7 +5,7 @@ import { count, duration } from "@/lib/format";
 import { useMenus } from "@/lib/menus";
 import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
-import { useUi } from "@/stores/ui";
+import { useUi, type MenuItem } from "@/stores/ui";
 import Artwork from "./Artwork.vue";
 
 const props = withDefaults(
@@ -17,14 +17,18 @@ const props = withDefaults(
     showArtwork?: boolean;
     showPlays?: boolean;
     showHeader?: boolean;
+    /** Extra context-menu items for a row, e.g. "Remove from playlist". */
+    menuExtra?: (track: Track, index: number) => MenuItem[];
   }>(),
-  { source: undefined, numbered: false, showArtwork: true, showPlays: true, showHeader: true },
+  { source: undefined, numbered: false, showArtwork: true, showPlays: true, showHeader: true, menuExtra: undefined },
 );
 
 const player = usePlayer();
 const library = useLibrary();
 const ui = useUi();
 const menus = useMenus();
+
+const menuFor = (t: Track, i: number) => menus.track(t, props.menuExtra?.(t, i) ?? []);
 
 function play(i: number) {
   const t = props.tracks[i];
@@ -49,7 +53,7 @@ function play(i: number) {
       class="row"
       :class="{ current: player.isCurrent(t), unavailable: !t.streamable }"
       @dblclick="play(i)"
-      @contextmenu="ui.openMenu($event, menus.track(t))"
+      @contextmenu="ui.openMenu($event, menuFor(t, i))"
     >
       <span class="idx">
         <button class="play-btn" @click="play(i)">
@@ -74,7 +78,7 @@ function play(i: number) {
       </span>
       <span class="num faint">{{ duration(t.duration) }}</span>
       <span>
-        <button class="icon-btn more" title="More" @click.stop="ui.openMenu($event, menus.track(t))"><MoreHorizontal :size="16" /></button>
+        <button class="icon-btn more" title="More" @click.stop="ui.openMenu($event, menuFor(t, i))"><MoreHorizontal :size="16" /></button>
       </span>
     </div>
   </div>

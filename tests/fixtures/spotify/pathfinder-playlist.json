@@ -1,0 +1,1027 @@
+{
+  "data": {
+    "playlistV2": {
+      "__typename": "Playlist",
+      "content": {
+        "__typename": "PlaylistItemsPage",
+        "items": [
+          {
+            "addedAt": {
+              "isoString": "2020-03-20T04:54:59Z"
+            },
+            "addedBy": {
+              "data": {
+                "__typename": "User",
+                "avatar": null,
+                "name": "Example User",
+                "socialHandle": null,
+                "uri": "spotify:user:exampleuser",
+                "username": "exampleuser"
+              }
+            },
+            "attributes": [],
+            "itemV2": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "artists": {
+                    "items": [
+                      {
+                        "profile": {
+                          "name": "The Weeknd"
+                        },
+                        "uri": "spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ"
+                      }
+                    ]
+                  },
+                  "coverArt": {
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e028863bc11d2aa12b54f5aeb36",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d000048518863bc11d2aa12b54f5aeb36",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "date": {
+                    "isoString": "2020-03-20T00:00:00Z",
+                    "precision": "DAY"
+                  },
+                  "name": "After Hours",
+                  "uri": "spotify:album:4yP0hdKOZPNshxUOjY0cZj"
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "profile": {
+                        "name": "The Weeknd"
+                      },
+                      "uri": "spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "__typename": "TrackAudioAssociationPage",
+                    "items": []
+                  },
+                  "videoAssociations": {
+                    "totalCount": 0
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "discNumber": 1,
+                "trackDuration": {
+                  "totalMilliseconds": 200040
+                },
+                "mediaType": "AUDIO",
+                "name": "Blinding Lights",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "playcount": "5679233154",
+                "playlistAudioAttributes": {
+                  "bpm": 171.00100708007812,
+                  "key": {
+                    "camelotKey": {
+                      "color": "#fec0a3",
+                      "value": "5A"
+                    },
+                    "key": "C",
+                    "mode": "MODE_MINOR"
+                  }
+                },
+                "trackNumber": 9,
+                "uri": "spotify:track:0VjIjW4GlUZAMYd2vXMi3b"
+              }
+            },
+            "itemV3": {
+              "__typename": "EntityResponseWrapper",
+              "data": {
+                "__typename": "Entity",
+                "consumptionExperienceTrait": {
+                  "__typename": "ConsumptionExperienceTrait",
+                  "contentRatings": [],
+                  "duration": {
+                    "nanoSeconds": 0,
+                    "seconds": 200
+                  },
+                  "formats": [
+                    "FORMAT_AUDIO",
+                    "FORMAT_VIDEO",
+                    "FORMAT_LOSSLESS"
+                  ]
+                },
+                "contentExperienceTrait": {
+                  "__typename": "ContentExperienceTrait",
+                  "contentExperience": "CONTENT_EXPERIENCE_MUSIC"
+                },
+                "entityTypeTrait": {
+                  "__typename": "EntityTypeTrait",
+                  "type": "ENTITY_TYPE_TRACK"
+                },
+                "identityTrait": {
+                  "__typename": "IdentityTrait",
+                  "contentHierarchyParent": {
+                    "__typename": "Entity",
+                    "identityTrait": {
+                      "__typename": "IdentityTrait",
+                      "name": "After Hours"
+                    },
+                    "publishingMetadataTrait": {
+                      "__typename": "PublishingMetadataTrait",
+                      "firstPublishedAt": {
+                        "isoString": "2020-03-20",
+                        "precision": "DAY"
+                      }
+                    },
+                    "uri": "spotify:album:4yP0hdKOZPNshxUOjY0cZj"
+                  },
+                  "contributors": {
+                    "items": [
+                      {
+                        "name": "The Weeknd",
+                        "uri": "spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ"
+                      }
+                    ],
+                    "totalCount": 1
+                  },
+                  "description": "",
+                  "name": "Blinding Lights",
+                  "type": "Song"
+                },
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:0VjIjW4GlUZAMYd2vXMi3b",
+                "visualIdentityTrait": {
+                  "__typename": "VisualIdentityTrait",
+                  "sixteenByNineCoverImage": {
+                    "image": {
+                      "data": {
+                        "__typename": "ImageV2",
+                        "sources": [
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 360,
+                            "maxWidth": 640,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab6742d3000052b6223a179584404c50c362b683"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 720,
+                            "maxWidth": 1280,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab6742d3000053b6223a179584404c50c362b683"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "squareCoverImage": {
+                    "extractedColorSet": {
+                      "encoreBaseSetTextColor": {
+                        "alpha": 255,
+                        "blue": 150,
+                        "green": 162,
+                        "red": 255
+                      },
+                      "highContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 16,
+                          "green": 16,
+                          "red": 112
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 51,
+                          "green": 57,
+                          "red": 153
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 180,
+                          "green": 189,
+                          "red": 255
+                        }
+                      },
+                      "higherContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 6,
+                          "green": 1,
+                          "red": 101
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 46,
+                          "green": 52,
+                          "red": 147
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 96,
+                          "green": 215,
+                          "red": 30
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 180,
+                          "green": 189,
+                          "red": 255
+                        }
+                      },
+                      "minContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 16,
+                          "green": 16,
+                          "red": 112
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 51,
+                          "green": 57,
+                          "red": 153
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        }
+                      }
+                    },
+                    "image": {
+                      "data": {
+                        "__typename": "ImageV2",
+                        "sources": [
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 640,
+                            "maxWidth": 640,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d000075a08863bc11d2aa12b54f5aeb36"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 64,
+                            "maxWidth": 64,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d000090d58863bc11d2aa12b54f5aeb36"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 300,
+                            "maxWidth": 300,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d0000ab878863bc11d2aa12b54f5aeb36"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "uid": "34415a84a0ab19ff"
+          },
+          {
+            "addedAt": {
+              "isoString": "2017-06-09T00:39:52Z"
+            },
+            "addedBy": {
+              "data": {
+                "__typename": "User",
+                "avatar": null,
+                "name": "Example User",
+                "socialHandle": null,
+                "uri": "spotify:user:exampleuser",
+                "username": "exampleuser"
+              }
+            },
+            "attributes": [],
+            "itemV2": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "artists": {
+                    "items": [
+                      {
+                        "profile": {
+                          "name": "Ed Sheeran"
+                        },
+                        "uri": "spotify:artist:6eUKZXaKkcviH0Ku9w2n3V"
+                      }
+                    ]
+                  },
+                  "coverArt": {
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e02ba5db46f4b838ef6027e6f96",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d00004851ba5db46f4b838ef6027e6f96",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b273ba5db46f4b838ef6027e6f96",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "date": {
+                    "isoString": "2017-03-03T00:00:00Z",
+                    "precision": "DAY"
+                  },
+                  "name": "÷ (Deluxe)",
+                  "uri": "spotify:album:3T4tUhGYeRNVUGevb0wThu"
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "profile": {
+                        "name": "Ed Sheeran"
+                      },
+                      "uri": "spotify:artist:6eUKZXaKkcviH0Ku9w2n3V"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "__typename": "TrackAudioAssociationPage",
+                    "items": []
+                  },
+                  "videoAssociations": {
+                    "totalCount": 1
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "discNumber": 1,
+                "trackDuration": {
+                  "totalMilliseconds": 233712
+                },
+                "mediaType": "AUDIO",
+                "name": "Shape of You",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "playcount": "5186215754",
+                "playlistAudioAttributes": {
+                  "bpm": 95.97699737548828,
+                  "key": {
+                    "camelotKey": {
+                      "color": "#89e3f9",
+                      "value": "11A"
+                    },
+                    "key": "F#",
+                    "mode": "MODE_MINOR"
+                  }
+                },
+                "trackNumber": 4,
+                "uri": "spotify:track:7qiZfU4dY1lWllzX7mPBI3"
+              }
+            },
+            "itemV3": {
+              "__typename": "EntityResponseWrapper",
+              "data": {
+                "__typename": "Entity",
+                "consumptionExperienceTrait": {
+                  "__typename": "ConsumptionExperienceTrait",
+                  "contentRatings": [],
+                  "duration": {
+                    "nanoSeconds": 0,
+                    "seconds": 233
+                  },
+                  "formats": [
+                    "FORMAT_AUDIO",
+                    "FORMAT_VIDEO",
+                    "FORMAT_LOSSLESS"
+                  ]
+                },
+                "contentExperienceTrait": {
+                  "__typename": "ContentExperienceTrait",
+                  "contentExperience": "CONTENT_EXPERIENCE_MUSIC"
+                },
+                "entityTypeTrait": {
+                  "__typename": "EntityTypeTrait",
+                  "type": "ENTITY_TYPE_TRACK"
+                },
+                "identityTrait": {
+                  "__typename": "IdentityTrait",
+                  "contentHierarchyParent": {
+                    "__typename": "Entity",
+                    "identityTrait": {
+                      "__typename": "IdentityTrait",
+                      "name": "÷ (Deluxe)"
+                    },
+                    "publishingMetadataTrait": {
+                      "__typename": "PublishingMetadataTrait",
+                      "firstPublishedAt": {
+                        "isoString": "2017-03-03",
+                        "precision": "DAY"
+                      }
+                    },
+                    "uri": "spotify:album:3T4tUhGYeRNVUGevb0wThu"
+                  },
+                  "contributors": {
+                    "items": [
+                      {
+                        "name": "Ed Sheeran",
+                        "uri": "spotify:artist:6eUKZXaKkcviH0Ku9w2n3V"
+                      }
+                    ],
+                    "totalCount": 1
+                  },
+                  "description": "",
+                  "name": "Shape of You",
+                  "type": "Song"
+                },
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:7qiZfU4dY1lWllzX7mPBI3",
+                "visualIdentityTrait": {
+                  "__typename": "VisualIdentityTrait",
+                  "sixteenByNineCoverImage": {
+                    "image": {
+                      "data": {
+                        "__typename": "ImageV2",
+                        "sources": [
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 360,
+                            "maxWidth": 640,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab6742d3000052b60a5cdc6c521680d1094dcff8"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 720,
+                            "maxWidth": 1280,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab6742d3000053b60a5cdc6c521680d1094dcff8"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "squareCoverImage": {
+                    "extractedColorSet": {
+                      "encoreBaseSetTextColor": {
+                        "alpha": 255,
+                        "blue": 234,
+                        "green": 201,
+                        "red": 72
+                      },
+                      "highContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 113,
+                          "green": 89,
+                          "red": 0
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 75,
+                          "green": 54,
+                          "red": 0
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 246,
+                          "green": 218,
+                          "red": 120
+                        }
+                      },
+                      "higherContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 78,
+                          "green": 56,
+                          "red": 0
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 114,
+                          "green": 91,
+                          "red": 42
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 96,
+                          "green": 215,
+                          "red": 30
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 246,
+                          "green": 218,
+                          "red": 120
+                        }
+                      },
+                      "minContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 197,
+                          "green": 166,
+                          "red": 4
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 169,
+                          "green": 139,
+                          "red": 0
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        }
+                      }
+                    },
+                    "image": {
+                      "data": {
+                        "__typename": "ImageV2",
+                        "sources": [
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 640,
+                            "maxWidth": 640,
+                            "url": "https://image-cdn-ak.spotifycdn.com/image/ab67616d000075a0ba5db46f4b838ef6027e6f96"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 64,
+                            "maxWidth": 64,
+                            "url": "https://image-cdn-ak.spotifycdn.com/image/ab67616d000090d5ba5db46f4b838ef6027e6f96"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 300,
+                            "maxWidth": 300,
+                            "url": "https://image-cdn-ak.spotifycdn.com/image/ab67616d0000ab87ba5db46f4b838ef6027e6f96"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "uid": "cceba1c7a51e96b7"
+          },
+          {
+            "addedAt": {
+              "isoString": "2017-12-08T15:15:10Z"
+            },
+            "addedBy": {
+              "data": {
+                "__typename": "User",
+                "avatar": null,
+                "name": "Example User",
+                "socialHandle": null,
+                "uri": "spotify:user:exampleuser",
+                "username": "exampleuser"
+              }
+            },
+            "attributes": [],
+            "itemV2": {
+              "__typename": "TrackResponseWrapper",
+              "data": {
+                "__typename": "Track",
+                "albumOfTrack": {
+                  "artists": {
+                    "items": [
+                      {
+                        "profile": {
+                          "name": "The Neighbourhood"
+                        },
+                        "uri": "spotify:artist:77SW9BnxLY8rJ0RciFqkHh"
+                      }
+                    ]
+                  },
+                  "coverArt": {
+                    "sources": [
+                      {
+                        "height": 300,
+                        "url": "https://i.scdn.co/image/ab67616d00001e028265a736a1eb838ad5a0b921",
+                        "width": 300
+                      },
+                      {
+                        "height": 64,
+                        "url": "https://i.scdn.co/image/ab67616d000048518265a736a1eb838ad5a0b921",
+                        "width": 64
+                      },
+                      {
+                        "height": 640,
+                        "url": "https://i.scdn.co/image/ab67616d0000b2738265a736a1eb838ad5a0b921",
+                        "width": 640
+                      }
+                    ]
+                  },
+                  "date": {
+                    "isoString": "2013-04-22T00:00:00Z",
+                    "precision": "DAY"
+                  },
+                  "name": "I Love You.",
+                  "uri": "spotify:album:4xkM0BwLM9H2IUcbYzpcBI"
+                },
+                "artists": {
+                  "items": [
+                    {
+                      "profile": {
+                        "name": "The Neighbourhood"
+                      },
+                      "uri": "spotify:artist:77SW9BnxLY8rJ0RciFqkHh"
+                    }
+                  ]
+                },
+                "associationsV3": {
+                  "audioAssociations": {
+                    "__typename": "TrackAudioAssociationPage",
+                    "items": []
+                  },
+                  "videoAssociations": {
+                    "totalCount": 1
+                  }
+                },
+                "contentRating": {
+                  "label": "NONE"
+                },
+                "discNumber": 1,
+                "trackDuration": {
+                  "totalMilliseconds": 240400
+                },
+                "mediaType": "AUDIO",
+                "name": "Sweater Weather",
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "playcount": "5026644956",
+                "playlistAudioAttributes": {
+                  "bpm": 124.0530014038086,
+                  "key": {
+                    "camelotKey": {
+                      "color": "#ffadb9",
+                      "value": "6A"
+                    },
+                    "key": "G",
+                    "mode": "MODE_MINOR"
+                  }
+                },
+                "trackNumber": 4,
+                "uri": "spotify:track:2QjOHCTQ1Jl3zawyYOpxh6"
+              }
+            },
+            "itemV3": {
+              "__typename": "EntityResponseWrapper",
+              "data": {
+                "__typename": "Entity",
+                "consumptionExperienceTrait": {
+                  "__typename": "ConsumptionExperienceTrait",
+                  "contentRatings": [],
+                  "duration": {
+                    "nanoSeconds": 0,
+                    "seconds": 240
+                  },
+                  "formats": [
+                    "FORMAT_AUDIO",
+                    "FORMAT_VIDEO",
+                    "FORMAT_LOSSLESS"
+                  ]
+                },
+                "contentExperienceTrait": {
+                  "__typename": "ContentExperienceTrait",
+                  "contentExperience": "CONTENT_EXPERIENCE_MUSIC"
+                },
+                "entityTypeTrait": {
+                  "__typename": "EntityTypeTrait",
+                  "type": "ENTITY_TYPE_TRACK"
+                },
+                "identityTrait": {
+                  "__typename": "IdentityTrait",
+                  "contentHierarchyParent": {
+                    "__typename": "Entity",
+                    "identityTrait": {
+                      "__typename": "IdentityTrait",
+                      "name": "I Love You."
+                    },
+                    "publishingMetadataTrait": {
+                      "__typename": "PublishingMetadataTrait",
+                      "firstPublishedAt": {
+                        "isoString": "2013-04-22",
+                        "precision": "DAY"
+                      }
+                    },
+                    "uri": "spotify:album:4xkM0BwLM9H2IUcbYzpcBI"
+                  },
+                  "contributors": {
+                    "items": [
+                      {
+                        "name": "The Neighbourhood",
+                        "uri": "spotify:artist:77SW9BnxLY8rJ0RciFqkHh"
+                      }
+                    ],
+                    "totalCount": 1
+                  },
+                  "description": "",
+                  "name": "Sweater Weather",
+                  "type": "Song"
+                },
+                "playability": {
+                  "playable": true,
+                  "reason": "PLAYABLE"
+                },
+                "uri": "spotify:track:2QjOHCTQ1Jl3zawyYOpxh6",
+                "visualIdentityTrait": {
+                  "__typename": "VisualIdentityTrait",
+                  "sixteenByNineCoverImage": {
+                    "image": {
+                      "data": {
+                        "__typename": "ImageV2",
+                        "sources": [
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 360,
+                            "maxWidth": 640,
+                            "url": "https://image-cdn-ak.spotifycdn.com/image/ab6742d3000052b634831eef1161d5696b85af2c"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 720,
+                            "maxWidth": 1280,
+                            "url": "https://image-cdn-ak.spotifycdn.com/image/ab6742d3000053b634831eef1161d5696b85af2c"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "squareCoverImage": {
+                    "extractedColorSet": {
+                      "encoreBaseSetTextColor": {
+                        "alpha": 255,
+                        "blue": 187,
+                        "green": 187,
+                        "red": 187
+                      },
+                      "highContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 83,
+                          "green": 83,
+                          "red": 83
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 51,
+                          "green": 51,
+                          "red": 51
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 205,
+                          "green": 205,
+                          "red": 205
+                        }
+                      },
+                      "higherContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 53,
+                          "green": 53,
+                          "red": 53
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 86,
+                          "green": 86,
+                          "red": 86
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 96,
+                          "green": 215,
+                          "red": 30
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 205,
+                          "green": 205,
+                          "red": 205
+                        }
+                      },
+                      "minContrast": {
+                        "backgroundBase": {
+                          "alpha": 255,
+                          "blue": 83,
+                          "green": 83,
+                          "red": 83
+                        },
+                        "backgroundTintedBase": {
+                          "alpha": 255,
+                          "blue": 51,
+                          "green": 51,
+                          "red": 51
+                        },
+                        "textBase": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textBrightAccent": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        },
+                        "textSubdued": {
+                          "alpha": 255,
+                          "blue": 255,
+                          "green": 255,
+                          "red": 255
+                        }
+                      }
+                    },
+                    "image": {
+                      "data": {
+                        "__typename": "ImageV2",
+                        "sources": [
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 640,
+                            "maxWidth": 640,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d000075a08265a736a1eb838ad5a0b921"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 64,
+                            "maxWidth": 64,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d000090d58265a736a1eb838ad5a0b921"
+                          },
+                          {
+                            "imageFormat": "WEBP",
+                            "maxHeight": 300,
+                            "maxWidth": 300,
+                            "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d0000ab878265a736a1eb838ad5a0b921"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "uid": "eb33c24ba45ce59d"
+          }
+        ],
+        "pagingInfo": {
+          "limit": 25,
+          "offset": 0
+        },
+        "totalCount": 1223
+      },
+      "abuseReportingEnabled": true,
+      "attributes": [],
+      "basePermission": "VIEWER",
+      "currentUserCapabilities": {
+        "canAbuseReport": true,
+        "canAdministratePermissions": false,
+        "canCancelMembership": false,
+        "canEditItems": false,
+        "canEditMetadata": false,
+        "canMixPlaylist": false,
+        "canView": true
+      },
+      "description": "",
+      "following": false,
+      "format": "",
+      "images": {
+        "items": [
+          {
+            "sources": [
+              {
+                "height": null,
+                "url": "https://image-cdn-fa.spotifycdn.com/image/ab67706c0000da848e3d148d9059f7a7ba10d06a",
+                "width": null
+              }
+            ]
+          }
+        ]
+      },
+      "name": "Example Big Playlist",
+      "ownerV2": {
+        "data": {
+          "__typename": "User",
+          "avatar": null,
+          "name": "Example User",
+          "socialHandle": null,
+          "uri": "spotify:user:exampleuser",
+          "username": "exampleuser"
+        }
+      },
+      "revisionId": "AAAbQU7yUn/Tc82Yv8BS38VTBboONJJm",
+      "uri": "spotify:playlist:2YRe7HRKNRvXdJBp9nXFza"
+    }
+  }
+}

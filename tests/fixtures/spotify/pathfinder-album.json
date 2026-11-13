@@ -1,0 +1,141 @@
+{
+  "data": {
+    "albumUnion": {
+      "__typename": "Album",
+      "uri": "spotify:album:4yP0hdKOZPNshxUOjY0cZj",
+      "name": "After Hours",
+      "artists": {
+        "items": [
+          {
+            "id": "1Xyo4u8uXC1ZmMpatF05PJ",
+            "profile": {
+              "name": "The Weeknd"
+            },
+            "uri": "spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ"
+          }
+        ],
+        "totalCount": 1
+      },
+      "coverArt": {
+        "extractedColors": {
+          "colorDark": {
+            "hex": "#701010"
+          },
+          "colorLight": {
+            "hex": "#E82121"
+          },
+          "colorRaw": {
+            "hex": "#701010"
+          }
+        },
+        "sources": [
+          {
+            "height": 300,
+            "url": "https://i.scdn.co/image/ab67616d00001e028863bc11d2aa12b54f5aeb36",
+            "width": 300
+          },
+          {
+            "height": 64,
+            "url": "https://i.scdn.co/image/ab67616d000048518863bc11d2aa12b54f5aeb36",
+            "width": 64
+          },
+          {
+            "height": 640,
+            "url": "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36",
+            "width": 640
+          }
+        ]
+      },
+      "tracksV2": {
+        "items": [
+          {
+            "track": {
+              "artists": {
+                "items": [
+                  {
+                    "profile": {
+                      "name": "The Weeknd"
+                    },
+                    "uri": "spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ"
+                  }
+                ]
+              },
+              "associationsV3": {
+                "audioAssociations": {
+                  "totalCount": 0
+                },
+                "videoAssociations": {
+                  "totalCount": 0
+                }
+              },
+              "contentRating": {
+                "label": "EXPLICIT"
+              },
+              "discNumber": 1,
+              "duration": {
+                "totalMilliseconds": 250053
+              },
+              "mediaType": "AUDIO",
+              "name": "Alone Again",
+              "playability": {
+                "playable": true
+              },
+              "playcount": "234466128",
+              "relinkingInformation": null,
+              "saved": false,
+              "trackNumber": 1,
+              "uri": "spotify:track:6b5P51m8xx2XA6U7sdNZ5E"
+            },
+            "uid": "0329cf1fa404f40b5159"
+          },
+          {
+            "track": {
+              "artists": {
+                "items": [
+                  {
+                    "profile": {
+                      "name": "The Weeknd"
+                    },
+                    "uri": "spotify:artist:1Xyo4u8uXC1ZmMpatF05PJ"
+                  }
+                ]
+              },
+              "associationsV3": {
+                "audioAssociations": {
+                  "totalCount": 0
+                },
+                "videoAssociations": {
+                  "totalCount": 1
+                }
+              },
+              "contentRating": {
+                "label": "EXPLICIT"
+              },
+              "discNumber": 1,
+              "duration": {
+                "totalMilliseconds": 239973
+              },
+              "mediaType": "AUDIO",
+              "name": "Too Late",
+              "playability": {
+                "playable": true
+              },
+              "playcount": "233292312",
+              "relinkingInformation": null,
+              "saved": false,
+              "trackNumber": 2,
+              "uri": "spotify:track:2K9Ovn1o2bTGqbsABGC6m3"
+            },
+            "uid": "a6faa7c7f010909096cd"
+          }
+        ],
+        "totalCount": 14
+      },
+      "type": "ALBUM",
+      "date": {
+        "isoString": "2020-03-20T00:00:00Z",
+        "precision": "DAY"
+      }
+    }
+  }
+}

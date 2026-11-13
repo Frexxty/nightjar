@@ -35,12 +35,19 @@ If you'd rather not run a server, write a class that implements the `Backend` in
 | GET | `/me/likes/tracks?cursor=` | `Page<Track>` |
 | GET | `/me/likes/playlists` | `Playlist[]` (albums and playlists, `isAlbum` tells them apart) |
 | GET | `/me/playlists` | `Playlist[]` the user owns. These appear in the sidebar |
+| POST | `/me/playlists` | `Playlist`. Body: `{ "title": string, "trackIds": string[], "public": boolean }`. Optional, see "Importing from Spotify" |
 | GET | `/me/following` | `User[]` |
 | PUT / DELETE | `/me/likes/tracks/{id}` | 204 |
 | PUT / DELETE | `/me/reposts/tracks/{id}` | 204 |
 | PUT / DELETE | `/me/following/{userId}` | 204 |
 
 The like, repost and follow buttons update immediately and roll back with a toast if the request fails.
+
+## Importing from Spotify
+
+The import page never sends anything about Spotify to your server. Stratus reads the Spotify playlist itself (see the README), then calls `GET /search/tracks?q=` for each track, usually twice: first with "artist title" and, if nothing scores well, with the title alone. It runs four searches at a time and does its own scoring, so pass the query to SoundCloud's track search unchanged. A 500-track playlist means 500 to 1,000 searches, so rate-limit or cache on your side if SoundCloud needs it.
+
+`POST /me/playlists` is optional. If your server implements it, the import page shows "Save to SoundCloud" next to "Save locally". The body is `{ "title": string, "trackIds": string[], "public": boolean }`, where `trackIds` are track `id`s your server returned. Respond with the new `Playlist`; the UI then opens it and refreshes `/me/playlists`. With a custom `Backend` class, implement `createPlaylist(title, trackIds, isPublic)` instead, or leave it out.
 
 ## Streaming
 

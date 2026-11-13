@@ -1,0 +1,32 @@
+{
+  "url": "https://api-partner.spotify.com/pathfinder/v2/query",
+  "method": "POST",
+  "headers": {
+    "Referer": "https://open.spotify.com/",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+    "accept": "application/json",
+    "accept-language": "en",
+    "app-platform": "WebPlayer",
+    "authorization": "Bearer TEST_TOKEN",
+    "client-token": "TEST_CLIENT_TOKEN",
+    "content-type": "application/json;charset=UTF-8",
+    "sec-ch-ua": "\"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "spotify-app-version": "1.3.11.451.ge43904970ac8",
+    ":authority": "api-partner.spotify.com",
+    ":method": "POST",
+    ":path": "/pathfinder/v2/query",
+    ":scheme": "https",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "content-length": "315",
+    "origin": "https://open.spotify.com",
+    "priority": "u=1, i",
+    "referer": "https://open.spotify.com/",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-site",
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+  },
+  "postData": "{\"variables\":{\"uri\":\"spotify:playlist:2YRe7HRKNRvXdJBp9nXFza\",\"offset\":0,\"limit\":25,\"enableWatchFeedEntrypoint\":false,\"includeEpisodeContentRatingsV2\":true},\"operationName\":\"fetchPlaylist\",\"extensions\":{\"persistedQuery\":{\"version\":1,\"sha256Hash\":\"21ea11a6ac75a5f3e01fd365d29c18e0a4a8b7dc09f89bbb5d73910190c6acaf\"}}}"
+}

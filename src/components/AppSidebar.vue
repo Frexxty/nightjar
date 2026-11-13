@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
-  Disc3, Heart, History, Home, ListMusic, Radio, Search, Settings, Users,
+  Disc3, Heart, History, Home, Import, ListMusic, Radio, Search, Settings, Users,
 } from "lucide-vue-next";
 import { useLibrary } from "@/stores/library";
+import { useLocalPlaylists } from "@/stores/localPlaylists";
 import { useUi } from "@/stores/ui";
 import Artwork from "./Artwork.vue";
 
 const library = useLibrary();
+const local = useLocalPlaylists();
+const playlists = computed(() => [...local.playlists.map(local.asPlaylist), ...library.playlists]);
 const ui = useUi();
 const route = useRoute();
 const router = useRouter();
@@ -35,6 +38,7 @@ const lib = [
   { to: "/library/albums", label: "Albums", icon: Disc3 },
   { to: "/library/following", label: "Following", icon: Users },
   { to: "/library/history", label: "History", icon: History },
+  { to: "/import", label: "Import from Spotify", icon: Import },
 ];
 </script>
 
@@ -56,9 +60,9 @@ const lib = [
         <component :is="item.icon" :size="17" /> {{ item.label }}
       </RouterLink>
 
-      <template v-if="library.playlists.length">
+      <template v-if="playlists.length">
         <div class="heading">Your playlists</div>
-        <RouterLink v-for="p in library.playlists" :key="p.id" :to="`/playlist/${p.id}`" class="item playlist">
+        <RouterLink v-for="p in playlists" :key="p.id" :to="`/playlist/${p.id}`" class="item playlist">
           <Artwork :src="p.artworkUrl" :size="20" :radius="4" />
           <span class="ellipsis">{{ p.title }}</span>
         </RouterLink>
