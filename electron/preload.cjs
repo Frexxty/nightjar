@@ -19,6 +19,14 @@ contextBridge.exposeInMainWorld("stratus", {
       return reply.result;
     },
   },
+  drm: {
+    status: () => ipcRenderer.invoke("drm:status"),
+    onStatus: (handler) => {
+      const listener = (_event, state) => handler(state);
+      ipcRenderer.on("drm:status", listener);
+      return () => ipcRenderer.removeListener("drm:status", listener);
+    },
+  },
   onCommand: (handler) => {
     const listener = (_event, command, payload) => {
       if (commands.includes(command)) handler(command, payload);

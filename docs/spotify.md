@@ -68,4 +68,24 @@ The hosted backend can't call Spotify (it has no user token), so for IDs startin
 
 ## Desktop Widevine
 
-Spotify's audio is DRM-protected (Widevine). Stock Electron has no Widevine CDM, so Stratus uses castlabs' Electron for Content Security (the same approach Cider uses for Apple Music), waits for `components.whenReady()` before loading the SDK, and VMP-signs release builds with castlabs EVS in CI. Linux and unsigned dev builds can play in development; signed builds are needed where Spotify enforces VMP.
+Spotify's audio is DRM-protected (Widevine). Stock Electron has no Widevine CDM, so Stratus uses castlabs' Electron for Content Security (ECS), the same approach Cider uses for Apple Music. `package.json` pins `electron` to `github:castlabs/electron-releases#v45.2.1+wvcus`, and electron-builder downloads the matching castlabs zips through `build.electronDownload.mirror`. To move to a newer ECS release, change the tag in `package.json` and run `npm install`.
+
+ECS doesn't ship the CDM. Chromium's component updater downloads it from Google on first launch (about 3 to 6 s on a home connection) and keeps it updated. `electron/drm.cjs` calls `components.whenReady()` before the window opens and waits at most 5 s (`STRATUS_CDM_WAIT_MS` overrides it). Once the CDM is installed the wait takes a few milliseconds. If the first install is still running when the wait ends, the window opens anyway and the status changes to `"ready"` when the install finishes. The CDM then works in that same session, with no restart needed (checked on Linux).
+
+The renderer reads the status through the preload bridge:
+
+```ts
+const drm = await window.stratus?.drm.status();
+// { widevine: "ready" | "updating" | "unavailable", version: "4.10.3112.0" | null }
+const stop = window.stratus?.drm.onStatus((s) => { /* e.g. "updating" -> "ready" */ });
+```
+
+- `"ready"`: the CDM is installed and `navigator.requestMediaKeySystemAccess("com.widevine.alpha", ...)` resolves.
+- `"updating"`: the first install hasn't finished yet. Show "Getting Spotify playback ready…" and wait for `onStatus`.
+- `"unavailable"`: the install failed (for example offline on first launch), or the app runs on stock Electron. Show "Spotify playback needs Widevine" and offer SoundCloud or remote playback (`spotifyPlayback: "remote"`).
+
+`window.stratus` is undefined in the web player, where the browser brings its own Widevine.
+
+VMP (Verified Media Path) is Widevine's check that the app binary is untampered. Linux has no VMP. On macOS and Windows, ECS ships with a development VMP signature only, and Spotify's licence server may refuse it. Release builds get a production signature from castlabs EVS in the Release workflow when the `EVS_ACCOUNT_NAME` and `EVS_PASSWD` secrets are set (README, Releasing). Local and fork builds skip that step with a warning. To check what a build gets, open castlabs' [VMP Lab](https://castlabs.github.io/wv-vmp-lab/) inside the app: `PLATFORM_SOFTWARE_VERIFIED` is good, `PLATFORM_TAMPERED` means a broken signature.
+
+If the mac build is ever notarized with the hardened runtime, it needs the `com.apple.security.cs.disable-library-validation` entitlement, or macOS refuses to load the CDM.

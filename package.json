@@ -22,7 +22,8 @@
     "test": "node --test tests/*.test.* \"test/*.test.*\"",
     "dist": "npm run build && electron-builder --mac --dir",
     "dist:mac": "npm run build && electron-builder --mac --publish never",
-    "dist:win": "npm run build && electron-builder --win --publish never"
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:linux": "npm run build && electron-builder --linux --publish never"
   },
   "build": {
     "appId": "dev.stratus.app",
@@ -34,6 +35,11 @@
       "package.json"
     ],
     "asar": true,
+    "electronDownload": {
+      "mirror": "https://github.com/castlabs/electron-releases/releases/download/"
+    },
+    "afterPack": "scripts/vmp-sign.cjs",
+    "afterSign": "scripts/vmp-sign-win.cjs",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -122,11 +128,24 @@
       "uninstallerIcon": "build/icon.ico",
       "include": "build/installer.nsh",
       "artifactName": "Stratus-Setup-${arch}.exe"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Audio",
+      "artifactName": "Stratus-linux-${arch}.${ext}"
     }
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.11",
-    "electron": "^45.3.2",
+    "electron": "github:castlabs/electron-releases#v45.2.1+wvcus",
     "electron-builder": "^26.18.0",
     "hls.js": "^1.7.4",
     "lucide-vue-next": "^1.0.0",

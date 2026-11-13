@@ -16,9 +16,10 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    env:
-      # Typecheck, Vite and the node tests don't need the Electron binary.
-      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    # Typecheck, Vite and the node tests don't need the Electron binary, and
+    # npm ci doesn't fetch it: the electron package (castlabs ECS, from GitHub)
+    # has no install script and downloads the binary the first time something
+    # requires "electron". ELECTRON_SKIP_BINARY_DOWNLOAD has nothing to skip.
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

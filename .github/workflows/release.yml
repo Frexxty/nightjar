@@ -1,7 +1,9 @@
 name: Release
 
-# Push a vX.Y.Z tag and this builds the macOS and Windows installers and
-# publishes them as one GitHub release.
+# Push a vX.Y.Z tag and this builds the macOS and Windows installers (and,
+# best effort, a Linux AppImage) and publishes them as one GitHub release.
+# With the EVS_ACCOUNT_NAME and EVS_PASSWD secrets set, the macOS and Windows
+# apps are also Widevine VMP-signed (README, Releasing).
 #
 # The jobs share a single release without racing:
 #   1. prepare creates a *draft* release for the tag, with notes from
@@ -88,9 +90,17 @@ jobs:
           # the arm64 runner because the app has no native modules.
           - os: macos-15
             target: --mac
+            # Where electron-builder leaves the unpacked apps, for the checks.
+            unpacked: release/mac-arm64 release/mac
           - os: windows-latest
             target: --win
+            unpacked: release/win-unpacked
     runs-on: ${{ matrix.os }}
+    env:
+      # "true" when both EVS secrets are set. Without them (forks, or before
+      # the maintainer adds them) the build still succeeds; scripts/vmp-sign.cjs
+      # warns and the app keeps castlabs' development VMP signature only.
+      HAS_EVS: ${{ secrets.EVS_ACCOUNT_NAME != '' && secrets.EVS_PASSWD != '' }}
     defaults:
       run:
         shell: bash
@@ -109,6 +119,19 @@ jobs:
         with:
           name: release-notes
           path: build
+      # The castlabs EVS client does the Widevine VMP signing (see
+      # scripts/vmp-sign.cjs). setup-python gives a pip that may install
+      # packages; the runners' system Pythons refuse (PEP 668).
+      - uses: actions/setup-python@v7
+        id: python
+        if: env.HAS_EVS == 'true'
+        with:
+          python-version: "3.13"
+      - name: Install the castlabs EVS client
+        if: env.HAS_EVS == 'true'
+        run: '"$EVS_PYTHON" -m pip install --upgrade castlabs-evs'
+        env:
+          EVS_PYTHON: ${{ steps.python.outputs.python-path }}
       - name: Build and upload to the draft release
         run: npx electron-builder ${{ matrix.target }} --publish always
         env:
@@ -117,9 +140,54 @@ jobs:
           # No signing certificates: macOS builds are ad-hoc signed through
           # mac.identity "-" in package.json, Windows builds are unsigned.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # VMP signing. Only this step sees the password.
+          EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+          EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+          EVS_PYTHON: ${{ steps.python.outputs.python-path }}
+      # A failure here leaves the release a draft: publish needs this job.
+      - name: Check the code and VMP signatures
+        env:
+          EVS_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            for dir in ${{ matrix.unpacked }}; do
+              codesign --verify --deep --strict --verbose=1 "$dir/Stratus.app"
+            done
+          fi
+          if [ "$HAS_EVS" = true ]; then
+            # Offline check: production VMP signature present and matching.
+            "$EVS_PYTHON" -m castlabs_evs.vmp --no-ask verify-pkg --name-hint Stratus ${{ matrix.unpacked }}
+          fi
+
+  # Linux AppImage, best effort: it isn't part of the release contract yet, so
+  # a failure here doesn't hold the release back (publish only warns when the
+  # AppImage is missing). Widevine on Linux has no VMP, so nothing to sign.
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/download-artifact@v5
+        with:
+          name: release-notes
+          path: build
+      - name: Build and upload to the draft release
+        run: npx electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EP_DRAFT: "true"
 
   publish:
-    needs: [prepare, build]
+    needs: [prepare, build, build-linux]
+    # Wait for build-linux so it can't upload into an already published
+    # release, but don't require it to have succeeded.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check every asset was uploaded
@@ -136,6 +204,11 @@ jobs:
             if ! printf '%s\n' "$assets" | grep -qx "$name"; then
               echo "::error::Missing release asset $name"
               missing=1
+            fi
+          done
+          for name in Stratus-linux-x86_64.AppImage latest-linux.yml; do
+            if ! printf '%s\n' "$assets" | grep -qx "$name"; then
+              echo "::warning::Linux asset $name is missing; publishing without it"
             fi
           done
           exit $missing
