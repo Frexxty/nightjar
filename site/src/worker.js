@@ -89,10 +89,11 @@ async function fetchLatest(env) {
   try {
     res = await fetch(`https://api.github.com/repos/${repoOf(env)}/releases/latest`, { headers });
   } catch (err) {
-    return empty(env, `network: ${err.message}`);
+    return (await fromUpdateFeeds(env)) ?? empty(env, `network: ${err.message}`);
   }
-  // 404: repo missing or no published release. 403/429: rate limited.
-  if (!res.ok) return empty(env, `github ${res.status}`);
+  // 404: repo missing or no published release. 403/429: rate limited, which
+  // happens often because Workers share outgoing IPs; the update feeds still work.
+  if (!res.ok) return (await fromUpdateFeeds(env)) ?? empty(env, `github ${res.status}`);
 
   let rel;
   try {
@@ -112,6 +113,45 @@ async function fetchLatest(env) {
     publishedAt: rel.published_at,
     notes: (rel.body || "").slice(0, 8000),
     url: rel.html_url,
+    downloads: {
+      mac: link(ASSETS.mac),
+      macIntel: link(ASSETS["mac-intel"]),
+      windows: link(ASSETS.windows),
+    },
+    _assets: names,
+  };
+}
+
+// Fallback when the GitHub API refuses: read the electron-updater feeds that
+// every release attaches (latest.yml for Windows, latest-mac.yml for macOS).
+// They are plain release downloads, so the API rate limit doesn't apply.
+async function fromUpdateFeeds(env) {
+  const read = async (name) => {
+    try {
+      const res = await fetch(`${latestDownload(env)}/${name}`, { headers: { "User-Agent": "stratus-site (+https://stratus.k3s.lat)" } });
+      return res.ok ? await res.text() : "";
+    } catch {
+      return "";
+    }
+  };
+  const [win, mac] = await Promise.all([read("latest.yml"), read("latest-mac.yml")]);
+  const version = (mac || win).match(/^version:\s*['"]?([^\s'"]+)/m)?.[1];
+  if (!version) return null;
+
+  const names = [...`${win}\n${mac}`.matchAll(/^\s*-?\s*(?:url|path):\s*['"]?([^\s'"]+)/gm)].map((m) => m[1]);
+  const link = (name) => (names.includes(name) ? `${latestDownload(env)}/${name}` : null);
+  // releaseNotes is a YAML block scalar: indented lines after "releaseNotes: |".
+  const notes = (mac || win).match(/^releaseNotes:\s*\|-?\n((?:[ \t]+.*\n?|\n)*)/m)?.[1]
+    ?.split("\n").map((line) => line.replace(/^ {2}/, "")).join("\n").trim() ?? null;
+  const tag = `v${version}`;
+
+  return {
+    version,
+    tag,
+    name: `Stratus ${version}`,
+    publishedAt: (mac || win).match(/^releaseDate:\s*['"]?([^'"\n]+)/m)?.[1] ?? null,
+    notes: notes ? notes.slice(0, 8000) : null,
+    url: `https://github.com/${repoOf(env)}/releases/tag/${tag}`,
     downloads: {
       mac: link(ASSETS.mac),
       macIntel: link(ASSETS["mac-intel"]),
