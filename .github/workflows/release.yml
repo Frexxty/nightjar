@@ -34,11 +34,11 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # checkout on a tag push leaves a lightweight ref; fetch the real tag
       # so its annotation is readable for the release notes.
       - run: git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
       - id: version
@@ -55,7 +55,7 @@ jobs:
             *) echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
           esac
       - run: node scripts/release-notes.mjs "${{ steps.version.outputs.version }}" --out release-notes.md
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: release-notes
           path: release-notes.md
@@ -86,7 +86,7 @@ jobs:
           # One electron-builder run builds both mac arches, so it writes a
           # single latest-mac.yml listing both zips. x64 cross-builds fine on
           # the arm64 runner because the app has no native modules.
-          - os: macos-14
+          - os: macos-15
             target: --mac
           - os: windows-latest
             target: --win
@@ -95,8 +95,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -105,7 +105,7 @@ jobs:
       - run: npm run build
       # electron-builder copies build/release-notes.md into latest.yml and
       # latest-mac.yml, which is where the in-app dialog reads notes from.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: release-notes
           path: build
