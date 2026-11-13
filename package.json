@@ -1,0 +1,44 @@
+{
+  "name": "cumulus",
+  "productName": "Cumulus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A desktop SoundCloud client UI in the style of Cider, with a pluggable backend.",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vue-tsc --noEmit && vite build",
+    "start": "electron .",
+    "typecheck": "vue-tsc --noEmit",
+    "dist": "npm run build && electron-builder --mac --dir"
+  },
+  "build": {
+    "appId": "dev.cumulus.app",
+    "productName": "Cumulus",
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.music"
+    },
+    "directories": {
+      "output": "release"
+    }
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.11",
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
+    "hls.js": "^1.7.4",
+    "lucide-vue-next": "^1.0.0",
+    "pinia": "^4.1.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8",
+    "vue": "^3.5.45",
+    "vue-router": "^5.5.1",
+    "vue-tsc": "^3.3.14"
+  }
+}
