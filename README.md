@@ -1,6 +1,6 @@
 # Stratus
 
-A desktop SoundCloud player modelled on Cider's layout: vibrancy sidebar, a top bar with the transport controls and an "LCD" now-playing display, a right-hand drawer, and a full-window immersive player. It's only the UI. Data comes from a backend you write, described in [BACKEND.md](BACKEND.md). Until then it runs against a built-in mock with generated artwork, waveforms, comments and synthesized audio, so everything is clickable on day one.
+A desktop SoundCloud player modelled on Cider's layout: vibrancy sidebar, a top bar with the transport controls and an "LCD" now-playing display, a right-hand drawer, and a full-window immersive player. Out of the box it uses the hosted Stratus server, where you can make a free Stratus account for your likes, playlists, follows and history. You can also point it at a server you run, described in [BACKEND.md](BACKEND.md), or at built-in demo data with generated artwork, waveforms, comments and synthesized audio.
 
 Electron 45, Vue 3, Pinia, Vite. No code or assets come from Cider. Its license is "All Rights Reserved", so this is a fresh implementation of the same structure.
 
@@ -34,6 +34,22 @@ Shortcuts: Space play/pause, ←/→ seek 5s, ⌘←/⌘→ previous/next, ⌘L 
 
 When the queue runs out it keeps going with `/tracks/{id}/related`, like SoundCloud's autoplay. You can turn that off in Settings, along with comments on waveforms and the immersive background animation. Settings also has theme (dark, light, system) and accent colour.
 
+## Accounts and backends
+
+Settings > Backend has three choices:
+
+- **Stratus account** (the default for new installs). The hosted server at `https://stratus-api.k3s.lat/v1`, documented in [docs/hosted-api.md](docs/hosted-api.md). Catalogue pages work signed out. Likes, reposts, follows, the Stream page, account playlists and synced history need an account.
+- **Custom server**. Any server that follows [BACKEND.md](BACKEND.md), with an optional bearer token. If it also has the account routes, the same sign-in page works with it.
+- **Demo data**. Made-up artists and tracks with generated audio. It has a fake account so the sign-in flows can be tried offline: you start signed in as "you", and any password of 8 or more characters signs you back in.
+
+Sign in from the sidebar footer, from Settings > Account, or from any button that needs an account (like, follow, repost, save to library). Signed out, those buttons open the sign-in page and bring you back afterwards, and the Stream, Likes, Playlists and Following pages show a sign-in prompt instead of an error. Stratus accounts are separate from SoundCloud accounts, and nothing is posted to SoundCloud.
+
+The session token is saved with the backend choice (in `localStorage`, which Electron keeps in your user data folder). If the server rejects it later, Stratus forgets it and asks you to sign in again. Settings > Account also has Sign out, Delete account (asks for your password), and a button that uploads playlists saved on this computer to your account and then offers to remove the local copies.
+
+History is recorded on this computer either way. Signed in to a server with history, plays are also sent to the account and the History page shows the account's list.
+
+Builds can point "Stratus account" at another copy of the server with `VITE_BACKEND_URL=https://… npm run build`. Settings saved by older versions keep working: "Mock data" becomes Demo data, and an HTTP server setting stays a custom server unless its URL is the hosted one.
+
 ## Importing from Spotify
 
 Library > Import from Spotify (or View > Import from Spotify…) takes a link to a public Spotify playlist or album. It needs no Spotify account and no API key.
@@ -49,9 +65,13 @@ For each track, Stratus searches your backend with "first artist + title", then 
 
 A score of 0.75 or more is "Matched" and 0.5 to 0.75 is "Check". Anything lower is "No match" and is left out unless you pick something. A list with titles only and no artists never scores above "Check". In the review table you can pick another candidate, search with your own words, skip a track, or double-click a match to hear it.
 
-If a playlist can't be read in full, the "Paste a track list" tab takes `Artist - Title` lines or a CSV with "Track Name" and "Artist Name(s)" columns, such as an [Exportify](https://exportify.net) export. That tab also works in a plain browser during `vite` development; reading links needs the desktop app.
+If a playlist can't be read in full, the "Paste a track list" tab takes `Artist - Title` lines or a CSV with "Track Name" and "Artist Name(s)" columns, such as an [Exportify](https://exportify.net) export.
 
-Imported playlists are saved locally (in `localStorage`, with full track data so they show without a network) and appear under "Your playlists". You can rename or delete them, and remove or move tracks from the track menu. If your backend implements `createPlaylist`, the import page also offers "Save to SoundCloud".
+In a browser there is no main process to read Spotify with, so the import page asks the backend instead (`GET /import/spotify`). The hosted server reads the embed page, which covers the first 100 tracks, and sometimes the full page. If the backend can't read links either, the page says so and the paste tab still works.
+
+Signed in, "Save to my library" saves the matches as a playlist in your account, where you can rename it, delete it, drag tracks to reorder them, or remove them from the track menu. Signed out, the same button opens the sign-in page and the import waits for you to come back. "Save on this computer" keeps the playlist in `localStorage` instead, with full track data so it shows without a network. Those appear under "On this computer" in the sidebar and can be edited the same way.
+
+Tracks where only SoundCloud's 30-second Go+ preview can be played carry a "Preview" label in lists, cards, the stream, the now-playing display and the import review.
 
 `npm test` runs the matcher, list parser and Spotify parsing tests. The Spotify tests run against trimmed real responses in `tests/fixtures/spotify`.
 
@@ -66,11 +86,14 @@ electron/updater.cjs     update checks and installs, wired to the update dialog
 electron/mac-install.cjs macOS download, checksum and in-place app swap
 electron/tray.cjs        Windows tray icon with playback controls
 src/api/types.ts         the backend contract
-src/api/http.ts          REST client for BACKEND.md
-src/api/mock.ts          mock backend
+src/api/http.ts          REST client for BACKEND.md and the hosted account routes
+src/api/config.ts        backend choice, saved settings and their migration
+src/api/errors.ts        the { error, code } error shape and friendly messages
+src/api/mock.ts          demo backend, with a fake account
 src/api/synth.ts         audio and artwork generator for the mock
 src/stores/player.ts     queue, shuffle, repeat, audio/HLS, media session
-src/stores/library.ts    likes, reposts, follows, history
+src/stores/library.ts    signed-in user, likes, reposts, follows, history
+src/stores/account.ts    sign up, sign in, sign out, delete account
 src/components/          chrome, LCD, waveform, drawer, immersive player, lists, cards
 src/views/               one file per route
 ```

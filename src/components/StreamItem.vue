@@ -64,7 +64,10 @@ function play(at?: number) {
           </button>
           <div class="titles">
             <RouterLink :to="`/user/${(track ?? playlist)!.user.id}`" class="artist ellipsis">{{ (track ?? playlist)!.user.username }}</RouterLink>
-            <RouterLink :to="track ? `/track/${track.id}` : `/playlist/${playlist!.id}`" class="title ellipsis">{{ (track ?? playlist)!.title }}</RouterLink>
+            <span class="title-line">
+              <RouterLink :to="track ? `/track/${track.id}` : `/playlist/${playlist!.id}`" class="title ellipsis">{{ (track ?? playlist)!.title }}</RouterLink>
+              <span v-if="track?.preview" class="preview-pill" title="Only a 30-second preview can be played">Preview</span>
+            </span>
           </div>
           <span v-if="track?.genre" class="genre">#{{ track.genre }}</span>
         </div>
@@ -127,6 +130,7 @@ function play(at?: number) {
 .titles { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .artist { color: var(--text-2); font-size: 12.5px; }
 .title { font-size: 15px; font-weight: 650; }
+.title-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .genre { padding: 3px 9px; border-radius: 11px; background: var(--hover); color: var(--text-2); font-size: 11.5px; }
 .tracklist { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: 8px; background: var(--hover); }
 .mini { font-size: 12.5px; }

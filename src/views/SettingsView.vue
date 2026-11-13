@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
-import { CheckCircle2, RefreshCw, XCircle } from "lucide-vue-next";
-import { api, createBackend, loadBackendConfig, useBackend, type BackendConfig } from "@/api";
+import { computed, reactive, ref, watch } from "vue";
+import { CheckCircle2, CloudUpload, LogOut, RefreshCw, XCircle } from "lucide-vue-next";
+import { api, backendConfig, createBackend, friendlyError, HOSTED_BASE_URL, loadBackendConfig, useBackend, type BackendConfig } from "@/api";
+import Artwork from "@/components/Artwork.vue";
+import { useAccount } from "@/stores/account";
+import { useLibrary } from "@/stores/library";
+import { useLocalPlaylists } from "@/stores/localPlaylists";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
 import { useUpdates } from "@/stores/updates";
@@ -9,10 +13,69 @@ import { useUpdates } from "@/stores/updates";
 const settings = useSettings();
 const ui = useUi();
 const updates = useUpdates();
+const library = useLibrary();
+const account = useAccount();
+const local = useLocalPlaylists();
 const isWindows = window.stratus?.platform === "win32";
 const backend = reactive<BackendConfig>(loadBackendConfig());
+// Signing in or out elsewhere changes the saved tokens; keep the form in step.
+watch(backendConfig, (c) => Object.assign(backend, c));
 const test = ref<{ ok: boolean; message: string } | null>(null);
 const testing = ref(false);
+const hostedHost = new URL(HOSTED_BASE_URL).host;
+
+// Delete account: asks for the password first.
+const deleting = ref(false);
+const deletePassword = ref("");
+const deleteError = ref<string | null>(null);
+const deleteBusy = ref(false);
+async function confirmDelete() {
+  if (!deletePassword.value) {
+    deleteError.value = "Enter your password to confirm.";
+    return;
+  }
+  deleteBusy.value = true;
+  deleteError.value = null;
+  try {
+    await account.deleteAccount(deletePassword.value);
+    deleting.value = false;
+    deletePassword.value = "";
+  } catch (err) {
+    deleteError.value = friendlyError(err);
+  } finally {
+    deleteBusy.value = false;
+  }
+}
+
+// Upload playlists on this computer to the account, then offer to remove the local copies.
+const canUpload = computed(() => !!library.me && typeof api.value.createPlaylist === "function");
+const uploading = ref(false);
+const uploaded = ref<string[] | null>(null);
+const uploadFailed = ref<string[]>([]);
+async function uploadLocal() {
+  const create = api.value.createPlaylist;
+  if (!create) return;
+  uploading.value = true;
+  uploaded.value = null;
+  uploadFailed.value = [];
+  const done: string[] = [];
+  for (const p of [...local.playlists]) {
+    try {
+      await create.call(api.value, p.title, p.tracks.map((t) => t.id), false, p.sourceUrl ? { sourceUrl: p.sourceUrl } : {});
+      done.push(p.id);
+    } catch (err) {
+      uploadFailed.value.push(`${p.title}: ${friendlyError(err)}`);
+    }
+  }
+  uploaded.value = done;
+  uploading.value = false;
+  void library.refresh();
+}
+function removeUploaded() {
+  for (const id of uploaded.value ?? []) local.remove(id);
+  ui.notify(`Removed ${uploaded.value?.length ?? 0} playlists from this computer`);
+  uploaded.value = null;
+}
 
 const accents = ["#ff5500", "#ff2d55", "#bf5af2", "#0a84ff", "#30d158", "#ffd60a", "#e5e5ea"];
 
@@ -53,8 +116,10 @@ const lastChecked = computed(() => {
 });
 
 function apply() {
-  useBackend({ ...backend });
-  ui.notify(`Using the ${api.value.name} backend`);
+  // Tokens come from storage, not the form, so a sign-in since this page
+  // opened isn't undone. The custom server's token is the one field to edit.
+  useBackend({ ...loadBackendConfig(), kind: backend.kind, baseUrl: backend.baseUrl, token: backend.token });
+  ui.notify(`Switched to ${api.value.name}`);
 }
 </script>
 
@@ -62,17 +127,88 @@ function apply() {
   <div class="page settings">
     <h1 class="page-title">Settings</h1>
 
+    <section v-if="library.accounts">
+      <h2>Account</h2>
+      <template v-if="library.me">
+        <div class="account-row">
+          <Artwork :src="library.me.avatarUrl" :size="44" round />
+          <div class="account-text">
+            <strong>{{ library.me.username }}</strong>
+            <span class="muted">{{ account.email ?? "Signed in" }} · {{ api.name }}</span>
+          </div>
+          <button class="btn" @click="account.signOut()"><LogOut :size="14" /> Sign out</button>
+        </div>
+
+        <div v-if="canUpload && (local.playlists.length || uploaded)" class="sub">
+          <template v-if="uploaded">
+            <p class="muted">
+              Uploaded {{ uploaded.length }} {{ uploaded.length === 1 ? "playlist" : "playlists" }} to your account.
+              <template v-if="uploaded.length">Remove the copies on this computer?</template>
+            </p>
+            <p v-for="f in uploadFailed" :key="f" class="error small">{{ f }}</p>
+            <div class="row">
+              <button v-if="uploaded.length" class="btn danger" @click="removeUploaded">Remove local copies</button>
+              <button class="btn" @click="uploaded = null">{{ uploaded.length ? "Keep them" : "OK" }}</button>
+            </div>
+          </template>
+          <template v-else>
+            <p class="muted">
+              {{ local.playlists.length }} {{ local.playlists.length === 1 ? "playlist is" : "playlists are" }} saved only on this computer.
+            </p>
+            <button class="btn" :disabled="uploading" @click="uploadLocal">
+              <CloudUpload :size="14" /> {{ uploading ? "Uploading…" : "Upload playlists on this computer to my account" }}
+            </button>
+          </template>
+        </div>
+
+        <div v-if="api.deleteAccount" class="sub">
+          <button v-if="!deleting" class="link danger-text" @click="deleting = true">Delete account…</button>
+          <form v-else class="delete" @submit.prevent="confirmDelete">
+            <p class="muted">This deletes your account with its likes, playlists, follows and history. It can't be undone.</p>
+            <div class="row">
+              <input
+                v-model="deletePassword"
+                type="password"
+                autocomplete="current-password"
+                placeholder="Your password"
+                aria-label="Password"
+                :disabled="deleteBusy"
+              />
+              <button class="btn danger" type="submit" :disabled="deleteBusy">{{ deleteBusy ? "Deleting…" : "Delete my account" }}</button>
+              <button class="btn" type="button" @click="deleting = false; deleteError = null; deletePassword = ''">Cancel</button>
+            </div>
+            <p v-if="deleteError" class="error small" role="alert">{{ deleteError }}</p>
+          </form>
+        </div>
+      </template>
+      <template v-else>
+        <p class="muted">Sign in to keep likes, playlists, follows and history in your account, in the desktop app and the browser.</p>
+        <div class="row">
+          <RouterLink :to="{ path: '/account', query: { next: '/settings' } }" class="btn primary">Sign in</RouterLink>
+          <RouterLink :to="{ path: '/account', query: { next: '/settings', mode: 'signup' } }" class="btn">Create account</RouterLink>
+        </div>
+      </template>
+    </section>
+
     <section>
       <h2>Backend</h2>
-      <p class="muted">Stratus is only the UI. Point it at a server that implements the routes in BACKEND.md, or use the built-in mock.</p>
+      <p class="muted">Where Stratus gets music and keeps your library.</p>
       <div class="field">
         <label>Source</label>
         <div class="seg">
-          <button :class="{ active: backend.kind === 'mock' }" @click="backend.kind = 'mock'">Mock data</button>
-          <button :class="{ active: backend.kind === 'http' }" @click="backend.kind = 'http'">HTTP server</button>
+          <button :class="{ active: backend.kind === 'hosted' }" @click="backend.kind = 'hosted'">Stratus account</button>
+          <button :class="{ active: backend.kind === 'http' }" @click="backend.kind = 'http'">Custom server</button>
+          <button :class="{ active: backend.kind === 'mock' }" @click="backend.kind = 'mock'">Demo data</button>
         </div>
       </div>
+      <p v-if="backend.kind === 'hosted'" class="faint small hint">
+        Recommended. The Stratus server at {{ hostedHost }}, with accounts that work in the desktop app and the browser.
+      </p>
+      <p v-else-if="backend.kind === 'mock'" class="faint small hint">
+        Made-up artists, tracks and generated audio, for trying Stratus without a server.
+      </p>
       <template v-if="backend.kind === 'http'">
+        <p class="faint small hint">A server you run that follows BACKEND.md.</p>
         <div class="field">
           <label for="url">Base URL</label>
           <input id="url" v-model="backend.baseUrl" placeholder="http://localhost:8787" spellcheck="false" />
@@ -178,6 +314,24 @@ label { color: var(--text-2); }
 .check { display: flex; align-items: center; gap: 8px; margin: 10px 0; color: var(--text); }
 .check input { width: 15px; height: 15px; accent-color: var(--accent); }
 .update-status { color: var(--text-2); font-size: 12.5px; user-select: text; }
+.hint { margin: -4px 0 12px 132px; max-width: 460px; }
+.account-row { display: flex; align-items: center; gap: 12px; }
+.account-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.account-text strong { font-size: 15px; }
+.sub { margin-top: 16px; }
+.sub p { margin: 0 0 8px; }
+.delete input { width: 220px; }
+.link { color: var(--accent); font-weight: 600; }
+.danger-text { color: #ff6b6b; }
+.btn.danger { background: #ff5a5a; color: #fff; }
+.error { color: #ff6b6b; user-select: text; }
+a.btn:hover { text-decoration: none; }
+@media (max-width: 560px) {
+  .field { grid-template-columns: 1fr; gap: 6px; }
+  .hint { margin-left: 0; }
+  .seg { flex-wrap: wrap; }
+  .delete input { width: 100%; }
+}
 .update-status.error { color: #ff6b6b; }
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
