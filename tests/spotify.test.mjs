@@ -215,3 +215,9 @@ test("fetchSpotifyList reports a friendly error when nothing works", async () =>
     /Couldn't reach Spotify/,
   );
 });
+
+test("splitArtists keeps commas inside artist names", () => {
+  assert.deepEqual(spotify.splitArtists("Tyler, The Creator, Kali Uchis"), ["Tyler, The Creator", "Kali Uchis"]);
+  assert.deepEqual(spotify.splitArtists("KAROL G, Judeline, rusowsky"), ["KAROL G", "Judeline", "rusowsky"]);
+  assert.deepEqual(spotify.splitArtists("Solo Artist"), ["Solo Artist"]);
+});

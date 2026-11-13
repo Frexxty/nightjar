@@ -56,6 +56,15 @@ const biggest = (sources) =>
     .sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0]?.url ?? null;
 
 /** Parses the embed page HTML. Throws ImportError with a reason when the list isn't there. */
+// The embed joins artists with ", " (comma + no-break space), while a
+// comma inside a name ("Tyler, The Creator") is followed by a normal space.
+// Split on the joiner only; fall back to any comma for older markup.
+function splitArtists(subtitle) {
+  const text = String(subtitle ?? "");
+  const parts = text.includes(", ") ? text.split(", ") : text.split(/,\s+/);
+  return parts.map((s) => s.trim()).filter(Boolean);
+}
+
 function parseEmbedHtml(html) {
   const m = String(html).match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
   if (!m) throw new ImportError("Spotify's embed page didn't include any data. Spotify may have changed it.");
@@ -76,9 +85,7 @@ function parseEmbedHtml(html) {
     .map((t) => ({
       spotifyId: typeof t.uri === "string" && t.uri.startsWith("spotify:track:") ? t.uri.slice(14) : null,
       title: String(t.title),
-      // The embed only gives a joined string. Artists with a comma in their
-      // name ("Tyler, The Creator") get split; the matcher tolerates that.
-      artists: String(t.subtitle ?? "").split(/,\s+/).map((s) => s.trim()).filter(Boolean),
+      artists: splitArtists(t.subtitle),
       durationMs: typeof t.duration === "number" ? t.duration : null,
       explicit: Boolean(t.isExplicit),
     }));
@@ -193,4 +200,4 @@ function registerSpotifyIpc(ipcMain) {
   });
 }
 
-module.exports = { ImportError, parseSpotifyRef, parseEmbedHtml, fetchEmbed, fetchSpotifyList, registerSpotifyIpc, EMBED_CAP };
+module.exports = { ImportError, parseSpotifyRef, parseEmbedHtml, splitArtists, fetchEmbed, fetchSpotifyList, registerSpotifyIpc, EMBED_CAP };
