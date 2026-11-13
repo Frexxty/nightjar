@@ -53,13 +53,16 @@
           ? link("/download/mac", "Mac with Apple Silicon")
           : link("/download/mac-intel", "Mac with Intel chip"));
         links.push(link("/download/windows", "Windows"));
+        links.push(link("/download/linux", "Linux"));
       } else if (os === "windows") {
         mac.hidden = true;
         detail.textContent = "Windows, 64-bit";
         links.push(link("/download/mac", "Mac with Apple Silicon"));
         links.push(link("/download/mac-intel", "Mac with Intel chip"));
+        links.push(link("/download/linux", "Linux"));
       } else {
         links.push(link("/download/mac-intel", "Mac with Intel chip"));
+        links.push(link("/download/linux", "Linux"));
         // Phones and tablets can't run the desktop app, so the web player leads.
         const web = block.querySelector("[data-web-btn]");
         if (web) {

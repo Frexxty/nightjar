@@ -11,6 +11,7 @@ const ASSETS = {
   mac: "Stratus-mac-arm64.dmg",
   "mac-intel": "Stratus-mac-x64.dmg",
   windows: "Stratus-Setup-x64.exe",
+  linux: "Stratus-linux-x86_64.AppImage",
 };
 
 const CACHE_OK = 600; // seconds, when GitHub answered with a release
@@ -117,6 +118,7 @@ async function fetchLatest(env) {
       mac: link(ASSETS.mac),
       macIntel: link(ASSETS["mac-intel"]),
       windows: link(ASSETS.windows),
+      linux: link(ASSETS.linux),
     },
     _assets: names,
   };
@@ -134,11 +136,11 @@ async function fromUpdateFeeds(env) {
       return "";
     }
   };
-  const [win, mac] = await Promise.all([read("latest.yml"), read("latest-mac.yml")]);
+  const [win, mac, linux] = await Promise.all([read("latest.yml"), read("latest-mac.yml"), read("latest-linux.yml")]);
   const version = (mac || win).match(/^version:\s*['"]?([^\s'"]+)/m)?.[1];
   if (!version) return null;
 
-  const names = [...`${win}\n${mac}`.matchAll(/^\s*-?\s*(?:url|path):\s*['"]?([^\s'"]+)/gm)].map((m) => m[1]);
+  const names = [...`${win}\n${mac}\n${linux}`.matchAll(/^\s*-?\s*(?:url|path):\s*['"]?([^\s'"]+)/gm)].map((m) => m[1]);
   const link = (name) => (names.includes(name) ? `${latestDownload(env)}/${name}` : null);
   // releaseNotes is a YAML block scalar: indented lines after "releaseNotes: |".
   const notes = (mac || win).match(/^releaseNotes:\s*\|-?\n((?:[ \t]+.*\n?|\n)*)/m)?.[1]
@@ -156,6 +158,7 @@ async function fromUpdateFeeds(env) {
       mac: link(ASSETS.mac),
       macIntel: link(ASSETS["mac-intel"]),
       windows: link(ASSETS.windows),
+      linux: link(ASSETS.linux),
     },
     _assets: names,
   };
@@ -167,7 +170,7 @@ function empty(env, reason) {
     publishedAt: null,
     notes: null,
     url: releasesPage(env),
-    downloads: { mac: null, macIntel: null, windows: null },
+    downloads: { mac: null, macIntel: null, windows: null, linux: null },
     reason,
     _assets: [],
   };
