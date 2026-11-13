@@ -79,7 +79,8 @@ const liked = computed(() => !!player.current && library.isLiked(player.current)
   height: var(--chrome-height);
   padding: 0 14px;
 }
-:root:not([data-platform="darwin"]) .chrome { padding-right: 150px; }
+/* Room for the window controls overlay on Windows and Linux. Browsers have none. */
+:root:not([data-platform="darwin"]):not([data-platform="web"]) .chrome { padding-right: 150px; }
 .left, .right { display: flex; align-items: center; gap: 2px; }
 .right { justify-content: flex-end; }
 .center { display: flex; align-items: center; gap: 14px; }

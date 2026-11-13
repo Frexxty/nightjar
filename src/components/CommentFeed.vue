@@ -106,7 +106,7 @@ async function post() {
   opacity: 0.5;
   transition: opacity 0.3s, background 0.15s, transform 0.3s;
 }
-.comment:hover { background: var(--hover); opacity: 0.9; }
+@media (hover: hover) { .comment:hover { background: var(--hover); opacity: 0.9; } }
 .comment.past { opacity: 0.35; }
 .comment.active { opacity: 1; transform: scale(1.02); transform-origin: left center; }
 .comment.static { opacity: 0.8; }
@@ -120,5 +120,10 @@ async function post() {
 .large .comment { padding: 10px; }
 .divider { margin: 16px 8px 6px; font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
 .compose { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
-.compose input { flex: 1; }
+.compose input { flex: 1; min-width: 0; }
+@media (max-width: 760px) {
+  .list { padding: 4px 12px 40px; overscroll-behavior: contain; }
+  .body { font-size: 15px; }
+  .compose { padding: 10px 12px; }
+}
 </style>

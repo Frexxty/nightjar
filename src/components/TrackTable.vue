@@ -3,6 +3,7 @@ import { Clock, Heart, MoreHorizontal, Pause, Play } from "lucide-vue-next";
 import type { Track } from "@/api";
 import { count, duration } from "@/lib/format";
 import { useMenus } from "@/lib/menus";
+import { isPhone } from "@/lib/responsive";
 import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
 import { useUi, type MenuItem } from "@/stores/ui";
@@ -53,6 +54,7 @@ function play(i: number) {
       class="row"
       :class="{ current: player.isCurrent(t), unavailable: !t.streamable }"
       @dblclick="play(i)"
+      @click="isPhone && play(i)"
       @contextmenu="ui.openMenu($event, menuFor(t, i))"
     >
       <span class="idx">
@@ -95,7 +97,7 @@ function play(i: number) {
   border-radius: 8px;
 }
 .table:not(.art) .row { grid-template-columns: 36px minmax(0, 1fr) 70px 36px 56px 36px; min-height: 46px; }
-.row:not(.head):hover { background: var(--hover); }
+@media (hover: hover) { .row:not(.head):hover { background: var(--hover); } }
 .row.current .name { color: var(--accent); }
 .row.unavailable { opacity: 0.45; }
 .head {
@@ -139,4 +141,26 @@ function play(i: number) {
 .bars i:nth-child(2) { animation-delay: -0.3s; }
 .bars i:nth-child(3) { animation-delay: -0.6s; }
 @keyframes eq { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+
+/* Touch: the row buttons can't wait for a hover that never comes. */
+@media (hover: none) {
+  .like .icon-btn, .more { opacity: 1; }
+}
+
+/* Phone: artwork, title and artist, and a menu button. A tap plays the row. */
+@media (max-width: 760px) {
+  .row,
+  .table:not(.art) .row,
+  .table.art.numbered .row { grid-template-columns: auto minmax(0, 1fr) 44px; gap: 12px; min-height: 60px; padding: 0; border-radius: 0; }
+  .table:not(.art) .row { min-height: 54px; }
+  .row:active { background: var(--hover); }
+  .head, .row > .num, .row > .like, .play-btn { display: none; }
+  .table.art .n { display: none; }
+  .table:not(.art) .n { width: 24px; text-align: center; }
+  .thumb { width: 48px !important; height: 48px !important; border-radius: 6px !important; }
+  .title { pointer-events: none; }
+  .name { font-size: 15px; font-weight: 550; }
+  .by { font-size: 13px; }
+  .more { margin-right: -6px; color: var(--text-2); }
+}
 </style>

@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { GripVertical, X } from "lucide-vue-next";
 import { duration } from "@/lib/format";
 import { useMenus } from "@/lib/menus";
+import { isPhone } from "@/lib/responsive";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import Artwork from "./Artwork.vue";
@@ -49,19 +50,20 @@ function drop(to: number) {
           @drop="drop(player.index + 1 + k)"
           @dragend="dragFrom = dragOver = null"
           @dblclick="player.jumpTo(player.index + 1 + k)"
+          @click="isPhone && player.jumpTo(player.index + 1 + k)"
           @contextmenu="ui.openMenu($event, menus.track(t, [{ label: 'Remove from queue', danger: true, action: () => player.removeAt(player.index + 1 + k) }]))"
         >
           <GripVertical :size="14" class="grip" />
           <Artwork :src="t.artworkUrl" :size="40" :radius="5" />
           <div class="meta"><div class="t ellipsis">{{ t.title }}</div><div class="a ellipsis">{{ t.user.username }}</div></div>
           <span class="d faint">{{ duration(t.duration) }}</span>
-          <button class="icon-btn x" title="Remove" @click="player.removeAt(player.index + 1 + k)"><X :size="14" /></button>
+          <button class="icon-btn x" title="Remove" @click.stop="player.removeAt(player.index + 1 + k)"><X :size="14" /></button>
         </div>
       </template>
 
       <template v-else>
         <p v-if="!player.previous.length" class="empty-note">Tracks you've played from this queue show up here.</p>
-        <div v-for="(t, k) in [...player.previous].reverse()" :key="`${t.id}-${k}`" class="row" @dblclick="player.jumpTo(player.index - 1 - k)">
+        <div v-for="(t, k) in [...player.previous].reverse()" :key="`${t.id}-${k}`" class="row" @dblclick="player.jumpTo(player.index - 1 - k)" @click="isPhone && player.jumpTo(player.index - 1 - k)">
           <Artwork :src="t.artworkUrl" :size="40" :radius="5" />
           <div class="meta"><div class="t ellipsis">{{ t.title }}</div><div class="a ellipsis">{{ t.user.username }}</div></div>
           <span class="d faint">{{ duration(t.duration) }}</span>
@@ -80,7 +82,7 @@ function drop(to: number) {
 .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 8px 4px; }
 .now { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; }
-.row:hover { background: var(--hover); }
+@media (hover: hover) { .row:hover { background: var(--hover); } }
 .row.over { box-shadow: inset 0 2px 0 var(--accent); }
 .row.current .t { color: var(--accent); }
 .grip { color: var(--text-3); cursor: grab; flex: none; margin-right: -4px; }
@@ -92,4 +94,16 @@ function drop(to: number) {
 .row:hover .x { opacity: 1; }
 .row:hover .d { display: none; }
 .empty-note { color: var(--text-3); font-size: 12.5px; padding: 12px 8px; }
+/* Touch: remove buttons always showing, and a tap plays the row on phones. */
+@media (hover: none) {
+  .x { opacity: 1; width: 40px; height: 40px; }
+  .d, .grip { display: none; }
+  .row:active { background: var(--hover); }
+}
+@media (max-width: 760px) {
+  .tabs { padding: 0 16px; }
+  .row { min-height: 56px; }
+  .t { font-size: 15px; font-weight: 550; }
+  .a { font-size: 13px; }
+}
 </style>

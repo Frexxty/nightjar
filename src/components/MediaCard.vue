@@ -81,7 +81,7 @@ function menu(event: MouseEvent) {
 .card.user { text-align: center; }
 .cover { position: relative; cursor: pointer; margin-bottom: 8px; }
 .cover :deep(.artwork) { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25), inset 0 0 0 1px var(--border); transition: filter 0.2s; }
-.cover:hover :deep(.artwork) { filter: brightness(0.82); }
+@media (hover: hover) { .cover:hover :deep(.artwork) { filter: brightness(0.82); } }
 .fab, .more {
   position: absolute;
   display: grid;
@@ -100,7 +100,7 @@ function menu(event: MouseEvent) {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   transform: translateY(4px);
 }
-.fab:hover { transform: scale(1.06); }
+@media (hover: hover) { .fab:hover { transform: scale(1.06); } }
 .more {
   right: 10px;
   bottom: 10px;
@@ -111,8 +111,21 @@ function menu(event: MouseEvent) {
   color: #fff;
   backdrop-filter: blur(10px);
 }
-.cover:hover .fab, .cover:hover .more, .fab.active { opacity: 1; transform: none; }
+@media (hover: hover) { .cover:hover .fab, .cover:hover .more { opacity: 1; transform: none; } }
+.fab.active { opacity: 1; transform: none; }
+/* Touch: play stays visible; the menu is a long press away. */
+@media (hover: none) {
+  .fab { opacity: 1; transform: none; width: 36px; height: 36px; left: 8px; bottom: 8px; }
+  .more { display: none; }
+  .fab::after { content: ""; position: absolute; inset: -6px; }
+  .fab:active { transform: scale(0.92); }
+  .cover:active :deep(.artwork) { filter: brightness(0.85); }
+}
 .title { display: block; font-weight: 600; }
 .verified { color: var(--accent); vertical-align: -2px; }
 .subtitle { display: block; color: var(--text-2); font-size: 12px; margin-top: 1px; }
+@media (max-width: 760px) {
+  .title { font-size: 14px; font-weight: 550; }
+  .subtitle { font-size: 12.5px; }
+}
 </style>

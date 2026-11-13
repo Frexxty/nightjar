@@ -47,4 +47,13 @@ h1 {
   user-select: text;
 }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+/* Phone: cover on top, everything centred under it. */
+@media (max-width: 760px) {
+  .hero { padding: 12px 16px 20px; }
+  .inner { flex-direction: column; align-items: center; gap: 18px; text-align: center; }
+  .cover { width: min(58vw, 240px) !important; height: auto !important; }
+  .text { width: 100%; padding-bottom: 0; }
+  h1 { font-size: 24px; letter-spacing: -0.02em; line-height: 1.15; }
+  .actions { justify-content: center; }
+}
 </style>

@@ -1,0 +1,17 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  // The web player at stratus-app.k3s.lat: an assets-only Worker serving `npm run build:web`.
+  // Deploy with `npm run deploy:web` from the repo root.
+  "name": "stratus-app",
+  "compatibility_date": "2026-11-01",
+  "account_id": "f2cf5d525fceb6c6c5fccbbd10a94bb4",
+  "workers_dev": true,
+  "routes": [{ "pattern": "stratus-app.k3s.lat", "custom_domain": true }],
+  "assets": {
+    "directory": "../dist-web",
+    // The app uses hash routes, so this only matters for stray paths: they get the app, not a 404.
+    "not_found_handling": "single-page-application",
+    "html_handling": "auto-trailing-slash"
+  },
+  "observability": { "enabled": true }
+}

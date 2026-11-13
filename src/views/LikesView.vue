@@ -48,4 +48,9 @@ function play(shuffle: boolean) {
 .head .page-title { margin: 0; }
 .actions { display: flex; gap: 8px; }
 .actions input { width: 200px; }
+@media (max-width: 760px) {
+  .head { flex-wrap: wrap; }
+  .actions { width: 100%; }
+  .actions input { flex: 1; min-width: 0; width: auto; }
+}
 </style>

@@ -60,6 +60,14 @@
         links.push(link("/download/mac-intel", "Mac with Intel chip"));
       } else {
         links.push(link("/download/mac-intel", "Mac with Intel chip"));
+        // Phones and tablets can't run the desktop app, so the web player leads.
+        const web = block.querySelector("[data-web-btn]");
+        if (web) {
+          web.classList.replace("btn-ghost", "btn-primary");
+          web.parentElement.prepend(web);
+          mac.classList.replace("btn-primary", "btn-ghost");
+          win.classList.replace("btn-primary", "btn-ghost");
+        }
       }
       links.push(link(RELEASES, "All releases"));
       alt.replaceChildren(...links);

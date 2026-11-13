@@ -126,6 +126,7 @@ function play(at?: number) {
 .body { padding-top: 8px; }
 .description { white-space: pre-line; color: var(--text-2); max-width: 720px; user-select: text; }
 .tags { display: flex; gap: 6px; margin: 12px 0 28px; }
+@media (max-width: 760px) { .tags { flex-wrap: wrap; } }
 .tag { padding: 3px 10px; border-radius: 12px; background: var(--hover); color: var(--text-2); font-size: 12px; }
 .comments { display: flex; flex-direction: column; gap: 14px; margin: 14px 0 40px; max-width: 720px; }
 .comment { display: flex; gap: 12px; }

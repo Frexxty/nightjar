@@ -48,4 +48,18 @@ header { display: flex; align-items: flex-end; justify-content: space-between; m
 }
 .row::-webkit-scrollbar { display: none; }
 .row > :deep(*) { scroll-snap-align: start; }
+/* Phone: swipe the row edge to edge, no arrow buttons. */
+@media (max-width: 760px) {
+  .shelf { margin-bottom: 30px; }
+  header { margin-bottom: 10px; }
+  .nav { display: none; }
+  .row {
+    grid-auto-columns: clamp(132px, 40vw, 180px);
+    gap: 14px;
+    margin: 0 -16px;
+    padding: 0 16px 4px;
+    scroll-padding: 0 16px;
+    overscroll-behavior-x: contain;
+  }
+}
 </style>

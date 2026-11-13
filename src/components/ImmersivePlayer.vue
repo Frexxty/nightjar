@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Full-window player: blurred, slowly drifting artwork behind large artwork,
 // a full waveform with timed comments, and Up Next / Comments tabs on the side.
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
   ChevronDown, Heart, Loader2, Pause, Play, Repeat, Repeat1, Repeat2, Shuffle, SkipBack, SkipForward,
@@ -11,6 +11,7 @@ import { usePlayer } from "@/stores/player";
 import { useSettings } from "@/stores/settings";
 import { useUi } from "@/stores/ui";
 import Artwork from "./Artwork.vue";
+import ArtworkBackdrop from "./ArtworkBackdrop.vue";
 import CommentFeed from "./CommentFeed.vue";
 import QueueList from "./QueueList.vue";
 import VolumeControl from "./VolumeControl.vue";
@@ -34,58 +35,11 @@ function go(path: string) {
 const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
 onMounted(() => window.addEventListener("keydown", onKey));
 onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
-
-// The backdrop blobs used to be 90vmax images with filter: blur(90px), which
-// the GPU re-blurs on every frame of the drift animation. Blurring the artwork
-// once into a small canvas and letting CSS scale it up looks the same, and the
-// animation then only moves a cheap texture around.
-const BLOB = 96;
-const blobA = ref<HTMLCanvasElement>();
-const blobB = ref<HTMLCanvasElement>();
-let paintToken = 0;
-async function paintBlobs(src: string | null | undefined) {
-  const token = ++paintToken;
-  let img: HTMLImageElement | null = null;
-  if (src) {
-    img = new Image();
-    img.src = src;
-    await img.decode().catch(() => (img = null));
-    if (token !== paintToken) return;
-  }
-  // Clip to a circle first, then blur, so the edge fades out like the old blurred round image.
-  const disc = document.createElement("canvas");
-  disc.width = disc.height = BLOB;
-  const d = disc.getContext("2d")!;
-  if (img) {
-    const r = BLOB * 0.375;
-    d.beginPath();
-    d.arc(BLOB / 2, BLOB / 2, r, 0, Math.PI * 2);
-    d.clip();
-    // Centre-crop to a square like object-fit: cover. SVGs with only a viewBox report no size.
-    const { naturalWidth: w, naturalHeight: h } = img;
-    const side = Math.min(w, h);
-    if (side) d.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, BLOB / 2 - r, BLOB / 2 - r, r * 2, r * 2);
-    else d.drawImage(img, BLOB / 2 - r, BLOB / 2 - r, r * 2, r * 2);
-  }
-  for (const el of [blobA.value, blobB.value]) {
-    const ctx = el?.getContext("2d");
-    if (!ctx) continue;
-    ctx.clearRect(0, 0, BLOB, BLOB);
-    ctx.filter = `blur(${BLOB * 0.06}px) saturate(1.6)`;
-    ctx.drawImage(disc, 0, 0);
-  }
-}
-watch(() => track.value?.artworkUrl, paintBlobs, { flush: "post" });
-onMounted(() => void paintBlobs(track.value?.artworkUrl));
 </script>
 
 <template>
-  <div class="immersive" :class="{ still: !settings.immersiveMotion }">
-    <div class="backdrop">
-      <canvas ref="blobA" :width="BLOB" :height="BLOB" class="blob a" />
-      <canvas ref="blobB" :width="BLOB" :height="BLOB" class="blob b" />
-      <div class="shade" />
-    </div>
+  <div class="immersive">
+    <ArtworkBackdrop :src="track?.artworkUrl" :still="!settings.immersiveMotion" />
 
     <header class="drag">
       <button class="icon-btn no-drag" title="Close (Esc)" @click="close"><ChevronDown :size="22" /></button>
@@ -163,21 +117,6 @@ onMounted(() => void paintBlobs(track.value?.artworkUrl));
   --wave: rgba(255, 255, 255, 0.3);
   --panel: #000;
 }
-.backdrop { position: absolute; inset: 0; overflow: hidden; }
-/* The canvas holds a pre-blurred disc 3/4 its width, so 120vmax here is the old 90vmax blob plus room for the blur. */
-.blob {
-  position: absolute;
-  width: 120vmax;
-  height: 120vmax;
-  opacity: 0.75;
-}
-.blob.a { top: -45vmax; left: -35vmax; animation: drift-a 38s ease-in-out infinite alternate; }
-.blob.b { bottom: -55vmax; right: -40vmax; animation: drift-b 46s ease-in-out infinite alternate; transform: rotate(180deg); }
-.still .blob { animation: none; }
-@media (prefers-reduced-motion: reduce) { .blob { animation: none; } }
-.shade { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.6)); }
-@keyframes drift-a { to { transform: translate(18vmax, 12vmax) rotate(40deg) scale(1.15); } }
-@keyframes drift-b { to { transform: translate(-16vmax, -10vmax) rotate(220deg) scale(1.2); } }
 
 header { position: relative; height: 52px; display: flex; align-items: center; padding: 0 16px 0 90px; }
 :root:not([data-platform="darwin"]) header { padding-left: 16px; }

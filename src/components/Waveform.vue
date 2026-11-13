@@ -137,6 +137,42 @@ function fractionAt(event: MouseEvent) {
   return Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
 }
 
+// A mouse previews on hover and seeks on click. A finger scrubs: the preview
+// follows it and letting go seeks there. Vertical swipes still scroll the
+// page (touch-action: pan-y), which cancels the scrub.
+let scrubbing: number | null = null;
+let scrubbed = false;
+function onPointerMove(e: PointerEvent) {
+  if (e.pointerType === "mouse" || scrubbing === e.pointerId) hover.value = fractionAt(e);
+}
+function onPointerLeave(e: PointerEvent) {
+  if (e.pointerType === "mouse") hover.value = null;
+}
+function onPointerDown(e: PointerEvent) {
+  scrubbed = false;
+  if (e.pointerType === "mouse") return;
+  scrubbing = e.pointerId;
+  hover.value = fractionAt(e);
+  root.value?.setPointerCapture(e.pointerId);
+}
+function onPointerUp(e: PointerEvent) {
+  if (scrubbing !== e.pointerId) return;
+  scrubbing = null;
+  hover.value = null;
+  scrubbed = true;
+  emit("seek", fractionAt(e));
+}
+function onPointerCancel(e: PointerEvent) {
+  if (scrubbing !== e.pointerId) return;
+  scrubbing = null;
+  hover.value = null;
+}
+function onClick(e: MouseEvent) {
+  // The scrub already seeked for this press.
+  if (scrubbed) return void (scrubbed = false);
+  emit("seek", fractionAt(e));
+}
+
 onMounted(() => {
   resizeObserver = new ResizeObserver(([entry]) => {
     width.value = entry.contentRect.width;
@@ -169,13 +205,16 @@ watch(() => [hover.value, props.height, props.color, settings.accent, settings.t
     ref="root"
     class="waveform"
     :style="{ height: `${height}px` }"
-    @mousemove="hover = fractionAt($event)"
-    @mouseleave="hover = null"
-    @click.stop="emit('seek', fractionAt($event))"
+    @pointermove="onPointerMove"
+    @pointerleave="onPointerLeave"
+    @pointerdown="onPointerDown"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerCancel"
+    @click.stop="onClick"
   >
     <canvas ref="canvas" :style="{ width: '100%', height: `${height}px` }" />
     <span v-if="hover != null && duration" class="time hover" :style="{ left: `${hover * 100}%` }">{{ fmt(hover * duration) }}</span>
-    <span v-if="progress != null && duration && reflection" class="time now" :style="{ left: `${progress * 100}%` }">{{ fmt(progress * duration) }}</span>
+    <span v-if="progress != null && duration && reflection" class="time now" :style="{ left: `max(${progress * 100}%, 38px)` }">{{ fmt(progress * duration) }}</span>
     <span v-if="duration && reflection" class="time total">{{ fmt(duration) }}</span>
 
     <div v-if="pinned.length" class="comments" :style="{ top: `${height * 0.7 - 6}px` }">
@@ -184,8 +223,8 @@ watch(() => [hover.value, props.height, props.color, settings.accent, settings.t
         :key="c.id"
         class="pin"
         :style="{ left: `${(c.timestamp! / duration) * 100}%` }"
-        @mouseenter="activeComment = c"
-        @mouseleave="activeComment = null"
+        @pointerenter="$event.pointerType === 'mouse' && (activeComment = c)"
+        @pointerleave="activeComment = null"
         @click.stop="emit('seek', c.timestamp! / duration)"
       >
         <Artwork :src="c.user.avatarUrl" :size="14" round />
@@ -202,6 +241,7 @@ watch(() => [hover.value, props.height, props.color, settings.accent, settings.t
   position: relative;
   width: 100%;
   cursor: pointer;
+  touch-action: pan-y;
 }
 canvas { display: block; }
 .time {
@@ -226,7 +266,7 @@ canvas { display: block; }
   opacity: 0.85;
   transition: transform 0.12s, opacity 0.12s;
 }
-.pin:hover { transform: translateX(-50%) scale(1.5); opacity: 1; z-index: 2; }
+@media (hover: hover) { .pin:hover { transform: translateX(-50%) scale(1.5); opacity: 1; z-index: 2; } }
 .bubble {
   position: absolute;
   top: 20px;

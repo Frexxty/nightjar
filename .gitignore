@@ -7,3 +7,5 @@ release
 .claude/
 release-notes.md
 build/release-notes.md
+dist-web
+.wrangler

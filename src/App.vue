@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch, watchEffect } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api } from "@/api";
 import AppChrome from "@/components/AppChrome.vue";
@@ -7,7 +7,14 @@ import AppDrawer from "@/components/AppDrawer.vue";
 import AppSidebar from "@/components/AppSidebar.vue";
 import ContextMenu from "@/components/ContextMenu.vue";
 import ImmersivePlayer from "@/components/ImmersivePlayer.vue";
+import MiniPlayer from "@/components/MiniPlayer.vue";
+import NowPlayingSheet from "@/components/NowPlayingSheet.vue";
+import PhoneHeader from "@/components/PhoneHeader.vue";
+import TabBar from "@/components/TabBar.vue";
 import UpdateDialog from "@/components/UpdateDialog.vue";
+import WebPrompts from "@/components/WebPrompts.vue";
+import { isWebBuild } from "@/lib/pwa";
+import { isPhone } from "@/lib/responsive";
 import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
 import { useSettings } from "@/stores/settings";
@@ -31,12 +38,23 @@ watchEffect(() => {
   const theme = settings.theme === "system" ? (systemDark.value ? "dark" : "light") : settings.theme;
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.setProperty("--accent", settings.accent);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#ececef" : "#101012");
   window.stratus?.window("set-theme", settings.theme);
 });
 watchEffect(() => window.stratus?.window("set-tray-on-close", settings.keepPlayingInTray));
 
 watch(api, () => void library.refresh(), { immediate: true });
 watch(() => route.fullPath, () => content.value?.scrollTo({ top: 0 }));
+
+// Phone layout: the header shows the page name once its large title scrolls away,
+// and pages leave room at the bottom for the mini player and tab bar.
+const scrolled = ref(false);
+function onScroll() {
+  scrolled.value = (content.value?.scrollTop ?? 0) > 44;
+}
+const dock = computed(() =>
+  `calc(var(--tabbar-height) + env(safe-area-inset-bottom)${player.current ? " + var(--mini-height) + 6px" : ""})`,
+);
 
 // Menu bar, dock and media-key commands from the main process.
 let offCommand: (() => void) | undefined;
@@ -84,27 +102,34 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app">
-    <AppSidebar />
+  <div class="app" :class="{ phone: isPhone }" :style="isPhone ? { '--dock': dock } : undefined">
+    <AppSidebar v-if="!isPhone" />
     <div class="column">
-      <AppChrome />
+      <AppChrome v-if="!isPhone" />
+      <PhoneHeader v-else :scrolled="scrolled" :content="content" />
       <div class="panel">
-        <main ref="content" class="content">
+        <main ref="content" class="content" @scroll.passive="onScroll">
           <RouterView v-slot="{ Component }">
             <Transition name="fade" mode="out-in">
               <component :is="Component" :key="route.fullPath" />
             </Transition>
           </RouterView>
         </main>
-        <AppDrawer />
+        <AppDrawer v-if="!isPhone" />
+      </div>
+      <div v-if="isPhone" class="dock">
+        <MiniPlayer />
+        <TabBar />
       </div>
     </div>
 
-    <Transition name="immersive">
+    <NowPlayingSheet v-if="isPhone" />
+    <Transition v-else name="immersive">
       <ImmersivePlayer v-if="ui.immersive" />
     </Transition>
     <ContextMenu />
     <UpdateDialog />
+    <WebPrompts v-if="isWebBuild" />
     <Transition name="toast">
       <div v-if="ui.toast" class="toast">{{ ui.toast }}</div>
     </Transition>
@@ -131,7 +156,7 @@ onBeforeUnmount(() => {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  bottom: calc(var(--dock, 0px) + 24px);
   transform: translateX(-50%);
   max-width: 70vw;
   padding: 9px 16px;
@@ -144,4 +169,18 @@ onBeforeUnmount(() => {
 }
 .toast-enter-active, .toast-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
+
+/* Phone layout: header on top, pages scroll under the floating mini player and the tab bar. */
+.phone { height: 100dvh; }
+.phone .column { position: relative; }
+.phone .panel { border-radius: 0; box-shadow: none; background: var(--window); }
+.phone .content { padding-bottom: var(--dock); overscroll-behavior-y: contain; }
+.phone .toast { max-width: calc(100vw - 32px); }
+.dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 10; pointer-events: none; }
+.dock > * { pointer-events: auto; }
+.dock :deep(.tabbar) {
+  background: color-mix(in srgb, var(--window) 82%, transparent);
+  backdrop-filter: blur(24px) saturate(1.8);
+  box-shadow: 0 -1px 0 var(--border);
+}
 </style>

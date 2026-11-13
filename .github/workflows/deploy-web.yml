@@ -1,0 +1,49 @@
+name: Deploy web player
+
+# Builds the web player and deploys it to stratus-app.k3s.lat (Worker
+# `stratus-app`, config in web/wrangler.jsonc).
+#
+# Needs two repository secrets (Settings > Secrets and variables > Actions):
+#   CLOUDFLARE_API_TOKEN   an API token with "Workers Scripts: Edit" on the account
+#                          and "Workers Routes: Edit" + "DNS: Edit" on the k3s.lat zone
+#   CLOUDFLARE_ACCOUNT_ID  f2cf5d525fceb6c6c5fccbbd10a94bb4
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "index.html"
+      - "web/**"
+      - ".env.web"
+      - "vite.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:web
+      - run: npx wrangler@latest deploy --config web/wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
