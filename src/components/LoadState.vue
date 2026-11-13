@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { CloudOff } from "lucide-vue-next";
 import { useLibrary } from "@/stores/library";
 import SignInPrompt from "./SignInPrompt.vue";
+import SpotifyConnectPrompt from "./SpotifyConnectPrompt.vue";
 
 const props = defineProps<{
   loading: boolean;
@@ -13,6 +14,8 @@ const props = defineProps<{
   signInText?: string;
   /** The load failed with a 401. */
   needsAuth?: boolean;
+  /** The load needs a Spotify session (useLoad's `needsSpotify`). */
+  needsSpotify?: boolean;
 }>();
 defineEmits<{ retry: [] }>();
 
@@ -21,7 +24,8 @@ const askSignIn = computed(() => !!props.signInText && library.accounts && (libr
 </script>
 
 <template>
-  <SignInPrompt v-if="askSignIn" :text="signInText!" />
+  <SpotifyConnectPrompt v-if="needsSpotify" />
+  <SignInPrompt v-else-if="askSignIn" :text="signInText!" />
   <div v-else-if="error" class="empty">
     <CloudOff :size="34" />
     <div>Couldn't load this.</div>

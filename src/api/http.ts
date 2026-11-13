@@ -118,8 +118,8 @@ export class HttpBackend implements Backend {
     return this.request<void>("DELETE", `/me/playlists/${encodeURIComponent(id)}`);
   }
 
-  addHistory(trackId: Id) {
-    return this.request<void>("POST", "/me/history", undefined, { trackId });
+  addHistory(trackId: Id, track?: Track) {
+    return this.request<void>("POST", "/me/history", undefined, track ? { trackId, track } : { trackId });
   }
   history(cursor?: string | null) { return this.get<Page<Track>>("/me/history", { cursor }); }
 

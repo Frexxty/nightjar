@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { CheckCircle2, CloudUpload, LogOut, RefreshCw, XCircle } from "lucide-vue-next";
 import { api, backendConfig, createBackend, friendlyError, HOSTED_BASE_URL, loadBackendConfig, useBackend, type BackendConfig } from "@/api";
 import Artwork from "@/components/Artwork.vue";
+import SpotifySettings from "@/components/SpotifySettings.vue";
 import { useAccount } from "@/stores/account";
 import { useLibrary } from "@/stores/library";
 import { useLocalPlaylists } from "@/stores/localPlaylists";
@@ -189,6 +190,8 @@ function apply() {
         </div>
       </template>
     </section>
+
+    <SpotifySettings />
 
     <section>
       <h2>Backend</h2>

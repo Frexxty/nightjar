@@ -8,7 +8,12 @@ import LoadState from "@/components/LoadState.vue";
 import MediaCard from "@/components/MediaCard.vue";
 import Shelf from "@/components/Shelf.vue";
 import TrackTable from "@/components/TrackTable.vue";
+import SpotifyConnectPrompt from "@/components/SpotifyConnectPrompt.vue";
 import { isPhone } from "@/lib/responsive";
+import { isSpotifyAuthError } from "@/lib/useLoad";
+import { useSettings } from "@/stores/settings";
+import { useSpotify } from "@/spotify/auth";
+import { sourceCatalogue } from "@/spotify/catalogue";
 
 const route = useRoute();
 const router = useRouter();
@@ -20,28 +25,35 @@ const next = ref<string | null>(null);
 const loading = ref(false);
 const loadingMore = ref(false);
 const error = ref<string | null>(null);
+const needsSpotify = ref(false);
+const settings = useSettings();
+const spotify = useSpotify();
+const spotifySource = computed(() => settings.musicSource === "spotify");
 
-const tabs: { id: "all" | SearchKind; label: string }[] = [
+const tabs = computed<{ id: "all" | SearchKind; label: string }[]>(() => [
   { id: "all", label: "Everything" },
   { id: "tracks", label: "Tracks" },
-  { id: "users", label: "People" },
+  { id: "users", label: spotifySource.value ? "Artists" : "People" },
   { id: "playlists", label: "Playlists" },
   { id: "albums", label: "Albums" },
-];
+]);
 
 async function run() {
   if (!q.value) return;
   loading.value = true;
   error.value = null;
+  needsSpotify.value = false;
+  const b = sourceCatalogue();
   try {
-    if (tab.value === "all") all.value = await api.value.search(q.value);
+    if (tab.value === "all") all.value = await b.search(q.value);
     else {
-      const page = await api.value.searchKind(q.value, tab.value);
+      const page = await b.searchKind(q.value, tab.value);
       items.value = page.items;
       next.value = page.next;
     }
   } catch (err) {
     error.value = (err as Error).message;
+    needsSpotify.value = isSpotifyAuthError(err);
   } finally {
     loading.value = false;
   }
@@ -51,7 +63,7 @@ async function more() {
   if (!next.value || tab.value === "all") return;
   loadingMore.value = true;
   try {
-    const page = await api.value.searchKind(q.value, tab.value, next.value);
+    const page = await sourceCatalogue().searchKind(q.value, tab.value, next.value);
     items.value = [...items.value, ...page.items];
     next.value = page.next;
   } finally {
@@ -59,7 +71,7 @@ async function more() {
   }
 }
 
-watch([q, tab, api], run, { immediate: true });
+watch([q, tab, api, () => settings.musicSource, () => spotify.connected], run, { immediate: true });
 
 // Phones have no sidebar, so the search field lives on this page.
 const draft = ref(q.value);
@@ -96,20 +108,22 @@ const empty = computed(() => {
           aria-label="Search"
         />
       </form>
-      <p v-if="!q" class="muted hint">Search SoundCloud for tracks, people, playlists and albums.</p>
+      <p v-if="!q" class="muted hint">
+        {{ spotifySource ? "Search Spotify for tracks, artists, playlists and albums." : "Search SoundCloud for tracks, people, playlists and albums." }}
+      </p>
     </template>
     <h1 v-else class="page-title">Results for "{{ q }}"</h1>
     <div v-if="q || !isPhone" class="tabs">
       <button v-for="t in tabs" :key="t.id" class="tab" :class="{ active: tab === t.id }" @click="tab = t.id">{{ t.label }}</button>
     </div>
 
-    <LoadState v-if="q || !isPhone" :loading="loading" :error="error" :empty="empty" :empty-text="`No results for “${q}”.`" @retry="run">
+    <LoadState v-if="q || !isPhone" :loading="loading" :error="error" :needs-spotify="needsSpotify" :empty="empty" :empty-text="`No results for “${q}”.`" @retry="run">
       <template v-if="tab === 'all' && all">
         <section v-if="all.tracks.items.length" class="block">
           <h2 class="section-title">Tracks</h2>
           <TrackTable :tracks="all.tracks.items.slice(0, 8)" :source="`search:${q}`" :show-header="false" />
         </section>
-        <Shelf v-if="all.users.items.length" title="People">
+        <Shelf v-if="all.users.items.length" :title="spotifySource ? 'Artists' : 'People'">
           <MediaCard v-for="u in all.users.items" :key="u.id" kind="user" :item="u" />
         </Shelf>
         <Shelf v-if="all.playlists.items.length" title="Playlists">

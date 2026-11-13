@@ -13,6 +13,8 @@ import { useLibrary } from "@/stores/library";
 import { isLocalId, useLocalPlaylists } from "@/stores/localPlaylists";
 import { usePlayer } from "@/stores/player";
 import { useUi, type MenuItem } from "@/stores/ui";
+import { catalogueFor } from "@/spotify/catalogue";
+import { isSpotifyId } from "@/spotify/ids";
 
 const props = defineProps<{ id: string }>();
 const player = usePlayer();
@@ -24,7 +26,8 @@ const library = useLibrary();
 
 // Local playlists ("local:" ids) live in the store; everything else comes from the backend.
 const isLocal = isLocalId(props.id);
-const remote = useLoad((b) => (isLocal ? Promise.resolve(null) : b.playlist(props.id)));
+const isSpotify = isSpotifyId(props.id);
+const remote = useLoad(() => (isLocal ? Promise.resolve(null) : catalogueFor(props.id).playlist(props.id)));
 const localEntry = computed(() => (isLocal ? local.get(props.id) : null));
 const playlist = computed(() => (localEntry.value ? local.asPlaylist(localEntry.value) : remote.data.value));
 const loading = computed(() => !isLocal && remote.loading.value);
@@ -34,7 +37,7 @@ const error = computed(() => (isLocal && !localEntry.value ? "This playlist was 
 const owned = computed(() => {
   const p = remote.data.value;
   const me = library.me;
-  if (isLocal || !p || !me || !api.value.updatePlaylist) return false;
+  if (isLocal || isSpotify || !p || !me || !api.value.updatePlaylist) return false;
   return props.id.startsWith("sp_") || p.user.id === me.id;
 });
 const editable = computed(() => isLocal || owned.value);
@@ -150,7 +153,7 @@ function editMenu(_t: Track, i: number): MenuItem[] {
 
 <template>
   <div>
-    <LoadState :loading="loading" :error="error" @retry="remote.reload">
+    <LoadState :loading="loading" :error="error" :needs-spotify="remote.needsSpotify.value" @retry="remote.reload">
       <template v-if="playlist">
         <PageHero :art="playlist.artworkUrl" :title="playlist.title" :eyebrow="playlist.isAlbum ? 'Album' : isLocal ? 'Local playlist' : 'Playlist'">
           <template #meta>
@@ -164,8 +167,8 @@ function editMenu(_t: Track, i: number): MenuItem[] {
             <RouterLink v-else :to="`/user/${playlist.user.id}`" class="owner">{{ playlist.user.username }}</RouterLink>
             <div class="muted meta">
               {{ playlist.trackCount }} tracks · {{ longDuration(playlist.duration) }}
-              <template v-if="!isLocal && !owned"> · {{ count(playlist.likesCount) }} likes</template>
-              · {{ ago(playlist.createdAt) }}
+              <template v-if="!isLocal && !owned && !isSpotify"> · {{ count(playlist.likesCount) }} likes</template>
+              <template v-if="playlist.createdAt"> · {{ ago(playlist.createdAt) }}</template>
             </div>
             <p v-if="playlist.description" class="muted desc">{{ playlist.description }}</p>
           </template>

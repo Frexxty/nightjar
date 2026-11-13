@@ -9,6 +9,7 @@ import { seconds } from "@/lib/format";
 import { usePlayer } from "@/stores/player";
 import { useUi } from "@/stores/ui";
 import Artwork from "./Artwork.vue";
+import SpotifyIcon from "./SpotifyIcon.vue";
 import Waveform from "./Waveform.vue";
 
 const player = usePlayer();
@@ -32,6 +33,7 @@ const remaining = computed(() => Math.max(0, player.duration - player.currentTim
             <span class="title-line">
               <a class="title ellipsis" @click="router.push(`/track/${track.id}`)">{{ track.title }}</a>
               <span v-if="track.preview" class="preview-pill" title="Only a 30-second preview can be played">Preview</span>
+              <span v-if="track.source === 'spotify'" class="spotify" :title="player.engineKind === 'spotify-connect' ? 'Playing on your Spotify device' : 'Playing from Spotify'"><SpotifyIcon :size="11" /></span>
             </span>
             <a class="artist ellipsis" @click="router.push(`/user/${track.user.id}`)">{{ track.user.username }}</a>
           </div>
@@ -90,6 +92,7 @@ const remaining = computed(() => Math.max(0, player.duration - player.currentTim
 .title { display: block; font-weight: 600; font-size: 12.5px; }
 .title-line { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; }
 .title-line .preview-pill { font-size: 9px; padding: 0 5px; }
+.spotify { display: inline-flex; flex: none; color: #1ed760; }
 .artist { display: block; font-size: 11.5px; color: var(--text-2); }
 .time {
   flex: none;

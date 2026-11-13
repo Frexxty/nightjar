@@ -6,18 +6,24 @@ import SignInPrompt from "@/components/SignInPrompt.vue";
 import { useLoad } from "@/lib/useLoad";
 import { useLibrary } from "@/stores/library";
 import { useLocalPlaylists } from "@/stores/localPlaylists";
+import { useSettings } from "@/stores/settings";
+import { sourceCatalogue } from "@/spotify/catalogue";
 
 const props = defineProps<{ albums: boolean }>();
 const local = useLocalPlaylists();
 const library = useLibrary();
+const settings = useSettings();
+const spotifySource = computed(() => settings.musicSource === "spotify");
 
-const { data, loading, error, needsAuth, reload } = useLoad(async (b) => {
+// With Spotify as the music source these are the Spotify library's playlists and saved albums.
+const { data, loading, error, needsAuth, needsSpotify, reload } = useLoad(async () => {
+  const b = sourceCatalogue();
   if (props.albums) return (await b.likedPlaylists()).filter((p) => p.isAlbum);
   const [mine, liked] = await Promise.all([b.myPlaylists(), b.likedPlaylists()]);
   return [...mine, ...liked.filter((p) => !p.isAlbum)];
 });
 
-const askSignIn = computed(() => library.accounts && (library.signedOut || needsAuth.value));
+const askSignIn = computed(() => !spotifySource.value && library.accounts && (library.signedOut || needsAuth.value));
 const localItems = computed(() => (props.albums ? [] : local.playlists.map(local.asPlaylist)));
 // Playlists saved on this machine (e.g. Spotify imports) come first.
 const items = computed(() => [...localItems.value, ...(askSignIn.value ? [] : data.value ?? [])]);
@@ -41,6 +47,7 @@ const items = computed(() => [...localItems.value, ...(askSignIn.value ? [] : da
       <LoadState
         :loading="loading && !items.length"
         :error="items.length ? null : error"
+        :needs-spotify="needsSpotify && !items.length"
         :empty="!items.length"
         :empty-text="albums ? 'Albums you like show up here.' : 'Playlists you make, import or like show up here.'"
         @retry="reload"

@@ -11,12 +11,19 @@ import { count } from "@/lib/format";
 import { useLoad } from "@/lib/useLoad";
 import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
+import { useSpotify } from "@/spotify/auth";
+import { catalogueFor } from "@/spotify/catalogue";
+import { isSpotifyId } from "@/spotify/ids";
 
 const props = defineProps<{ id: string }>();
 const player = usePlayer();
 const library = useLibrary();
 
-const { data, loading, error, reload } = useLoad(async (b) => {
+const isSpotify = isSpotifyId(props.id);
+const spotify = useSpotify();
+const backend = () => catalogueFor(props.id);
+const { data, loading, error, needsSpotify, reload } = useLoad(async () => {
+  const b = backend();
   const [user, top] = await Promise.all([b.user(props.id), b.userTopTracks(props.id).catch(() => [])]);
   return { user, top };
 });
@@ -34,9 +41,10 @@ const loadingMore = ref(false);
 async function loadTab() {
   tabLoading.value = true;
   try {
-    if (tab.value === "playlists") playlists.value = await api.value.userPlaylists(props.id);
+    const b = backend();
+    if (tab.value === "playlists") playlists.value = await b.userPlaylists(props.id);
     else {
-      const page = tab.value === "tracks" ? await api.value.userTracks(props.id) : await api.value.userLikes(props.id);
+      const page = tab.value === "tracks" ? await b.userTracks(props.id) : await b.userLikes(props.id);
       tracks.value = page.items;
       next.value = page.next;
     }
@@ -48,14 +56,15 @@ async function more() {
   if (!next.value || tab.value === "playlists") return;
   loadingMore.value = true;
   try {
-    const page = tab.value === "tracks" ? await api.value.userTracks(props.id, next.value) : await api.value.userLikes(props.id, next.value);
+    const b = backend();
+    const page = tab.value === "tracks" ? await b.userTracks(props.id, next.value) : await b.userLikes(props.id, next.value);
     tracks.value = [...tracks.value, ...page.items];
     next.value = page.next;
   } finally {
     loadingMore.value = false;
   }
 }
-watch([tab, api], loadTab, { immediate: true });
+watch([tab, api, () => spotify.connected], () => loadTab().catch(() => {}), { immediate: true });
 
 function playAll(shuffle = false) {
   const list = tracks.value.length ? tracks.value : data.value?.top ?? [];
@@ -66,17 +75,19 @@ function playAll(shuffle = false) {
 
 <template>
   <div>
-    <LoadState :loading="loading" :error="error" @retry="reload">
+    <LoadState :loading="loading" :error="error" :needs-spotify="needsSpotify" @retry="reload">
       <template v-if="user">
         <div v-if="user.bannerUrl" class="banner" :style="{ backgroundImage: `url(${JSON.stringify(user.bannerUrl)})` }" />
-        <PageHero :art="user.avatarUrl" round :title="user.username" eyebrow="Artist" :class="{ overlap: user.bannerUrl }">
+        <PageHero :art="user.avatarUrl" round :title="user.username" :eyebrow="isSpotify ? 'Spotify artist' : 'Artist'" :class="{ overlap: user.bannerUrl }">
           <template #meta>
             <div class="meta muted">
               <BadgeCheck v-if="user.verified" :size="14" class="verified" />
               <span v-if="user.city || user.country"><MapPin :size="12" /> {{ [user.city, user.country].filter(Boolean).join(", ") }}</span>
-              <span><b>{{ count(user.followersCount) }}</b> followers</span>
-              <span><b>{{ count(user.followingsCount) }}</b> following</span>
-              <span><b>{{ count(user.trackCount) }}</b> tracks</span>
+              <template v-if="!isSpotify">
+                <span><b>{{ count(user.followersCount) }}</b> followers</span>
+                <span><b>{{ count(user.followingsCount) }}</b> following</span>
+                <span><b>{{ count(user.trackCount) }}</b> tracks</span>
+              </template>
             </div>
             <p v-if="user.description" class="bio muted">{{ user.description }}</p>
           </template>
@@ -99,8 +110,8 @@ function playAll(shuffle = false) {
 
           <div class="tabs">
             <button class="tab" :class="{ active: tab === 'tracks' }" @click="tab = 'tracks'">Tracks</button>
-            <button class="tab" :class="{ active: tab === 'playlists' }" @click="tab = 'playlists'">Playlists</button>
-            <button class="tab" :class="{ active: tab === 'likes' }" @click="tab = 'likes'">Likes</button>
+            <button class="tab" :class="{ active: tab === 'playlists' }" @click="tab = 'playlists'">{{ isSpotify ? "Releases" : "Playlists" }}</button>
+            <button v-if="!isSpotify" class="tab" :class="{ active: tab === 'likes' }" @click="tab = 'likes'">Likes</button>
           </div>
           <LoadState :loading="tabLoading" :error="null" :empty="tab === 'playlists' ? !playlists.length : !tracks.length">
             <div v-if="tab === 'playlists'" class="grid">

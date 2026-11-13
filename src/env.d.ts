@@ -8,6 +8,7 @@ interface ImportMetaEnv {
 // Import types keep this file a global script (a top-level import would not).
 type SpotifyListTrack = import("./api/types").SpotifyListTrack;
 type SpotifyList = import("./api/types").SpotifyList;
+type SpotifyTokenSet = import("./spotify/pkce").TokenSet;
 
 interface UpdateState {
   status: "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";
@@ -35,6 +36,16 @@ interface StratusBridge {
   spotify: {
     /** Accepts playlist or album links, spotify: URIs and bare playlist IDs. Rejects with a readable message. */
     fetchPlaylist(url: string): Promise<SpotifyList>;
+  };
+  /** Desktop Spotify sign-in (electron/spotify-auth.cjs). Rejections carry readable messages. */
+  spotifyAuth: {
+    /** Opens the authorize URL in the system browser and waits for the loopback redirect. Rejects with "timeout" or "cancelled". */
+    authorize(url: string): Promise<{ code: string; state: string } | { error: string; state: string | null }>;
+    cancel(): Promise<void>;
+    /** Stored with safeStorage in the main process. */
+    getTokens(): Promise<SpotifyTokenSet | null>;
+    setTokens(tokens: SpotifyTokenSet): Promise<void>;
+    clearTokens(): Promise<void>;
   };
   reportPlayback(state: {
     state: "stopped" | "playing" | "paused";

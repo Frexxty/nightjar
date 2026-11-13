@@ -6,6 +6,14 @@ const commands = [
   "check-updates",
 ];
 
+// The main process wraps replies as { ok, result | error } so errors arrive as
+// plain messages instead of "Error invoking remote method ...".
+async function unwrap(promise) {
+  const reply = await promise;
+  if (!reply.ok) throw new Error(reply.error);
+  return reply.result;
+}
+
 contextBridge.exposeInMainWorld("stratus", {
   platform: process.platform,
   reportPlayback: (state) => ipcRenderer.send("playback", state),
@@ -18,6 +26,13 @@ contextBridge.exposeInMainWorld("stratus", {
       if (!reply.ok) throw new Error(reply.error);
       return reply.result;
     },
+  },
+  spotifyAuth: {
+    authorize: (url) => unwrap(ipcRenderer.invoke("spotify-auth:authorize", String(url))),
+    cancel: () => unwrap(ipcRenderer.invoke("spotify-auth:cancel")),
+    getTokens: () => unwrap(ipcRenderer.invoke("spotify-auth:get-tokens")),
+    setTokens: (tokens) => unwrap(ipcRenderer.invoke("spotify-auth:set-tokens", tokens)),
+    clearTokens: () => unwrap(ipcRenderer.invoke("spotify-auth:clear-tokens")),
   },
   onCommand: (handler) => {
     const listener = (_event, command, payload) => {

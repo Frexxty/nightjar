@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import LoadState from "@/components/LoadState.vue";
 import MediaCard from "@/components/MediaCard.vue";
 import Shelf from "@/components/Shelf.vue";
 import TrackTable from "@/components/TrackTable.vue";
 import { useLoad } from "@/lib/useLoad";
 import { useLibrary } from "@/stores/library";
+import { useSettings } from "@/stores/settings";
+import { useSpotify } from "@/spotify/auth";
+import { sourceCatalogue } from "@/spotify/catalogue";
 
 const library = useLibrary();
-const { data: sections, loading, error, reload } = useLoad((b) => b.home());
+const settings = useSettings();
+const spotify = useSpotify();
+const { data: sections, loading, error, needsSpotify, reload } = useLoad(() => sourceCatalogue().home());
+watch(() => settings.musicSource, () => void reload());
+const name = computed(() => (settings.musicSource === "spotify" ? spotify.profile?.displayName : library.me?.username));
 
 const greeting = computed(() => {
   const h = new Date().getHours();
@@ -18,8 +25,8 @@ const greeting = computed(() => {
 
 <template>
   <div class="page">
-    <h1 class="page-title">{{ greeting }}{{ library.me ? `, ${library.me.username}` : "" }}</h1>
-    <LoadState :loading="loading" :error="error" :empty="!sections?.length" @retry="reload">
+    <h1 class="page-title">{{ greeting }}{{ name ? `, ${name}` : "" }}</h1>
+    <LoadState :loading="loading" :error="error" :needs-spotify="needsSpotify" :empty="!sections?.length" @retry="reload">
       <template #skeleton>
         <div class="skeleton-shelf">
           <div v-for="i in 6" :key="i"><div class="skeleton art" /><div class="skeleton text" /></div>

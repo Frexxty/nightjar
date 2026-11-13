@@ -2,6 +2,9 @@ import { defineStore } from "pinia";
 import { computed, reactive, ref } from "vue";
 import { api, isUnauthorized, onSessionExpired, type Playlist, type Track, type User } from "@/api";
 import { router } from "@/router";
+import { useSpotify } from "@/spotify/auth";
+import { spotifyBackend } from "@/spotify/catalogue";
+import { isSpotifyId } from "@/spotify/ids";
 import { useUi } from "./ui";
 
 const HISTORY_KEY = "stratus.history";
@@ -74,30 +77,44 @@ export const useLibrary = defineStore("library", () => {
   const isReposted = (t: Track) => reposted.get(t.id) ?? t.reposted ?? false;
   const isFollowing = (u: User) => followed.get(u.id) ?? u.following ?? false;
 
+  /**
+   * Spotify items are liked and followed in the user's Spotify library, so
+   * they need a Spotify connection instead of a Stratus account.
+   */
+  function requireSpotify() {
+    if (useSpotify().connected) return true;
+    ui.notify("Connect Spotify in Settings first");
+    void router.push("/settings");
+    return false;
+  }
+
   async function optimistic(map: Map<string, boolean>, id: string, value: boolean, call: () => Promise<void>, label: string) {
-    if (!requireAccount()) return;
+    if (isSpotifyId(id) ? !requireSpotify() : !requireAccount()) return;
     map.set(id, value);
     try {
       await call();
     } catch (err) {
       map.set(id, !value);
-      if (isUnauthorized(err) && accounts.value) signIn();
+      if (isUnauthorized(err) && accounts.value && !isSpotifyId(id)) signIn();
       else ui.notify(`Couldn't ${label}: ${(err as Error).message}`);
     }
   }
 
   function toggleLike(t: Track) {
     const next = !isLiked(t);
-    return optimistic(liked, t.id, next, () => api.value.setTrackLiked(t.id, next), next ? "like" : "unlike");
+    const backend = isSpotifyId(t.id) ? spotifyBackend : api.value;
+    return optimistic(liked, t.id, next, () => backend.setTrackLiked(t.id, next), next ? "like" : "unlike");
   }
   function toggleRepost(t: Track) {
+    if (isSpotifyId(t.id)) return ui.notify("Spotify doesn't have reposts");
     const next = !isReposted(t);
     if (next && !signedOut.value) ui.notify(`Reposted "${t.title}"`);
     return optimistic(reposted, t.id, next, () => api.value.setReposted(t.id, next), "repost");
   }
   function toggleFollow(u: User) {
     const next = !isFollowing(u);
-    return optimistic(followed, u.id, next, () => api.value.setFollowing(u.id, next), next ? "follow" : "unfollow");
+    const backend = isSpotifyId(u.id) ? spotifyBackend : api.value;
+    return optimistic(followed, u.id, next, () => backend.setFollowing(u.id, next), next ? "follow" : "unfollow");
   }
 
   function addToHistory(t: Track) {
@@ -108,7 +125,8 @@ export const useLibrary = defineStore("library", () => {
       // History still works in memory.
     }
     // The account copy is best effort; a missed play isn't worth a toast.
-    if (me.value && api.value.addHistory) api.value.addHistory(t.id).catch(() => {});
+    // Spotify plays go with a snapshot, since the server can't look them up (docs/spotify.md).
+    if (me.value && api.value.addHistory) api.value.addHistory(t.id, isSpotifyId(t.id) ? t : undefined).catch(() => {});
   }
 
   function clearHistory() {
