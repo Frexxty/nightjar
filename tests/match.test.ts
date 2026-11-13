@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  MATCHED,
+  variantsOf,
   artistScore, cleanTitle, durationSimilarity, findMatches, normalize, rankCandidates, scoreCandidate, searchQueries,
   splitArtists, splitUploadTitle, statusOf, stripDecorations, titleSimilarity, variantPenalty, type SourceTrack,
 } from "../src/lib/match.ts";
@@ -131,4 +133,35 @@ test("searchQueries and findMatches fall back to the bare title", async () => {
   });
   assert.deepEqual(asked, ["Moth Choir Neon Rooms", "Neon Rooms"]);
   assert.equal(statusOf(result[0].score), "matched");
+});
+
+// Cases from a real 33-track import against live SoundCloud search.
+test("a mashup that names the song after a dash is not a sure match", () => {
+  const into = sp("Into You", ["Ariana Grande"], 244);
+  const mashup = scoreCandidate(into, sc("WHAT I NEED (w/ Ariana Grande - Into You)", "Darby", 243));
+  assert.ok(mashup.score < MATCHED, `mashup scored ${mashup.score}`);
+  const real = scoreCandidate(into, sc("Ariana Grande - Into You", "someone", 244));
+  assert.ok(real.score > mashup.score);
+});
+
+test("right title and artist at the wrong length is only worth checking", () => {
+  const s = scoreCandidate(sp("Pray For Me", ["The Weeknd", "Kendrick Lamar"], 211), sc("The Weeknd, Kendrick Lamar - Pray For Me", "Connor", 146));
+  assert.equal(statusOf(s.score), "check");
+});
+
+test("a 30 s preview ranks below a full-length upload of the same song", () => {
+  const src = sp("24K Magic", ["Bruno Mars"], 226);
+  const preview = scoreCandidate(src, sc("24K Magic", "brunomars", 30, { preview: true }));
+  const full = scoreCandidate(src, sc("Bruno Mars - 24K Magic", "fan", 228));
+  assert.ok(preview.score <= 0.6);
+  assert.ok(full.score > preview.score);
+  const offLength = scoreCandidate(src, sc("Bruno Mars - 24K Magic", "fan", 150));
+  assert.ok(offLength.score > preview.score, "a wrong-length full upload still beats a preview");
+});
+
+test("sing-offs and no-autotune versions count as different recordings", () => {
+  assert.ok(variantsOf("Conor Maynard SING OFF Vs. Alex Aiono (Bruno Mars - 24K Magic)").has("sing off"));
+  assert.ok(variantsOf("Britney Spears - Womanizer (No Autotune)").has("edit"));
+  assert.ok(variantsOf("WHAT I NEED (w/ Ariana Grande - Into You)").has("mashup"));
+  assert.ok(!variantsOf("Kesha - Die Young (Stem Edit)").has("edit"));
 });

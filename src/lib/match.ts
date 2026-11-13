@@ -156,12 +156,22 @@ const VARIANTS: [string, RegExp][] = [
   ["acoustic", /\bacoustic\b/],
   ["mashup", /\bmash ?up\b/],
   ["loop", /\b\d+ hours?\b/],
+  ["sing off", /\bsing ?off\b/],
+  ["edit", /\b(no autotune|acapella|a cappella|bass boosted)\b/],
 ];
+
+// Checked against the lowercased raw title: "w/ Ariana Grande" is how mashups
+// credit the second song, and normalize() drops the slash.
+const RAW_VARIANTS: [string, RegExp][] = [["mashup", /(^|[\s(\[])w\/\s/]];
 
 /** Which variant markers ("remix", "live", "sped up"...) a title carries. */
 export function variantsOf(title: string): Set<string> {
   const n = normalize(title);
-  return new Set(VARIANTS.filter(([, re]) => re.test(n)).map(([name]) => name));
+  const raw = title.toLowerCase();
+  return new Set([
+    ...VARIANTS.filter(([, re]) => re.test(n)).map(([name]) => name),
+    ...RAW_VARIANTS.filter(([, re]) => re.test(raw)).map(([name]) => name),
+  ]);
 }
 
 /**
@@ -206,16 +216,28 @@ export function artistScore(artists: string[], track: Track): number | null {
   return score;
 }
 
+/** How well a dash-separated half of an upload title names one of the source artists. */
+function namesArtist(half: string, artists: string[]): number {
+  const names = splitArtists(half);
+  return Math.max(0, ...artists.flatMap((a) => names.map((n) => artistSimilarity(a, n))));
+}
+
 export function scoreCandidate(source: SourceTrack, track: Track): ScoredCandidate {
   const wanted = cleanTitle(source.title);
   const upload = splitUploadTitle(track.title);
+  // "Artist - Title" (or "Title - Artist") only counts in full when the other
+  // half is one of the artists we want. Otherwise "WHAT I NEED (w/ Ariana
+  // Grande - Into You)" would be a perfect "Into You".
+  const trust = (other: string | null) => (other == null || !source.artists.length || namesArtist(other, source.artists) >= 0.6 ? 1 : 0.6);
   const title = Math.max(
     titleSimilarity(wanted, cleanTitle(track.title)),
-    titleSimilarity(wanted, cleanTitle(upload.title)),
-    upload.artist ? titleSimilarity(wanted, upload.artist) : 0, // "Title - Artist" uploads
+    titleSimilarity(wanted, cleanTitle(upload.title)) * trust(upload.artist),
+    upload.artist ? titleSimilarity(wanted, upload.artist) * trust(upload.title) : 0,
   );
   const artist = artistScore(source.artists, track);
-  const duration = source.durationMs != null && track.duration > 0 ? durationSimilarity(source.durationMs, track.duration) : null;
+  // A preview's 30 s says nothing about whether it's the right recording.
+  const preview = track.preview === true || looksLikePreview(source.durationMs, track.duration);
+  const duration = !preview && source.durationMs != null && track.duration > 0 ? durationSimilarity(source.durationMs, track.duration) : null;
 
   let weighted = 0;
   let weight = 0;
@@ -234,8 +256,14 @@ export function scoreCandidate(source: SourceTrack, track: Track): ScoredCandida
   // Without an artist we only know the title; never call that a sure match.
   if (artist == null) score = Math.min(score, 0.7);
 
-  let penalty = variantPenalty(source.title, track.title);
-  if (looksLikePreview(source.durationMs, track.duration)) penalty += 0.15;
+  // Right title and artist but a minute off is usually a different edit or a
+  // rip with intros cut; worth showing, not worth trusting.
+  if (duration != null && duration < 0.3) score = Math.min(score, 0.7);
+  // A 30 s preview is often the official recording, but it only plays 30
+  // seconds. Keep it as a last resort below any full-length upload of the song.
+  if (preview) score = Math.min(score - 0.05, 0.6);
+
+  const penalty = variantPenalty(source.title, track.title);
   score = Math.max(0, Math.min(1, score - penalty));
 
   return { track, score, parts: { title, artist, duration, penalty } };
