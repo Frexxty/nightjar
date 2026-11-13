@@ -329,6 +329,25 @@ export class MockBackend implements Backend {
     this.comments.set(id, list);
     return comment;
   }
+  async createPlaylist(title: string, trackIds: Id[], _isPublic: boolean) {
+    await delay(200);
+    const tracks = trackIds.map((id) => this.tracks.find((t) => t.id === id)).filter((t): t is MockTrack => !!t);
+    const playlist: Playlist = {
+      id: `p${this.playlists.length + 1}`,
+      title,
+      user: summary(this.meUser),
+      artworkUrl: artwork(hash(title), title),
+      description: null,
+      isAlbum: false,
+      trackCount: tracks.length,
+      duration: tracks.reduce((sum, t) => sum + t.duration, 0),
+      createdAt: new Date().toISOString(),
+      likesCount: 0,
+      tracks: tracks.map(strip),
+    };
+    this.playlists.push(playlist);
+    return { ...playlist, tracks: playlist.tracks?.map((t) => this.decorate(t)) };
+  }
 }
 
 function strip(t: MockTrack | Track): Track {

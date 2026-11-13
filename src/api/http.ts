@@ -81,4 +81,7 @@ export class HttpBackend implements Backend {
   postComment(id: Id, body: string, timestamp: number | null) {
     return this.request<Comment>("POST", `/tracks/${encodeURIComponent(id)}/comments`, undefined, { body, timestamp });
   }
+  createPlaylist(title: string, trackIds: Id[], isPublic: boolean) {
+    return this.request<Playlist>("POST", "/me/playlists", undefined, { title, trackIds, public: isPublic });
+  }
 }

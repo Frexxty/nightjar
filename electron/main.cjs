@@ -4,6 +4,7 @@
 const { app, BrowserWindow, Menu, ipcMain, shell, nativeTheme } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const { registerSpotifyIpc } = require("./spotify.cjs");
 
 const isMac = process.platform === "darwin";
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -134,6 +135,7 @@ function buildMenus() {
         { label: "Likes", accelerator: "CmdOrCtrl+3", click: go("/library/likes") },
         { label: "Playlists", accelerator: "CmdOrCtrl+4", click: go("/library/playlists") },
         { label: "History", accelerator: "CmdOrCtrl+5", click: go("/library/history") },
+        { label: "Import from Spotify…", click: go("/import") },
         { type: "separator" },
         { label: "Toggle Queue", accelerator: "CmdOrCtrl+U", click: () => send("toggle-drawer", "queue") },
         { label: "Toggle Comments", accelerator: "CmdOrCtrl+K", click: () => send("toggle-drawer", "comments") },
@@ -190,6 +192,7 @@ ipcMain.on("window", (_event, action, value) => {
 });
 
 ipcMain.handle("platform", () => process.platform);
+registerSpotifyIpc(ipcMain);
 
 app.on("before-quit", () => {
   quitting = true;

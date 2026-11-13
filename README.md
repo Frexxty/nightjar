@@ -31,11 +31,34 @@ Shortcuts: Space play/pause, ←/→ seek 5s, ⌘←/⌘→ previous/next, ⌘L 
 
 When the queue runs out it keeps going with `/tracks/{id}/related`, like SoundCloud's autoplay. You can turn that off in Settings, along with comments on waveforms and the immersive background animation. Settings also has theme (dark, light, system) and accent colour.
 
+## Importing from Spotify
+
+Library > Import from Spotify (or View > Import from Spotify…) takes a link to a public Spotify playlist or album. It needs no Spotify account and no API key.
+
+Stratus reads the list in the main process. It first fetches Spotify's embed page, which carries the track list as JSON but stops at 100 tracks. If the list has 100 tracks or the embed fails, it opens the normal open.spotify.com page in a hidden, muted window with a throwaway in-memory session. It waits for Spotify's own web player to request the first page from its internal API, copies that request, and asks for the rest 100 tracks at a time. A 1,223-track playlist takes about ten seconds. That internal API isn't public and Spotify changes it now and then. When it breaks, you still get the first 100 tracks and a message saying so. The hidden window is closed as soon as the first page arrives, and nothing from it is written to disk.
+
+For each track, Stratus searches your backend with "first artist + title", then with the title alone. It scores each result from 0 to 1:
+
+- Title similarity (half the score), after stripping things like "(Official Video)", "feat. X", "- Remastered 2011" and "(Radio Edit)", plus accents and punctuation.
+- Artist overlap (30%), checked against the uploader name and any artist written in the upload title ("Artist - Title").
+- Length (20%). Within 3 seconds counts fully. More than 10 seconds and 10% off counts for little. A 30-second upload of a full-length song is treated as a SoundCloud preview and marked down.
+- Remixes, covers, sped up, slowed, nightcore, 8D, instrumental, karaoke and live versions lose points unless the Spotify title says the same thing. Uploads that can't be streamed are ignored.
+
+A score of 0.75 or more is "Matched" and 0.5 to 0.75 is "Check". Anything lower is "No match" and is left out unless you pick something. A list with titles only and no artists never scores above "Check". In the review table you can pick another candidate, search with your own words, skip a track, or double-click a match to hear it.
+
+If a playlist can't be read in full, the "Paste a track list" tab takes `Artist - Title` lines or a CSV with "Track Name" and "Artist Name(s)" columns, such as an [Exportify](https://exportify.net) export. That tab also works in a plain browser during `vite` development; reading links needs the desktop app.
+
+Imported playlists are saved locally (in `localStorage`, with full track data so they show without a network) and appear under "Your playlists". You can rename or delete them, and remove or move tracks from the track menu. If your backend implements `createPlaylist`, the import page also offers "Save to SoundCloud".
+
+`npm test` runs the matcher, list parser and Spotify parsing tests. The Spotify tests run against trimmed real responses in `tests/fixtures/spotify`.
+
 ## Layout
 
 ```
 electron/main.cjs        window, menus, dock, IPC
 electron/preload.cjs     the window.stratus bridge (context-isolated, sandboxed)
+electron/spotify*.cjs    reads public Spotify playlists and albums for the import page
+src/lib/match.ts         scores SoundCloud results against Spotify tracks
 src/api/types.ts         the backend contract
 src/api/http.ts          REST client for BACKEND.md
 src/api/mock.ts          mock backend

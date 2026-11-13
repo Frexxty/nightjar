@@ -1,0 +1,73 @@
+{
+  "props": {
+    "pageProps": {
+      "state": {
+        "data": {
+          "entity": {
+            "type": "album",
+            "name": "After Hours",
+            "uri": "spotify:album:4yP0hdKOZPNshxUOjY0cZj",
+            "id": "4yP0hdKOZPNshxUOjY0cZj",
+            "title": "After Hours",
+            "subtitle": "The Weeknd",
+            "visualIdentity": {
+              "image": [
+                {
+                  "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e028863bc11d2aa12b54f5aeb36",
+                  "maxHeight": 300,
+                  "maxWidth": 300
+                },
+                {
+                  "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d000048518863bc11d2aa12b54f5aeb36",
+                  "maxHeight": 64,
+                  "maxWidth": 64
+                },
+                {
+                  "url": "https://image-cdn-fa.spotifycdn.com/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36",
+                  "maxHeight": 640,
+                  "maxWidth": 640
+                }
+              ]
+            },
+            "trackList": [
+              {
+                "uri": "spotify:track:6b5P51m8xx2XA6U7sdNZ5E",
+                "uid": "0329cf1fa404f40b5159",
+                "title": "Alone Again",
+                "subtitle": "The Weeknd",
+                "isExplicit": true,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": [
+                    "EXPLICIT"
+                  ]
+                },
+                "duration": 250053,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "entityType": "track"
+              },
+              {
+                "uri": "spotify:track:2K9Ovn1o2bTGqbsABGC6m3",
+                "uid": "a6faa7c7f010909096cd",
+                "title": "Too Late",
+                "subtitle": "The Weeknd",
+                "isExplicit": true,
+                "isNineteenPlus": false,
+                "contentRatings": {
+                  "labels": [
+                    "EXPLICIT"
+                  ]
+                },
+                "duration": 239973,
+                "isPlayable": true,
+                "playabilityReason": "PLAYABLE",
+                "entityType": "track"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
