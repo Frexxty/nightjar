@@ -64,9 +64,12 @@ test("a new install defaults to the hosted backend", () => {
 });
 
 test("saved configs from before accounts keep working", () => {
+  // 0.1.0's demo-data default moves to the hosted backend...
   assert.deepEqual(normalizeBackendConfig({ kind: "mock", baseUrl: "http://localhost:8787", token: "" }), {
-    kind: "mock", baseUrl: "http://localhost:8787", token: "", hostedToken: "",
+    kind: "hosted", baseUrl: "http://localhost:8787", token: "", hostedToken: "",
   });
+  // ...while demo data chosen in today's Settings stays.
+  assert.equal(normalizeBackendConfig({ kind: "mock", baseUrl: "http://localhost:8787", token: "", hostedToken: "" }).kind, "mock");
   assert.deepEqual(normalizeBackendConfig({ kind: "http", baseUrl: "http://192.168.1.4:8787", token: "abc" }), {
     kind: "http", baseUrl: "http://192.168.1.4:8787", token: "abc", hostedToken: "",
   });

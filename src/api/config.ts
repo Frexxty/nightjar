@@ -24,8 +24,9 @@ const trimSlash = (url: string) => url.trim().replace(/\/+$/, "");
 /**
  * Turns whatever is in localStorage into a full config. Nothing saved means a
  * new install, which gets the hosted backend. Older versions saved
- * `{ kind: "mock" | "http", baseUrl, token }`; those keep working, and an
- * "http" entry that points at the hosted URL becomes "hosted" with its token.
+ * `{ kind: "mock" | "http", baseUrl, token }`. Their "mock" becomes "hosted"
+ * (demo data was simply the old default), "http" keeps working, and an "http"
+ * entry that points at the hosted URL becomes "hosted" with its token.
  */
 export function normalizeBackendConfig(raw: unknown, hostedUrl = HOSTED_URL): BackendConfig {
   const saved = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -35,7 +36,10 @@ export function normalizeBackendConfig(raw: unknown, hostedUrl = HOSTED_URL): Ba
     token: str(saved.token),
     hostedToken: str(saved.hostedToken),
   };
-  if (saved.kind === "mock") config.kind = "mock";
+  // 0.1.0 had no accounts and demo data was its default, so a saved "mock"
+  // from then (no hostedToken key) moves to the hosted backend. A "mock"
+  // picked in today's Settings is saved with hostedToken and stays.
+  if (saved.kind === "mock" && "hostedToken" in saved) config.kind = "mock";
   else if (saved.kind === "http") {
     if (trimSlash(config.baseUrl) === trimSlash(hostedUrl)) {
       config.kind = "hosted";
