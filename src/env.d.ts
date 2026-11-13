@@ -30,8 +30,24 @@ interface UpdateInfo {
   state: UpdateState;
 }
 
+interface DrmStatus {
+  /**
+   * "ready": the Widevine CDM is installed and Spotify can play.
+   * "updating": the first install is still downloading.
+   * "unavailable": no CDM (stock Electron build, or the install failed).
+   */
+  widevine: "ready" | "unavailable" | "updating";
+  /** Installed CDM version, e.g. "4.10.2934.0", or null. */
+  version: string | null;
+}
+
 interface StratusBridge {
   platform: string;
+  drm: {
+    status(): Promise<DrmStatus>;
+    /** Fires when the status changes, e.g. a first install finishing after the window opened. */
+    onStatus(handler: (status: DrmStatus) => void): () => void;
+  };
   spotify: {
     /** Accepts playlist or album links, spotify: URIs and bare playlist IDs. Rejects with a readable message. */
     fetchPlaylist(url: string): Promise<SpotifyList>;

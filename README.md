@@ -2,7 +2,7 @@
 
 A desktop SoundCloud player modelled on Cider's layout: vibrancy sidebar, a top bar with the transport controls and an "LCD" now-playing display, a right-hand drawer, and a full-window immersive player. Out of the box it uses the hosted Stratus server, where you can make a free Stratus account for your likes, playlists, follows and history. You can also point it at a server you run, described in [BACKEND.md](BACKEND.md), or at built-in demo data with generated artwork, waveforms, comments and synthesized audio.
 
-Electron 45, Vue 3, Pinia, Vite. No code or assets come from Cider. Its license is "All Rights Reserved", so this is a fresh implementation of the same structure.
+Electron 45 ([castlabs' Widevine build](https://github.com/castlabs/electron-releases), so Spotify's protected audio can play), Vue 3, Pinia, Vite. No code or assets come from Cider. Its license is "All Rights Reserved", so this is a fresh implementation of the same structure.
 
 ## Run it
 
@@ -15,6 +15,7 @@ npm test           # unit tests (node --test)
 npm run dist       # Stratus.app in release/mac-arm64 via electron-builder (not notarized)
 npm run dist:mac   # dmg and zip for Apple silicon and Intel in release/
 npm run dist:win   # Stratus-Setup-x64.exe in release/ (builds on macOS too, no Wine needed)
+npm run dist:linux # Stratus-linux-x86_64.AppImage in release/ (build it on Linux)
 npm run dev:web    # the web player in a browser, against the hosted backend
 npm run build:web  # typecheck and build the web player into dist-web/
 npm run deploy:web # build:web, then deploy it to stratus-app.k3s.lat
@@ -137,6 +138,8 @@ The Deploy web player workflow (`.github/workflows/deploy-web.yml`) does the sam
 
 ```
 electron/main.cjs        window, menus, dock, IPC
+electron/drm.cjs         Widevine CDM install and status (castlabs components API)
+scripts/vmp-sign*.cjs    Widevine VMP signing hooks for electron-builder
 electron/preload.cjs     the window.stratus bridge (context-isolated, sandboxed)
 electron/spotify*.cjs    reads public Spotify playlists and albums for the import page
 src/lib/match.ts         scores SoundCloud results against Spotify tracks
@@ -189,7 +192,26 @@ The Release workflow does the rest. It checks the tag matches `package.json`, cr
 - `https://github.com/Frexxty/stratus/releases/latest/download/Stratus-mac-x64.dmg`
 - `https://github.com/Frexxty/stratus/releases/latest/download/Stratus-Setup-x64.exe`
 
+A Linux AppImage (`Stratus-linux-x86_64.AppImage`, plus `latest-linux.yml`) is built too, but on a best-effort basis: if that job fails the release still goes out without it, with a warning. The in-app updater doesn't handle Linux yet.
+
 Nothing is signed with a paid certificate. macOS users need to right-click the app and choose Open the first time, and Windows SmartScreen will warn about an unknown publisher.
+
+### Widevine VMP signing
+
+Spotify playback needs Widevine, which comes from castlabs' Electron build. On macOS and Windows, Widevine also checks a VMP signature on the app. castlabs' builds only carry a development one, so release builds should get a production signature from castlabs' free EVS service. The Release workflow does this when two repository secrets are set. Without them it still builds and publishes, unsigned for VMP, and the build log says so. Forks and local builds work the same way.
+
+One-time setup for the maintainer:
+
+1. Create a free EVS account. It asks for an e-mail address, name, account name and password, then mails a confirmation code:
+
+   ```sh
+   python3 -m pip install --upgrade castlabs-evs
+   python3 -m castlabs_evs.account signup
+   ```
+
+2. In the repository's Settings > Secrets and variables > Actions, add `EVS_ACCOUNT_NAME` (the account name, not the e-mail) and `EVS_PASSWD`.
+
+That's it. On the next tag the mac and Windows jobs install `castlabs-evs` and sign: macOS in electron-builder's `afterPack` hook, before codesign, because the signature file sits inside the code-signed bundle; Windows in `afterSign`, after electron-builder has edited the exe's resources and before the NSIS installer is built (castlabs requires VMP signing after Authenticode on Windows). The job then runs `codesign --verify --deep --strict` and `castlabs_evs.vmp verify-pkg`, and a failed check leaves the release a draft. A wrong password fails the build rather than shipping unsigned. To sign a local build, export the same two variables before `npm run dist:mac` or `dist:win`; `EVS_PYTHON` picks the Python that has `castlabs-evs` if it isn't `python3`. If you're locked out, reset the password with `python3 -m castlabs_evs.account reset` rather than signing up again, as castlabs asks.
 
 ## License
 

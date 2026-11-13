@@ -7,6 +7,7 @@ const path = require("node:path");
 const { registerSpotifyIpc } = require("./spotify.cjs");
 const updater = require("./updater.cjs");
 const { createTray, updateTray, hasTray } = require("./tray.cjs");
+const drm = require("./drm.cjs");
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
@@ -268,12 +269,16 @@ app.on("second-instance", () => showWindow());
 // Taskbar grouping and notifications on Windows key off this ID.
 if (isWin) app.setAppUserModelId("dev.stratus.app");
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (!primary) return;
   if (headless && app.dock) app.dock.hide();
   updater.init({ beforeQuit: () => (quitting = true) });
   buildMenus();
-  createWindow();
+  // Spotify's player needs the Widevine CDM. Wait for it (bounded, see drm.cjs)
+  // so the renderer doesn't start out with a missing CDM.
+  await drm.whenReady();
+  // A Dock click or second launch during the wait may have opened it already.
+  if (!win) createWindow();
   if (!isMac) {
     createTray({
       command: (name) => win && !win.isDestroyed() && win.webContents.send("command", name),

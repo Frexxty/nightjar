@@ -43,6 +43,9 @@ async function launch({ offscreen }) {
       STRATUS_MEASURE_PROFILE: profile,
       STRATUS_MEASURE_OFFSCREEN: offscreen ? "1" : "",
       VITE_DEV_SERVER_URL: "",
+      // Every run has a fresh profile, so the Widevine CDM is never installed
+      // yet. Don't let its download (seconds, network-bound) into startup times.
+      STRATUS_CDM_WAIT_MS: "1",
     },
   });
   children.add(child);
