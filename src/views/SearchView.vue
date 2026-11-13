@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import { Search } from "lucide-vue-next";
 import { api, type Playlist, type SearchKind, type SearchResults, type Track, type User } from "@/api";
 import LoadMore from "@/components/LoadMore.vue";
 import LoadState from "@/components/LoadState.vue";
 import MediaCard from "@/components/MediaCard.vue";
 import Shelf from "@/components/Shelf.vue";
 import TrackTable from "@/components/TrackTable.vue";
+import { isPhone } from "@/lib/responsive";
 
 const route = useRoute();
+const router = useRouter();
 const q = computed(() => (typeof route.query.q === "string" ? route.query.q : ""));
 const tab = ref<"all" | SearchKind>("all");
 const all = ref<SearchResults | null>(null);
@@ -58,6 +61,16 @@ async function more() {
 
 watch([q, tab, api], run, { immediate: true });
 
+// Phones have no sidebar, so the search field lives on this page.
+const draft = ref(q.value);
+const field = ref<HTMLInputElement>();
+watch(q, (value) => (draft.value = value));
+function submit() {
+  const value = draft.value.trim();
+  field.value?.blur();
+  if (value && value !== q.value) void router.replace({ path: "/search", query: { q: value } });
+}
+
 const empty = computed(() => {
   if (tab.value !== "all") return !items.value.length;
   const r = all.value;
@@ -67,12 +80,30 @@ const empty = computed(() => {
 
 <template>
   <div class="page">
-    <h1 class="page-title">Results for "{{ q }}"</h1>
-    <div class="tabs">
+    <template v-if="isPhone">
+      <h1 class="page-title">Search</h1>
+      <form class="field" role="search" @submit.prevent="submit">
+        <Search :size="18" class="field-icon" />
+        <input
+          ref="field"
+          v-model="draft"
+          type="search"
+          placeholder="Artists, tracks, playlists"
+          enterkeyhint="search"
+          autocapitalize="none"
+          autocorrect="off"
+          spellcheck="false"
+          aria-label="Search"
+        />
+      </form>
+      <p v-if="!q" class="muted hint">Search SoundCloud for tracks, people, playlists and albums.</p>
+    </template>
+    <h1 v-else class="page-title">Results for "{{ q }}"</h1>
+    <div v-if="q || !isPhone" class="tabs">
       <button v-for="t in tabs" :key="t.id" class="tab" :class="{ active: tab === t.id }" @click="tab = t.id">{{ t.label }}</button>
     </div>
 
-    <LoadState :loading="loading" :error="error" :empty="empty" :empty-text="`No results for “${q}”.`" @retry="run">
+    <LoadState v-if="q || !isPhone" :loading="loading" :error="error" :empty="empty" :empty-text="`No results for “${q}”.`" @retry="run">
       <template v-if="tab === 'all' && all">
         <section v-if="all.tracks.items.length" class="block">
           <h2 class="section-title">Tracks</h2>
@@ -106,4 +137,9 @@ const empty = computed(() => {
 <style scoped>
 .block { margin-bottom: 36px; }
 .block .section-title { margin-bottom: 8px; }
+.field { position: relative; margin-bottom: 16px; }
+.field input { width: 100%; height: 44px; padding-left: 40px; border-radius: 12px; border-color: transparent; background: var(--hover); }
+.field input:focus { border-color: var(--accent); }
+.field-icon { position: absolute; left: 13px; top: 13px; color: var(--text-3); pointer-events: none; }
+.hint { margin: 24px 4px; font-size: 15px; }
 </style>

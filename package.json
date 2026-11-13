@@ -13,6 +13,10 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "vue-tsc --noEmit && vite build",
+    "dev:web": "vite --mode web",
+    "build:web": "vue-tsc --noEmit && vite build --mode web",
+    "preview:web": "vite preview --mode web --port 4173",
+    "deploy:web": "npm run build:web && npx wrangler@latest deploy --config web/wrangler.jsonc",
     "start": "electron .",
     "typecheck": "vue-tsc --noEmit",
     "test": "node --test tests/*.test.* \"test/*.test.*\"",

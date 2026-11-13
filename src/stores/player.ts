@@ -114,14 +114,17 @@ export const usePlayer = defineStore("player", () => {
     }
   }
 
-  /** Replace the queue and start playing at `start`, optionally from a fraction of the track. */
-  function playTracks(tracks: Track[], start = 0, source: string | null = null, startAt: number | null = null) {
+  /**
+   * Replace the queue and start playing at `start`, optionally from a fraction of the track.
+   * With `autoplay` false the track is loaded and left paused.
+   */
+  function playTracks(tracks: Track[], start = 0, source: string | null = null, startAt: number | null = null, autoplay = true) {
     if (!tracks.length) return;
     unshuffled.value = null;
     queue.value = [...tracks];
     index.value = start;
     queueSource.value = source;
-    void load(queue.value[start], true, startAt);
+    void load(queue.value[start], autoplay, startAt);
   }
 
   function playTrack(track: Track) {
@@ -268,10 +271,23 @@ export const usePlayer = defineStore("player", () => {
             title: t.title,
             artist: t.user.username,
             album: "Stratus",
-            artwork: t.artworkUrl ? [{ src: t.artworkUrl, sizes: "500x500" }] : [],
+            // Lock screens need an absolute URL. iOS skips data: URLs (the mock's artwork).
+            artwork: t.artworkUrl ? [{ src: new URL(t.artworkUrl, location.href).href, sizes: "500x500" }] : [],
           })
         : null;
     });
+    // The lock screen's scrubber and elapsed time come from the position state.
+    const syncPosition = () => {
+      if (!audio.duration || !Number.isFinite(audio.duration)) return;
+      try {
+        ms.setPositionState?.({ duration: audio.duration, playbackRate: audio.playbackRate || 1, position: Math.min(audio.currentTime, audio.duration) });
+      } catch {
+        // Some browsers reject a position past the duration while it settles.
+      }
+    };
+    for (const type of ["durationchange", "seeked", "playing", "pause", "ratechange"]) audio.addEventListener(type, syncPosition);
+    audio.addEventListener("playing", () => (ms.playbackState = "playing"));
+    audio.addEventListener("pause", () => (ms.playbackState = "paused"));
   }
 
   watch(

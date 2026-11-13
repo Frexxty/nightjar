@@ -15,6 +15,9 @@ npm test           # unit tests (node --test)
 npm run dist       # Stratus.app in release/mac-arm64 via electron-builder (not notarized)
 npm run dist:mac   # dmg and zip for Apple silicon and Intel in release/
 npm run dist:win   # Stratus-Setup-x64.exe in release/ (builds on macOS too, no Wine needed)
+npm run dev:web    # the web player in a browser, against the hosted backend
+npm run build:web  # typecheck and build the web player into dist-web/
+npm run deploy:web # build:web, then deploy it to stratus-app.k3s.lat
 ```
 
 ## What's in it
@@ -75,6 +78,42 @@ Tracks where only SoundCloud's 30-second Go+ preview can be played carry a "Prev
 
 `npm test` runs the matcher, list parser and Spotify parsing tests. The Spotify tests run against trimmed real responses in `tests/fixtures/spotify`.
 
+## Web player
+
+The same renderer also ships as a web app at [stratus-app.k3s.lat](https://stratus-app.k3s.lat). `npm run build:web` runs Vite with `--mode web`, which reads `.env.web`: it sets `VITE_TARGET=web` and points the default backend at the hosted API (`https://stratus-api.k3s.lat/v1`, see [docs/hosted-api.md](docs/hosted-api.md)), so the web build never starts on the mock. The output goes to `dist-web/` with absolute paths (`base: "/"`). Everything that needs Electron checks for `window.stratus` and stays out of the way in a browser: there are no update checks, menus or tray, and the macOS vibrancy rules don't apply because the platform attribute is `web`.
+
+Below 760px wide the layout switches to a phone layout. The sidebar becomes a tab bar (Home, Stream, Search, Library, Import), the top bar becomes a back button and a title, and a mini player sits above the tab bar. Tapping the mini player opens the now-playing sheet, which you close by swiping it down or with the chevron. Queue and comments open as a second sheet on top of it. Track lists turn into compact rows where a tap plays and the menu button or a long press opens an action sheet. The Electron window can't get narrower than 960px, so the desktop app never sees this layout.
+
+### Installing on iPhone
+
+Open stratus-app.k3s.lat in Safari, tap Share, then Add to Home Screen. Safari shows a banner with the same hint until you dismiss it. The installed app opens full screen with the status bar over its own header, and the lock screen shows the track with play, pause, skip and a scrubber through the Media Session API. iOS plays SoundCloud's HLS streams natively. Lock-screen artwork needs a real https image, so tracks from the mock backend show without artwork there.
+
+Android Chrome offers Install app from its menu, using the same manifest and a maskable icon.
+
+### How it works offline
+
+`web/pwa.ts` is a small Vite plugin that only runs for the web build. It adds the manifest, the home-screen icons from `web/icons/` and the iOS meta tags, and writes `sw.js` from `web/sw.js` with this build's file list. The service worker caches the app shell (index page, hashed JS and CSS, icons) and serves hashed files from the cache. Pages go to the network first and fall back to the cached shell when offline. It never touches requests to other origins, so API responses, artwork and audio are not cached. When a deploy lands, the new worker waits and the app shows "New version available" with a Reload button.
+
+The icons are rendered from the mark in `build/icon.svg`. To redo them:
+
+```sh
+rsvg-convert -w 192 -h 192 build/icon.svg -o web/icons/icon-192.png
+rsvg-convert -w 512 -h 512 build/icon.svg -o web/icons/icon-512.png
+rsvg-convert -w 512 -h 512 web/icons/maskable.svg -o web/icons/maskable-512.png
+rsvg-convert -w 180 -h 180 web/icons/apple-touch-icon.svg -o web/icons/apple-touch-icon.png
+```
+
+### Deploying the web player
+
+It runs as an assets-only Cloudflare Worker named `stratus-app` (`web/wrangler.jsonc`) on the custom domain stratus-app.k3s.lat. Workers Static Assets serves `dist-web/` and answers unknown paths with the app. The build also writes a `_headers` file: hashed files under `/assets/` are cached for a year as immutable, while `index.html`, `sw.js` and `manifest.webmanifest` are sent with `no-cache` so a deploy shows up on the next load.
+
+To deploy by hand, log in once with `npx wrangler@latest login` and run `npm run deploy:web`.
+
+The Deploy web player workflow (`.github/workflows/deploy-web.yml`) does the same on every push to main that changes `src/`, `public/`, `index.html`, `web/` or the build config. It needs two repository secrets, which you add under Settings, Secrets and variables, Actions:
+
+- `CLOUDFLARE_API_TOKEN`: an API token with Workers Scripts edit on the account, and Workers Routes edit and DNS edit on the k3s.lat zone. The "Edit Cloudflare Workers" template covers it.
+- `CLOUDFLARE_ACCOUNT_ID`: `f2cf5d525fceb6c6c5fccbbd10a94bb4`.
+
 ## Layout
 
 ```
@@ -97,6 +136,10 @@ src/stores/account.ts    sign up, sign in, sign out, delete account
 src/components/          chrome, LCD, waveform, drawer, immersive player, lists, cards
 src/views/               one file per route
 server/                  the hosted backend (Cloudflare Worker + D1) at stratus-api.k3s.lat, see server/README.md
+src/lib/sheet.ts         drag-to-dismiss for the phone sheets
+src/lib/longpress.ts     long press opens context menus on touch screens
+src/lib/pwa.ts           service worker registration and the install hint (web only)
+web/                     web player: Vite plugin, service worker, icons, Worker config
 ```
 
 The window uses `contextIsolation`, `sandbox` and no `nodeIntegration`. The renderer can only send playback state and a few window actions to the main process. Cider runs with `webSecurity: false` and `nodeIntegration: true`, which I didn't copy.

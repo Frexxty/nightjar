@@ -126,7 +126,8 @@ function play(at?: number) {
   color: #fff;
   transition: transform 0.1s;
 }
-.play:hover { transform: scale(1.05); }
+@media (hover: hover) { .play:hover { transform: scale(1.05); } }
+.play:active { transform: scale(0.94); }
 .titles { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .artist { color: var(--text-2); font-size: 12.5px; }
 .title { font-size: 15px; font-weight: 650; }
@@ -146,7 +147,23 @@ function play(at?: number) {
   font-size: 12px;
   color: var(--text-2);
 }
-.chip:hover { color: var(--text); background: var(--hover); }
+@media (hover: hover) { .chip:hover { color: var(--text); background: var(--hover); } }
+.chip:active { background: var(--hover); }
 .chip.on { color: var(--accent); border-color: var(--accent-soft); }
 .stats { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+/* Phone: small artwork beside the title, the waveform and buttons full width below. */
+@media (max-width: 760px) {
+  .item { padding: 16px 0 18px; }
+  .who { flex-wrap: wrap; row-gap: 2px; }
+  .body { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 10px 12px; }
+  .main { display: contents; }
+  .main > :not(.head) { grid-column: 1 / -1; }
+  .art :deep(.artwork) { width: 64px !important; height: 64px !important; }
+  .head { min-width: 0; }
+  .play { width: 44px; height: 44px; }
+  .genre { display: none; }
+  .actions { flex-wrap: wrap; row-gap: 8px; }
+  .chip { position: relative; height: 34px; padding: 0 12px; font-size: 13px; }
+  .chip::after { content: ""; position: absolute; inset: -5px -2px; }
+}
 </style>
