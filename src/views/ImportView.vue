@@ -5,6 +5,7 @@ import { ChevronDown, CircleCheck, ClipboardList, CloudUpload, ExternalLink, Lin
 import { api, ApiError, friendlyError, isUnauthorized, type SpotifyList } from "@/api";
 import Artwork from "@/components/Artwork.vue";
 import MatchPicker from "@/components/MatchPicker.vue";
+import ImportFlow, { type ImportStage } from "@/components/onboarding/ImportFlow.vue";
 import { duration } from "@/lib/format";
 import type { SourceTrack } from "@/lib/match";
 import { spotifyImport } from "@/lib/spotifyImport";
@@ -114,6 +115,14 @@ const sourceLabel = computed(() => {
   }
 });
 
+/** Where the import is, for the step diagram at the top. */
+const stage = computed<ImportStage>(() => {
+  if (!session.list) return fetching.value ? "reading" : "idle";
+  if (!session.direct && (session.matching || session.counts.pending)) return "matching";
+  return "review";
+});
+const flowDirect = computed(() => (session.list ? !!session.direct : spotifyMode.value));
+
 const percent = computed(() => (session.rows.length ? Math.round((session.done / session.rows.length) * 100) : 0));
 
 // Review table.
@@ -218,16 +227,15 @@ function openExternal(url: string) {
       <h1 class="page-title">Import from Spotify</h1>
       <button v-if="session.list" class="btn" @click="startOver()"><RotateCcw :size="15" /> Start over</button>
     </div>
+    <ImportFlow class="import-flow" :stage="stage" :direct="flowDirect" :busy="fetching || session.matching" />
 
     <!-- Step 1: where the tracks come from -->
     <template v-if="!session.list">
       <p v-if="spotifyMode" class="muted intro">
-        Paste a link to a public Spotify playlist or album. Stratus reads the track list and saves it as a playlist that plays
-        from Spotify, with no matching.
+        Paste a link to a public Spotify playlist or album. It's saved as a playlist that plays from Spotify, no matching needed.
       </p>
       <p v-else class="muted intro">
-        Paste a link to a public Spotify playlist or album. Stratus reads the track list, searches SoundCloud for each track,
-        and lets you check the matches before saving them as a playlist.
+        Paste a link to a public Spotify playlist or album. Stratus searches SoundCloud for each track and you check the matches.
       </p>
       <div class="tabs">
         <button class="tab" :class="{ active: tab === 'link' }" @click="tab = 'link'"><Link2 :size="14" /> Spotify link</button>
@@ -455,6 +463,7 @@ function openExternal(url: string) {
 .import { max-width: 1080px; }
 .head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
 .head .page-title { margin: 0; }
+.import-flow { margin: 14px 0 18px; }
 .intro { max-width: 640px; margin: 0 0 20px; }
 .tabs .tab { display: inline-flex; align-items: center; gap: 6px; }
 .card { padding: 16px; border-radius: var(--radius); background: var(--hover); margin-bottom: 14px; }
