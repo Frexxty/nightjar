@@ -5,6 +5,7 @@ import type { Track } from "@/api";
 import { count, duration } from "@/lib/format";
 import { useMenus } from "@/lib/menus";
 import { isPhone } from "@/lib/responsive";
+import { isSpotifyId } from "@/spotify/ids";
 import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
 import { useUi, type MenuItem } from "@/stores/ui";
@@ -96,7 +97,8 @@ function play(i: number) {
         </span>
         <RouterLink :to="`/user/${t.user.id}`" class="by ellipsis" :draggable="reorder ? 'false' : undefined">{{ t.user.username }}</RouterLink>
       </span>
-      <span v-if="showPlays" class="num faint">{{ count(t.playbackCount) }}</span>
+      <!-- Spotify doesn't share play counts; its tracks carry a placeholder 0. -->
+      <span v-if="showPlays" class="num faint">{{ isSpotifyId(t.id) ? "–" : count(t.playbackCount) }}</span>
       <span class="like">
         <button class="icon-btn" :class="{ on: library.isLiked(t) }" :title="library.isLiked(t) ? 'Unlike' : 'Like'" @click="library.toggleLike(t)">
           <Heart :size="15" :fill="library.isLiked(t) ? 'currentColor' : 'none'" />

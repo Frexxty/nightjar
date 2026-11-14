@@ -39,6 +39,7 @@ test("parseListPage reads pathfinder pages", () => {
   const first = parseListPage(fixture("pathfinder-playlist.json"), "spotify:playlist:2YRe7HRKNRvXdJBp9nXFza")!;
   assert.equal(first.total, 1223);
   assert.equal(first.tracks[0].title, "Blinding Lights");
+  assert.equal(first.tracks[0].artworkUrl, "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36");
   assert.equal(parseListPage(fixture("pathfinder-album.json"), "spotify:album:4yP0hdKOZPNshxUOjY0cZj")!.kind, "album");
 });
 

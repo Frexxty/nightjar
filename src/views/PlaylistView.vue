@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ListPlus, MoreHorizontal, Pause, Pencil, Play, Shuffle, Trash2 } from "lucide-vue-next";
 import { api, friendlyError, type Playlist, type PlaylistPatch, type Track } from "@/api";
@@ -13,6 +13,7 @@ import { useLibrary } from "@/stores/library";
 import { isLocalId, useLocalPlaylists } from "@/stores/localPlaylists";
 import { usePlayer } from "@/stores/player";
 import { useUi, type MenuItem } from "@/stores/ui";
+import { artworkRepairFailed, distinctCovers, repairPlaylistArtwork } from "@/spotify/artwork";
 import { catalogueFor } from "@/spotify/catalogue";
 import { isSpotifyId } from "@/spotify/ids";
 
@@ -41,6 +42,10 @@ const owned = computed(() => {
   return props.id.startsWith("sp_") || p.user.id === me.id;
 });
 const editable = computed(() => isLocal || owned.value);
+/** Playlists made in Stratus have no cover of their own; the header shows their tracks' covers. */
+const madeHere = computed(() => isLocal || (owned.value && props.id.startsWith("sp_")));
+const heroCovers = computed(() => (madeHere.value && !playlist.value?.isAlbum ? distinctCovers(playlist.value?.tracks ?? []) : []));
+const heroArt = computed(() => heroCovers.value[0] ?? playlist.value?.artworkUrl ?? null);
 
 const source = computed(() => `playlist:${props.id}`);
 const tracks = computed(() => playlist.value?.tracks ?? []);
@@ -74,6 +79,46 @@ function syncSidebar(p: Playlist) {
 
 function withTracks(p: Playlist, list: Track[]): Playlist {
   return { ...p, tracks: list, trackCount: list.length, duration: list.reduce((sum, t) => sum + t.duration, 0) };
+}
+
+// Playlists imported before Stratus looked up track covers show the playlist
+// mosaic on every Spotify track. Look the real ones up once, quietly, and save them.
+let repairStarted = false;
+watch(
+  () => (madeHere.value ? playlist.value : null),
+  (p) => {
+    if (!p?.tracks?.length || repairStarted) return;
+    repairStarted = true;
+    void repairCovers(p.title, p.tracks.length, p.tracks);
+  },
+  { immediate: true },
+);
+
+async function repairCovers(title: string, count: number, list: Track[]) {
+  const result = await repairPlaylistArtwork(props.id, list);
+  const giveUp = () => ui.notify(`Couldn't load the track covers for "${title}".`);
+  if (!result) return;
+  if (result.gaveUp) giveUp();
+  if (!result.covers.size) return;
+  const covers = result.covers;
+  const withCovers = (tracks: Track[]) => tracks.map((t) => (covers.has(t.id) ? { ...t, artworkUrl: covers.get(t.id)! } : t));
+  if (isLocal) return local.setArtwork(props.id, covers);
+  const update = api.value.updatePlaylist;
+  if (!update) return;
+  // Applied to the list as it is when the save runs, so edits made meanwhile stay.
+  queue = queue
+    .then(() => {
+      const p = remote.data.value;
+      if (!p?.tracks) return;
+      const tracks = withCovers(p.tracks);
+      const next = { ...p, tracks, artworkUrl: tracks.find((t) => t.artworkUrl)?.artworkUrl ?? p.artworkUrl };
+      remote.data.value = next;
+      syncSidebar(next);
+      return update.call(api.value, props.id, { trackIds: tracks.map((t) => t.id), tracks });
+    })
+    .catch(() => {
+      if (artworkRepairFailed(props.id, count)) giveUp();
+    });
 }
 
 const renaming = ref(false);
@@ -155,7 +200,7 @@ function editMenu(_t: Track, i: number): MenuItem[] {
   <div>
     <LoadState :loading="loading" :error="error" :needs-spotify="remote.needsSpotify.value" @retry="remote.reload">
       <template v-if="playlist">
-        <PageHero :art="playlist.artworkUrl" :title="playlist.title" :eyebrow="playlist.isAlbum ? 'Album' : isLocal ? 'Local playlist' : 'Playlist'">
+        <PageHero :art="heroArt" :mosaic="heroCovers.length === 4 ? heroCovers : undefined" :title="playlist.title" :eyebrow="playlist.isAlbum ? 'Album' : isLocal ? 'Local playlist' : 'Playlist'">
           <template #meta>
             <form v-if="renaming" class="rename" @submit.prevent="saveRename">
               <input ref="titleInput" v-model="draftTitle" aria-label="Playlist name" @keydown.esc="renaming = false" />

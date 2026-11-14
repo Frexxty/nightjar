@@ -224,7 +224,7 @@ export function tracksFromSpotifyList(list: SpotifyList): Track[] {
       id: uri,
       title: t.title,
       user: { id: `spotify:artist:${encodeURIComponent(t.artists[0] ?? "unknown")}`, username: t.artists.join(", ") || "Unknown artist", avatarUrl: null },
-      artworkUrl: null,
+      artworkUrl: t.artworkUrl ?? null,
       duration: t.durationMs ?? 0,
       createdAt: "",
       playbackCount: 0,

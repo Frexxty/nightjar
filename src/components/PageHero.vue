@@ -2,14 +2,18 @@
 // Header for detail pages: blurred artwork wash behind the cover, title and actions.
 import Artwork from "./Artwork.vue";
 
-defineProps<{ art: string | null | undefined; round?: boolean; eyebrow?: string; title: string }>();
+/** `mosaic`: four covers shown 2x2 in place of `art`, for playlists made of other people's tracks. */
+defineProps<{ art: string | null | undefined; mosaic?: string[]; round?: boolean; eyebrow?: string; title: string }>();
 </script>
 
 <template>
   <header class="hero">
     <div class="wash" :style="art ? { backgroundImage: `url(${JSON.stringify(art)})` } : undefined" />
     <div class="inner">
-      <Artwork :src="art" :round="round" :radius="12" :size="220" class="cover" />
+      <div v-if="mosaic?.length === 4" class="cover mosaic" aria-hidden="true">
+        <img v-for="(src, i) in mosaic" :key="i" :src="src" alt="" decoding="async" />
+      </div>
+      <Artwork v-else :src="art" :round="round" :radius="12" :size="220" class="cover" />
       <div class="text">
         <div v-if="eyebrow" class="eyebrow">{{ eyebrow }}</div>
         <h1>{{ title }}</h1>
@@ -35,6 +39,19 @@ defineProps<{ art: string | null | undefined; round?: boolean; eyebrow?: string;
 }
 .inner { position: relative; display: flex; align-items: flex-end; gap: 28px; }
 .cover { box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4), inset 0 0 0 1px var(--border); }
+.mosaic {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 220px;
+  height: 220px;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--active);
+}
+.mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .text { flex: 1; min-width: 0; padding-bottom: 4px; }
 .eyebrow { font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); }
 h1 {

@@ -58,7 +58,15 @@ test("parseListPage reads a pathfinder playlist page", () => {
   assert.equal(first.offset, 0);
   assert.equal(first.itemCount, 3);
   assert.equal(first.owner, "Example User");
-  assert.deepEqual(first.tracks[0], { spotifyId: "0VjIjW4GlUZAMYd2vXMi3b", title: "Blinding Lights", artists: ["The Weeknd"], durationMs: 200040, explicit: false });
+  assert.deepEqual(first.tracks[0], {
+    spotifyId: "0VjIjW4GlUZAMYd2vXMi3b",
+    title: "Blinding Lights",
+    artists: ["The Weeknd"],
+    durationMs: 200040,
+    explicit: false,
+    // The 640 px source of the track's own album cover.
+    artworkUrl: "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36",
+  });
   // Another playlist's response (the page loads several) is ignored.
   assert.equal(page.parseListPage(fixture("pathfinder-playlist.json"), "spotify:playlist:somethingelse0000000000"), null);
 });
@@ -70,6 +78,8 @@ test("parseListPage reads a pathfinder album page", () => {
   assert.equal(first.owner, "The Weeknd");
   assert.equal(first.tracks[0].title, "Alone Again");
   assert.equal(first.tracks[0].explicit, true);
+  // Album items have no albumOfTrack; the import gives them the album cover.
+  assert.equal(first.tracks[0].artworkUrl, null);
 });
 
 test("parseListPage skips episodes and empty slots, and reports NotFound", () => {

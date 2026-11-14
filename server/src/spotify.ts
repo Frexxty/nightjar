@@ -201,6 +201,8 @@ function trackFrom(data: any): SpotifyListTrack | null {
     artists: artistNames(data.artists),
     durationMs: typeof ms === "number" ? ms : null,
     explicit: data.contentRating?.label === "EXPLICIT",
+    // Playlist items carry their album's cover; album items don't (the album cover is theirs).
+    artworkUrl: biggest(data.albumOfTrack?.coverArt?.sources),
   };
 }
 

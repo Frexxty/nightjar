@@ -3,6 +3,7 @@ import { computed, markRaw, ref } from "vue";
 import { api, type Track } from "@/api";
 import type { SpotifyImport } from "@/lib/spotifyImport";
 import { CHECK, findMatches, rankCandidates, statusOf, type MatchStatus, type ScoredCandidate, type SourceTrack } from "@/lib/match";
+import { withTrackArtwork } from "@/spotify/artwork";
 
 /** What is being imported, whichever way it came in. */
 export interface ImportList {
@@ -31,6 +32,8 @@ export interface ImportRow {
 export type RowStatus = MatchStatus | "pending" | "skipped";
 
 const CONCURRENCY = 4;
+/** How long saving waits for covers still loading. Ones that miss it are filled in when the playlist opens. */
+const ARTWORK_WAIT_MS = 4000;
 
 const isTrack = (x: object): x is Track => "duration" in x && "streamable" in x;
 
@@ -51,6 +54,9 @@ export const useImportSession = defineStore("importSession", () => {
   /** What was read, so a direct import can still switch to matching. */
   const sourceTracks = ref<SourceTrack[]>([]);
   const matching = ref(false);
+  /** Cover lookups for a direct import: how many have finished, out of how many. */
+  const artwork = ref<{ done: number; total: number; running: boolean }>({ done: 0, total: 0, running: false });
+  let artworkJob: Promise<unknown> = Promise.resolve();
   let token = 0;
 
   function rowStatus(row: ImportRow): RowStatus {
@@ -78,6 +84,7 @@ export const useImportSession = defineStore("importSession", () => {
     cancel();
     list.value = next;
     direct.value = null;
+    artwork.value = { done: 0, total: 0, running: false };
     sourceTracks.value = tracks;
     rows.value = tracks.map((source, key) => ({
       key, source, state: "pending", error: null, candidates: [], pick: null, manual: false, skipped: false,
@@ -92,6 +99,37 @@ export const useImportSession = defineStore("importSession", () => {
     rows.value = [];
     sourceTracks.value = tracks;
     direct.value = { tracks: result.tracks.map((t) => markRaw(t)), skipped: result.skipped };
+    void fillArtwork();
+  }
+
+  /**
+   * Looks up the cover of each Spotify track that has none (playlist tracks read
+   * from the embed page); the list's rows update as they arrive. Album tracks
+   * already carry the album cover.
+   */
+  function fillArtwork() {
+    const mine = token;
+    const d = direct.value;
+    if (!d) return;
+    artwork.value = { done: 0, total: 0, running: true };
+    artworkJob = withTrackArtwork(
+      d.tracks,
+      ({ index, track, found, done, total }) => {
+        if (mine !== token || direct.value !== d) return;
+        if (found) d.tracks[index] = markRaw(track);
+        artwork.value = { done, total, running: done < total };
+      },
+      { missingOnly: true },
+    ).finally(() => {
+      if (mine === token) artwork.value = { ...artwork.value, running: false };
+    });
+    return artworkJob;
+  }
+
+  /** Resolves once covers are in, or after a few seconds, whichever comes first. */
+  function artworkSettled(maxMs = ARTWORK_WAIT_MS): Promise<void> {
+    if (!artwork.value.running) return Promise.resolve();
+    return Promise.race([artworkJob.then(() => {}), new Promise<void>((resolve) => setTimeout(resolve, maxMs))]);
   }
 
   /** "Match on SoundCloud instead" for a direct import. */
@@ -101,6 +139,7 @@ export const useImportSession = defineStore("importSession", () => {
 
   function reset() {
     cancel();
+    artwork.value = { done: 0, total: 0, running: false };
     list.value = null;
     rows.value = [];
     direct.value = null;
@@ -176,7 +215,7 @@ export const useImportSession = defineStore("importSession", () => {
   }
 
   return {
-    list, rows, direct, sourceTracks, matching, done, counts, chosenTracks,
-    rowStatus, begin, beginDirect, matchInstead, reset, match, cancel, research, choose, setSkipped,
+    list, rows, direct, sourceTracks, matching, artwork, done, counts, chosenTracks,
+    rowStatus, begin, beginDirect, artworkSettled, matchInstead, reset, match, cancel, research, choose, setSkipped,
   };
 });

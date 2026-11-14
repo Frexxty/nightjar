@@ -53,8 +53,8 @@ function readSpotify(url: string): Promise<SpotifyList> {
 // Spotify tracks. Otherwise each track is matched against SoundCloud.
 const spotifyMode = computed(() => settings.musicSource === "spotify");
 
-function start(info: ImportList, tracks: SourceTrack[], coverUrl: string | null) {
-  if (spotifyMode.value && tracks.some((t) => t.spotifyId)) session.beginDirect(info, tracks, spotifyImport({ coverUrl, tracks }));
+function start(info: ImportList, tracks: SourceTrack[], coverUrl: string | null, kind: "playlist" | "album" = "playlist") {
+  if (spotifyMode.value && tracks.some((t) => t.spotifyId)) session.beginDirect(info, tracks, spotifyImport({ kind, coverUrl, tracks }));
   else session.begin(info, tracks);
 }
 
@@ -69,6 +69,7 @@ async function importLink() {
       { name: list.name, owner: list.owner, coverUrl: list.coverUrl, total: list.total, truncated: list.truncated, notice: list.notice, source: list.source, url: list.url },
       list.tracks,
       list.coverUrl,
+      list.kind,
     );
     saveName.value = list.name;
   } catch (err) {
@@ -177,7 +178,11 @@ const directRows = computed(() => {
   return d.tracks.map((track, i) => ({ track, artists: sources[i]?.artists ?? [] }));
 });
 
-function saveLocal() {
+async function saveLocal() {
+  if (!session.chosenTracks.length) return;
+  saving.value = true;
+  await session.artworkSettled();
+  saving.value = false;
   const tracks = session.chosenTracks;
   if (!tracks.length) return;
   const p = local.create(saveName.value || session.list?.name || "Imported playlist", tracks, session.list?.url ?? null);
@@ -187,10 +192,11 @@ function saveLocal() {
 
 async function saveRemote() {
   const create = api.value.createPlaylist;
-  const tracks = session.chosenTracks;
-  if (!create || !tracks.length) return;
+  if (!create || !session.chosenTracks.length) return;
   saving.value = true;
   try {
+    await session.artworkSettled();
+    const tracks = session.chosenTracks;
     const title = saveName.value || session.list?.name || "Imported playlist";
     const extras = session.list?.url ? { sourceUrl: session.list.url } : {};
     // Full tracks go along so Spotify ones can be stored as snapshots.
@@ -305,7 +311,10 @@ function openExternal(url: string) {
         <CircleCheck :size="18" />
         <div>
           <strong>{{ session.direct.tracks.length }} Spotify tracks ready to save.</strong>
-          <p class="muted">They play from Spotify as they are, so there's nothing to match.</p>
+          <p class="muted">
+            They play from Spotify as they are, so there's nothing to match.
+            <template v-if="session.artwork.running"> Loading covers, {{ session.artwork.done }} of {{ session.artwork.total }}…</template>
+          </p>
           <p v-if="session.direct.skipped.length" class="muted">
             {{ session.direct.skipped.length }} {{ session.direct.skipped.length === 1 ? "track is a local file" : "tracks are local files" }}
             on the playlist owner's computer, which Spotify can't play. {{ session.direct.skipped.length === 1 ? "It is" : "They are" }} skipped.
@@ -343,7 +352,7 @@ function openExternal(url: string) {
             <CloudUpload :size="15" /> {{ saving ? "Saving…" : "Save to my library" }}
           </button>
         </template>
-        <button class="btn" :class="{ primary: !canSaveRemote }" :disabled="!session.chosenTracks.length" @click="saveLocal">
+        <button class="btn" :class="{ primary: !canSaveRemote }" :disabled="!session.chosenTracks.length || saving" @click="saveLocal">
           <Save :size="15" /> Save on this computer
         </button>
         <label v-if="canSaveRemote && !remoteNeedsSignIn" class="check"><input v-model="makePublic" type="checkbox" /> Public</label>
@@ -359,6 +368,7 @@ function openExternal(url: string) {
       <div v-if="session.direct" class="direct">
         <div v-for="(row, i) in directRows" :key="i" class="d">
           <span class="idx faint">{{ i + 1 }}</span>
+          <Artwork :src="row.track.artworkUrl" :size="36" :radius="5" />
           <span class="sp">
             <span class="name ellipsis">{{ row.track.title }}</span>
             <span class="by ellipsis">{{ row.artists.join(", ") || row.track.user.username }}</span>
@@ -367,6 +377,7 @@ function openExternal(url: string) {
         </div>
         <div v-for="(t, i) in session.direct.skipped" :key="`skipped-${i}`" class="d skipped">
           <span class="idx faint">–</span>
+          <Artwork :src="null" :size="36" :radius="5" />
           <span class="sp">
             <span class="name ellipsis">{{ t.title }}</span>
             <span class="by ellipsis">{{ t.artists.join(", ") || "Unknown artist" }}</span>
@@ -480,7 +491,7 @@ textarea { width: 100%; resize: vertical; font: 12.5px/1.5 ui-monospace, "SF Mon
 .notice.ready svg { color: #30d158; }
 
 .direct { display: flex; flex-direction: column; }
-.d { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px; border-radius: 8px; }
+.d { display: grid; grid-template-columns: 40px 36px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px; border-radius: 8px; }
 .d:hover { background: var(--hover); }
 .d.skipped .sp { opacity: 0.55; }
 .dur { font-variant-numeric: tabular-nums; font-size: 12px; }

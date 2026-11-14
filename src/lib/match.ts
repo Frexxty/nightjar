@@ -10,6 +10,8 @@ export interface SourceTrack {
   durationMs: number | null;
   spotifyId?: string | null;
   explicit?: boolean;
+  /** The track's own cover, when the reader had it (the full-page reader does). */
+  artworkUrl?: string | null;
 }
 
 export type MatchStatus = "matched" | "check" | "none";

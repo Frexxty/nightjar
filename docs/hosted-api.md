@@ -84,6 +84,8 @@ Reads (`/v1/me/likes/tracks`, `/v1/me/history`, playlists) return the stored sna
   "tracks": [{ "spotifyId": "…", "title": "…", "artists": ["…"], "durationMs": 225834, "explicit": false }] }
 ```
 
+Tracks read from the full page (`source: "page"`) also carry `artworkUrl`, the 640 px cover of the track's album. The embed page has no per-track images, so embed lists leave it out and the client looks covers up through Spotify's oEmbed endpoint (`src/spotify/artwork.ts`).
+
 The desktop app keeps reading Spotify itself (full playlists through a hidden window). The web player has no such window, so it calls this endpoint. The server reads the embed page (up to 100 tracks) and, for lists that hit that cap, loads the full page in Cloudflare Browser Rendering and replays Spotify's own paging request, so `source` is `"page"`. A 1,223-track playlist takes about 15 seconds. If the browser step fails you get the embed's 100 tracks with `truncated: true` and a `notice`. Links that aren't Spotify playlists or albums get 400 `invalid_input`; private or missing lists get 422 `import_failed` with a readable `error`. Matching against SoundCloud still happens in the client through `/v1/search/tracks`.
 
 ## Streams

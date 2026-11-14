@@ -204,6 +204,8 @@ export interface SpotifyListTrack {
   artists: string[];
   durationMs: number | null;
   explicit: boolean;
+  /** The track's own cover. Only the full-page reader has it; embed lists leave it out. */
+  artworkUrl?: string | null;
 }
 
 /** A Spotify playlist or album, from the desktop app's reader or `GET /import/spotify`. */

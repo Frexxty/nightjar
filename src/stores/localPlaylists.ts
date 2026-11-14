@@ -102,6 +102,13 @@ export const useLocalPlaylists = defineStore("localPlaylists", () => {
     touch(p);
   }
 
+  /** Swaps in new covers by track id, wherever those tracks now sit. Doesn't count as an edit. */
+  function setArtwork(id: string, covers: ReadonlyMap<string, string>) {
+    const p = get(id);
+    if (!p || !covers.size) return;
+    p.tracks = p.tracks.map((t) => (covers.has(t.id) ? { ...t, artworkUrl: covers.get(t.id)! } : t));
+  }
+
   /** The same shape as a backend playlist, for the sidebar and PlaylistView. */
   function asPlaylist(p: LocalPlaylist): Playlist {
     return {
@@ -120,5 +127,5 @@ export const useLocalPlaylists = defineStore("localPlaylists", () => {
     };
   }
 
-  return { playlists, get, create, rename, remove, removeTrack, moveTrack, asPlaylist };
+  return { playlists, get, create, rename, remove, removeTrack, moveTrack, setArtwork, asPlaylist };
 });

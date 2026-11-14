@@ -87,6 +87,8 @@ function trackFrom(data) {
     artists: artistNames(data.artists),
     durationMs: typeof ms === "number" ? ms : null,
     explicit: data.contentRating?.label === "EXPLICIT",
+    // Playlist items carry their album's cover; album items don't (the album cover is theirs).
+    artworkUrl: biggestImage(data.albumOfTrack?.coverArt?.sources),
   };
 }
 

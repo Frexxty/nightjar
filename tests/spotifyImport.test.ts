@@ -32,12 +32,24 @@ test("spotifyImport makes Spotify tracks and skips local files", () => {
   assert.equal(noLie.source, "spotify");
   assert.equal(noLie.user.username, "Sean Paul");
   assert.equal(noLie.user.id, UNKNOWN_ARTIST_ID);
-  assert.equal(noLie.artworkUrl, list.coverUrl);
+  // A playlist's cover belongs to no track; artwork.ts looks each one up later.
+  assert.equal(noLie.artworkUrl, null);
   assert.equal(noLie.duration, 221176);
   assert.equal(noLie.streamable, true);
   assert.equal(noLie.waveform, null);
   assert.equal(noLie.permalinkUrl, "https://open.spotify.com/track/4Ed0jvJEwqlVpNRU8fvYbb");
   assert.equal(blinding.duration, 0);
+});
+
+test("spotifyImport keeps per-track covers and gives album tracks the album cover", () => {
+  const own = "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36";
+  const withArt = { ...list, tracks: [{ ...list.tracks[0], artworkUrl: own }, list.tracks[2]] };
+  const playlist = spotifyImport(withArt).tracks;
+  assert.equal(playlist[0].artworkUrl, own);
+  assert.equal(playlist[1].artworkUrl, null);
+  const album = spotifyImport({ ...withArt, kind: "album" }).tracks;
+  assert.equal(album[0].artworkUrl, own);
+  assert.equal(album[1].artworkUrl, list.coverUrl);
 });
 
 test("snapshotsFor leaves SoundCloud-only lists alone", () => {
