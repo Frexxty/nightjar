@@ -1,3 +1,5 @@
+// First: on the web it may copy saved data over from the old address before any store reads it.
+import { handingOff } from "./lib/originHandoff";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 import App from "./App.vue";
@@ -9,14 +11,19 @@ import { useSpotify } from "./spotify/auth";
 import { spotifyCallback } from "./spotify/callback";
 import "./styles/main.css";
 
-document.documentElement.dataset.platform = window.stratus?.platform ?? "web";
+document.documentElement.dataset.platform = window.nightjar?.platform ?? "web";
 
-installLongPress();
-registerServiceWorker();
+// The page is leaving for the old address and will come straight back.
+if (!handingOff) start();
 
-const pinia = createPinia();
-createApp(App).use(pinia).use(router).mount("#app");
+function start() {
+  installLongPress();
+  registerServiceWorker();
 
-const spotify = useSpotify(pinia);
-if (spotifyCallback) void spotify.completeWebCallback(spotifyCallback);
-else void spotify.init();
+  const pinia = createPinia();
+  createApp(App).use(pinia).use(router).mount("#app");
+
+  const spotify = useSpotify(pinia);
+  if (spotifyCallback) void spotify.completeWebCallback(spotifyCallback);
+  else void spotify.init();
+}

@@ -4,20 +4,36 @@
 const { app, BrowserWindow, Menu, ipcMain, shell, nativeTheme, safeStorage } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
+const profile = require("./profile.cjs");
+
+// First, before anything reads userData: an install from when the app was
+// called Stratus keeps its old profile folder (see profile.cjs).
+const userData = profile.resolveUserData(app.getPath("appData"));
+app.setPath("userData", userData.dir);
+// safeStorage keeps its key in a macOS keychain item named "<app name> Safe
+// Storage", and Linux keyrings file it under the app name too. Electron reads
+// the name for that once, after this script's first pass and before "ready".
+// An old profile's Spotify tokens and cookies were encrypted under "Stratus",
+// so with that profile the app answers to the old name until then, and
+// switches back in whenReady before any menu or window shows it.
+if (userData.legacy) app.setName(profile.LEGACY_APP_NAME);
+
 const { registerSpotifyIpc } = require("./spotify.cjs");
 const { registerSpotifyAuthIpc } = require("./spotify-auth.cjs");
 const updater = require("./updater.cjs");
+const updateCore = require("./update-core.cjs");
+const macInstall = require("./mac-install.cjs");
 const { createTray, updateTray, hasTray } = require("./tray.cjs");
 const drm = require("./drm.cjs");
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
 // Test mode for the updater: never show a window or a Dock icon.
-const headless = process.env.STRATUS_HEADLESS_TEST === "1";
+const headless = process.env.NIGHTJAR_HEADLESS_TEST === "1";
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 const stateFile = () => path.join(app.getPath("userData"), "window-state.json");
 // Performance harness hook (scripts/measure.mjs); inert unless the env var is set.
-const measure = process.env.STRATUS_MEASURE === "1" ? require("./measure.cjs") : null;
+const measure = process.env.NIGHTJAR_MEASURE === "1" ? require("./measure.cjs") : null;
 
 let win = null;
 let quitting = false;
@@ -79,7 +95,7 @@ function createWindow() {
     y: saved.y,
     minWidth: 960,
     minHeight: 600,
-    title: "Stratus",
+    title: profile.APP_NAME,
     show: false,
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 18, y: 18 },
@@ -218,7 +234,7 @@ ipcMain.on("playback", (_event, next) => {
     updateTray(playback);
   }
   if (win && !win.isDestroyed()) {
-    win.setTitle(next.track ? `${next.track.title} — ${next.track.artist}` : "Stratus");
+    win.setTitle(next.track ? `${next.track.title} — ${next.track.artist}` : profile.APP_NAME);
   }
 });
 
@@ -263,15 +279,39 @@ app.on("window-all-closed", () => {
   if (!isMac) app.quit();
 });
 
+// macOS: 0.3.x installed /Applications/Stratus.app, and its updater put this
+// build into that same path. Rename it to Nightjar.app once: quit, let a
+// script rename the bundle, and come back from the new path. The marker in
+// userData makes it a single attempt, so a rename that keeps failing can't
+// turn into a relaunch loop.
+function renameLegacyBundle() {
+  if (!isMac || !app.isPackaged) return false;
+  const marker = path.join(app.getPath("userData"), "bundle-rename.json");
+  if (fs.existsSync(marker)) return false;
+  const bundle = updateCore.appBundleFromExe(app.getPath("exe"));
+  if (!updateCore.renamedBundlePath(bundle)) return false;
+  try {
+    fs.mkdirSync(path.dirname(marker), { recursive: true });
+    fs.writeFileSync(marker, JSON.stringify({ from: bundle, version: app.getVersion(), at: Date.now() }));
+  } catch {
+    return false;
+  }
+  // Test mode relaunches the binary directly so it inherits NIGHTJAR_HEADLESS_TEST.
+  return Boolean(macInstall.renameLegacyBundle({ bundle, pid: process.pid, launch: headless ? "exec" : "open" }));
+}
+
 // One instance per user. A second launch focuses the existing window instead.
-const primary = app.requestSingleInstanceLock();
+const primary = app.requestSingleInstanceLock() && !renameLegacyBundle();
 if (!primary) app.exit(0);
 app.on("second-instance", () => showWindow());
 
-// Taskbar grouping and notifications on Windows key off this ID.
+// Taskbar grouping and notifications on Windows key off this ID. It's the
+// appId from package.json, which keeps its pre-rename value on purpose: the
+// installer's uninstall key and pinned shortcuts are tied to it.
 if (isWin) app.setAppUserModelId("dev.stratus.app");
 
 app.whenReady().then(async () => {
+  if (userData.legacy) app.setName(profile.APP_NAME);
   if (!primary) return;
   if (headless && app.dock) app.dock.hide();
   updater.init({ beforeQuit: () => (quitting = true) });

@@ -1,4 +1,4 @@
-// A Stratus account's Spotify sign-in, held server-side so every device shares
+// A Nightjar account's Spotify sign-in, held server-side so every device shares
 // it (docs/hosted-api.md, "Spotify sign-in"). Spotify rotates the refresh token
 // each time it's used, which breaks if several devices each keep a copy, so
 // only the server refreshes and devices get short-lived access tokens.

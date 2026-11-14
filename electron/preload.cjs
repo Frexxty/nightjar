@@ -14,7 +14,7 @@ async function unwrap(promise) {
   return reply.result;
 }
 
-contextBridge.exposeInMainWorld("stratus", {
+contextBridge.exposeInMainWorld("nightjar", {
   platform: process.platform,
   reportPlayback: (state) => ipcRenderer.send("playback", state),
   window: (action, value) => ipcRenderer.send("window", action, value),

@@ -306,7 +306,7 @@ export async function collectRemaining(opts: {
     }
     const page = parseListPage(body, expectedUri);
     if (!page) {
-      stopReason = pathfinderProblem(body) ?? "a page came back in a shape Stratus doesn't recognise";
+      stopReason = pathfinderProblem(body) ?? "a page came back in a shape Nightjar doesn't recognise";
       break;
     }
     if (!page.itemCount) break;

@@ -1,4 +1,4 @@
-// Spotify ID parsing and Web API -> Stratus mappers, against trimmed examples
+// Spotify ID parsing and Web API -> Nightjar mappers, against trimmed examples
 // from Spotify's Web API reference in tests/fixtures/spotify-api.
 import { test } from "node:test";
 import assert from "node:assert/strict";

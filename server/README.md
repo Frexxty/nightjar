@@ -1,6 +1,6 @@
-# stratus-api
+# Hosted API
 
-The hosted backend for Stratus, live at `https://stratus-api.k3s.lat/v1`. It's a Cloudflare Worker with a D1 database. It serves every route in [BACKEND.md](../BACKEND.md) plus accounts, account playlists, history and a Spotify import endpoint, as described in [docs/hosted-api.md](../docs/hosted-api.md).
+The hosted backend for Nightjar, live at `https://nightjar-api.k3s.lat/v1`. It's a Cloudflare Worker with a D1 database. It serves every route in [BACKEND.md](../BACKEND.md) plus accounts, account playlists, history and a Spotify import endpoint, as described in [docs/hosted-api.md](../docs/hosted-api.md).
 
 ## Layout
 
@@ -8,7 +8,7 @@ The hosted backend for Stratus, live at `https://stratus-api.k3s.lat/v1`. It's a
 src/index.ts            router, accounts, likes/reposts/follows, account playlists, history, Spotify route
 src/catalogue.ts        search, tracks, users, SoundCloud playlists, home and feed
 src/soundcloud.ts       api-v2 client: client_id discovery, retries, Cache API, track hydration, waveforms
-src/map.ts              api-v2 objects to Stratus types (pure)
+src/map.ts              api-v2 objects to Nightjar types (pure)
 src/auth.ts             PBKDF2 hashing, session tokens, input checks (pure)
 src/http.ts             JSON responses, errors, CORS, cursors (pure)
 src/spotify.ts          Spotify embed and pathfinder parsing, ported from electron/spotify*.cjs (pure)
@@ -44,12 +44,12 @@ node scripts/smoke.mjs http://localhost:8787/v1  # creates and deletes a throwaw
 
 ## Deploy
 
-The Worker is called `stratus-api`, the D1 database `stratus`, and `wrangler.jsonc` attaches the custom domain `stratus-api.k3s.lat`.
+The Worker is called `stratus-api` and the D1 database `stratus`; both kept their names through the rename. `wrangler.jsonc` attaches two custom domains: `nightjar-api.k3s.lat`, and the old `stratus-api.k3s.lat`, which 0.3.x apps still call.
 
 ```sh
 npm run migrate:remote   # wrangler d1 migrations apply stratus --remote
 npm run deploy           # wrangler deploy
-node scripts/smoke.mjs   # against https://stratus-api.k3s.lat/v1
+node scripts/smoke.mjs   # against https://nightjar-api.k3s.lat/v1
 ```
 
 New schema changes go in a new numbered file in `migrations/`. Apply them before deploying code that needs them.

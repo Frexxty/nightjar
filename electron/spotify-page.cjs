@@ -182,7 +182,7 @@ async function collectRemaining({ captured, first, expectedUri, fetchImpl, deadl
     }
     const page = parseListPage(json, expectedUri);
     if (!page) {
-      stopReason = pathfinderProblem(json) ?? "a page came back in a shape Stratus doesn't recognise";
+      stopReason = pathfinderProblem(json) ?? "a page came back in a shape Nightjar doesn't recognise";
       break;
     }
     if (!page.itemCount) break;
@@ -202,7 +202,7 @@ function captureFirstPage(ref, { timeoutMs = 25000, log = () => {} } = {}) {
   // Required lazily so the pure functions above load under plain Node.
   const { BrowserWindow } = require("electron");
   const expectedUri = `spotify:${ref.kind}:${ref.id}`;
-  const partition = `stratus-spotify-${Math.random().toString(36).slice(2)}`;
+  const partition = `nightjar-spotify-${Math.random().toString(36).slice(2)}`;
 
   return new Promise((resolve, reject) => {
     const win = new BrowserWindow({
@@ -309,7 +309,7 @@ async function fetchViaPage(ref, { totalTimeoutMs = 45000, log = () => {} } = {}
 
   // A fresh in-memory session for the follow-up requests: same network stack as
   // the hidden window, nothing written to disk.
-  const ses = session.fromPartition(`stratus-spotify-replay-${Math.random().toString(36).slice(2)}`);
+  const ses = session.fromPartition(`nightjar-spotify-replay-${Math.random().toString(36).slice(2)}`);
   const fetchImpl = (url, init) => ses.fetch(url, init);
   try {
     const { tracks, stopReason } = await collectRemaining({ captured, first, expectedUri, fetchImpl, deadline, log });

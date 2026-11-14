@@ -1,4 +1,4 @@
-// Service worker for the Stratus web player. web/pwa.ts fills in BUILD and
+// Service worker for the Nightjar web player. web/pwa.ts fills in BUILD and
 // PRECACHE when it copies this file into dist-web/.
 //
 // - The app shell (index.html, hashed JS/CSS, icons) is cached on install.
@@ -12,7 +12,9 @@
 
 const BUILD = "__BUILD__";
 const PRECACHE = ["__PRECACHE__"];
-const CACHE = `stratus-shell-${BUILD}`;
+const CACHE = `nightjar-shell-${BUILD}`;
+// Caches from before the rename used this prefix.
+const OLD_PREFIXES = ["nightjar-shell-", "stratus-shell-"];
 const INDEX = "/";
 
 self.addEventListener("install", (event) => {
@@ -26,7 +28,7 @@ self.addEventListener("message", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     for (const key of await caches.keys()) {
-      if (key.startsWith("stratus-shell-") && key !== CACHE) await caches.delete(key);
+      if (OLD_PREFIXES.some((prefix) => key.startsWith(prefix)) && key !== CACHE) await caches.delete(key);
     }
     await self.clients.claim();
   })());

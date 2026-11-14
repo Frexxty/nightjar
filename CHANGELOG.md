@@ -1,6 +1,18 @@
 # Changelog
 
-Each release's section becomes its GitHub release notes and the notes shown in the in-app update dialog. Add a section before tagging.
+Each release's section becomes its GitHub release notes and the notes shown in the in-app update dialog. Add a section before tagging. Releases up to 0.3.1 were called Stratus; their sections are kept as written.
+
+## 0.4.0
+
+Stratus is now Nightjar: new name, new icon, and Ember as the accent colour.
+
+- Updating keeps everything: settings, your account sign-in, local playlists, history and the Spotify connection. On a Mac the app renames itself from Stratus.app to Nightjar.app the first time it starts. On Windows the Stratus shortcuts are replaced with Nightjar ones; a taskbar pin to Stratus needs pinning again.
+- New addresses: the site is nightjar.k3s.lat and the web player nightjar-app.k3s.lat. The old addresses redirect, and the web player brings your saved data along on the first visit. On iPhone, add the new address to the Home Screen again.
+- Web player Spotify users: add `https://nightjar-app.k3s.lat/spotify-callback` to your Spotify app's Redirect URIs. The old stratus-app address stays valid.
+- If you never changed the accent colour, it moves from SoundCloud orange to Ember.
+- The setup guide explains each step with small animated diagrams.
+- Imported Spotify tracks get their own covers.
+- The web player no longer throws an error when the browser can't register its service worker.
 
 ## 0.3.1
 

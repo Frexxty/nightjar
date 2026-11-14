@@ -41,7 +41,7 @@ try {
   // No changelog; try the tag.
 }
 notes ||= tagMessage(`v${version}`);
-notes ||= `Stratus ${version}`;
+notes ||= `Nightjar ${version}`;
 
 if (out) writeFileSync(out, `${notes}\n`);
 else process.stdout.write(`${notes}\n`);

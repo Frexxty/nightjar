@@ -22,8 +22,10 @@ const ui = useUi();
 
 const DASHBOARD = "https://developer.spotify.com/dashboard";
 const DESKTOP_REDIRECT = "http://127.0.0.1:43821/callback";
-const WEB_REDIRECT = "https://stratus-app.k3s.lat/spotify-callback";
-const desktop = !!window.stratus;
+const WEB_REDIRECT = "https://nightjar-app.k3s.lat/spotify-callback";
+/** The web player's address before the rename. Spotify apps that list it keep working for sign-ins started there. */
+const OLD_WEB_REDIRECT = "https://stratus-app.k3s.lat/spotify-callback";
+const desktop = !!window.nightjar;
 
 /** "choose" (the two cards) or "spotify" (the setup guide). In the URL so a web sign-in comes back to the guide. */
 const step = computed(() => (route.query.step === "spotify" ? "spotify" : "choose"));
@@ -82,7 +84,7 @@ async function copy(text: string) {
 }
 
 function openDashboard() {
-  window.stratus?.window("open-external", DASHBOARD);
+  window.nightjar?.window("open-external", DASHBOARD);
 }
 
 // Client ID: 32 hex characters.
@@ -135,7 +137,7 @@ async function useAnotherAccount() {
     <template v-if="step === 'choose'">
       <header class="intro">
         <div class="mark" aria-hidden="true" v-html="logoMark" />
-        <h1>Where should Stratus get music?</h1>
+        <h1>Where should Nightjar get music?</h1>
         <p class="muted">You can change this later in Settings.</p>
       </header>
 
@@ -170,7 +172,7 @@ async function useAnotherAccount() {
       <div class="guide">
         <button class="btn back" @click="back"><ArrowLeft :size="15" /> Back</button>
         <h1>Set up Spotify</h1>
-        <p class="muted lead">Stratus signs in through a free Spotify developer app that you create. About 5 minutes, once.</p>
+        <p class="muted lead">Nightjar signs in through a free Spotify developer app that you create. About 5 minutes, once.</p>
         <p v-if="spotify.accountAvailable" class="muted lead shared">
           <Cloud :size="15" /> You're signed in, so your other devices get this connection too.
         </p>
@@ -227,6 +229,9 @@ async function useAnotherAccount() {
                     </button>
                   </div>
                 </div>
+                <p class="faint small">
+                  Nightjar used to be called Stratus. If your Spotify app already lists <code>{{ OLD_WEB_REDIRECT }}</code>, keep it and add the new ones.
+                </p>
               </div>
             </div>
           </li>
@@ -266,8 +271,8 @@ async function useAnotherAccount() {
               <div class="step-body">
                 <p class="muted">
                   {{ desktop
-                    ? "Spotify opens in your browser. Approve Stratus there, then come back to this window."
-                    : "This page goes to Spotify. Approve Stratus there and it brings you back here." }}
+                    ? "Spotify opens in your browser. Approve Nightjar there, then come back to this window."
+                    : "This page goes to Spotify. Approve Nightjar there and it brings you back here." }}
                 </p>
 
                 <!-- Connected: who, and whether playback will work -->
@@ -299,7 +304,7 @@ async function useAnotherAccount() {
                   </template>
                   <template v-else>
                     <p v-if="premium === 'unknown'" class="faint small">
-                      Spotify didn't say which plan this account has. Stratus finds out when you first play a song.
+                      Spotify didn't say which plan this account has. Nightjar finds out when you first play a song.
                     </p>
                     <div class="row">
                       <button class="btn primary" @click="startSpotify">Start listening</button>
@@ -421,6 +426,8 @@ h1 { margin: 0; font-size: 28px; font-weight: 750; letter-spacing: -0.02em; }
 a.btn:hover { text-decoration: none; }
 
 .uris { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.uris + p { margin-top: 10px; }
+.uris + p code { overflow-wrap: anywhere; }
 .uri { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label label" "code copy"; gap: 4px 8px; align-items: center; }
 .uri-label { grid-area: label; font-size: 11.5px; }
 .uri code {

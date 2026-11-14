@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// End-to-end smoke test against a running stratus-api.
+// End-to-end smoke test against a running copy of the hosted API (Worker stratus-api).
 //
-//   node scripts/smoke.mjs [base URL]     (default https://stratus-api.k3s.lat/v1)
+//   node scripts/smoke.mjs [base URL]     (default https://nightjar-api.k3s.lat/v1)
 //
 // Creates a throwaway account, exercises every route group, then deletes the
 // account. It asks for a stream URL but never downloads any audio.
 
-const BASE = (process.argv[2] ?? process.env.STRATUS_API ?? "https://stratus-api.k3s.lat/v1").replace(/\/+$/, "");
+const BASE = (process.argv[2] ?? process.env.NIGHTJAR_API ?? "https://nightjar-api.k3s.lat/v1").replace(/\/+$/, "");
 const SPOTIFY_PLAYLIST = "https://open.spotify.com/playlist/4CSw2rcHARwaukSYUegs3R";
 
 let failures = 0;
@@ -51,7 +51,7 @@ const name = `smoke_${Math.random().toString(36).slice(2, 10)}`;
 const password = `pw-${crypto.randomUUID()}`;
 const ctx = {};
 
-console.log(`stratus-api smoke test against ${BASE}\n`);
+console.log(`nightjar-api smoke test against ${BASE}\n`);
 
 await step("CORS preflight", async () => {
   const res = await fetch(`${BASE}/me/playlists`, { method: "OPTIONS", headers: { Origin: "http://localhost:5173", "Access-Control-Request-Method": "PATCH" } });

@@ -21,7 +21,7 @@ interface UpdateState {
 }
 
 interface UpdateInfo {
-  /** False in dev builds without STRATUS_UPDATE_FEED, and on Linux. */
+  /** False in dev builds without NIGHTJAR_UPDATE_FEED, and on Linux. */
   enabled: boolean;
   currentVersion: string;
   beta: boolean;
@@ -42,7 +42,7 @@ interface DrmStatus {
   version: string | null;
 }
 
-interface StratusBridge {
+interface NightjarBridge {
   platform: string;
   drm: {
     status(): Promise<DrmStatus>;
@@ -83,7 +83,7 @@ interface StratusBridge {
 
 interface Window {
   /** Present when running inside Electron; undefined in a plain browser. */
-  stratus?: StratusBridge;
+  nightjar?: NightjarBridge;
 }
 
 declare module "*.vue" {

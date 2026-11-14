@@ -8,9 +8,10 @@
   --text: #f4f4f6;
   --muted: #a6a6b0;
   --dim: #74747e;
-  --accent: #ff5500;
-  --accent-hi: #ff7a26;
-  --accent-soft: rgba(255, 85, 0, 0.16);
+  /* Ember and Ember Light (brand/README.md). */
+  --accent: #EF5035;
+  --accent-hi: #FF8A4C;
+  --accent-soft: rgba(239, 80, 53, 0.16);
 
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --display: var(--font);
@@ -65,9 +66,9 @@ code, kbd { font-family: var(--mono); font-size: 0.88em; }
 .btn-primary {
   background: linear-gradient(180deg, var(--accent-hi), var(--accent));
   color: #fff;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 8px 28px -8px rgba(255, 85, 0, 0.7);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 8px 28px -8px rgba(239, 80, 53, 0.7);
 }
-.btn-primary:hover { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 12px 36px -8px rgba(255, 85, 0, 0.9); }
+.btn-primary:hover { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 12px 36px -8px rgba(239, 80, 53, 0.9); }
 .btn-ghost { background: rgba(255, 255, 255, 0.06); border-color: var(--line-2); color: var(--text); }
 .btn-ghost:hover { background: rgba(255, 255, 255, 0.1); }
 .btn-light { background: #fff; color: #0b0b0d; }
@@ -105,9 +106,9 @@ code, kbd { font-family: var(--mono); font-size: 0.88em; }
   background: linear-gradient(180deg, transparent 40%, var(--bg) 100%);
 }
 .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.55; will-change: transform; }
-.b1 { width: 560px; height: 560px; left: -140px; top: -120px; background: radial-gradient(circle, #ff5500, transparent 70%); animation: drift1 26s ease-in-out infinite alternate; }
-.b2 { width: 520px; height: 520px; right: -160px; top: 40px; background: radial-gradient(circle, #ff4a00, transparent 70%); opacity: 0.22; animation: drift2 32s ease-in-out infinite alternate; }
-.b3 { width: 420px; height: 420px; left: 38%; top: 220px; background: radial-gradient(circle, #ff7a26, transparent 70%); opacity: 0.16; animation: drift3 29s ease-in-out infinite alternate; }
+.b1 { width: 560px; height: 560px; left: -140px; top: -120px; background: radial-gradient(circle, #EF5035, transparent 70%); animation: drift1 26s ease-in-out infinite alternate; }
+.b2 { width: 520px; height: 520px; right: -160px; top: 40px; background: radial-gradient(circle, #D6478A, transparent 70%); opacity: 0.22; animation: drift2 32s ease-in-out infinite alternate; }
+.b3 { width: 420px; height: 420px; left: 38%; top: 220px; background: radial-gradient(circle, #FF8A4C, transparent 70%); opacity: 0.16; animation: drift3 29s ease-in-out infinite alternate; }
 @keyframes drift1 { to { transform: translate(120px, 80px) scale(1.15); } }
 @keyframes drift2 { to { transform: translate(-140px, 60px) scale(0.9); } }
 @keyframes drift3 { to { transform: translate(-90px, -70px) scale(1.2); } }
@@ -142,7 +143,7 @@ code, kbd { font-family: var(--mono); font-size: 0.88em; }
 }
 .glow {
   position: absolute; left: 8%; right: 8%; top: 6%; bottom: 10%;
-  background: radial-gradient(60% 60% at 50% 45%, rgba(255, 85, 0, 0.5), rgba(255, 74, 0, 0.16) 55%, transparent 75%);
+  background: radial-gradient(60% 60% at 50% 45%, rgba(239, 80, 53, 0.5), rgba(239, 80, 53, 0.16) 55%, transparent 75%);
   filter: blur(60px); z-index: 0;
 }
 
@@ -165,7 +166,7 @@ kbd {
 .feature-shot { margin: 0; position: relative; }
 .feature-shot::before {
   content: ""; position: absolute; inset: 12% 8% -4% 8%; z-index: -1;
-  background: radial-gradient(closest-side, rgba(255, 85, 0, 0.22), transparent); filter: blur(40px);
+  background: radial-gradient(closest-side, rgba(239, 80, 53, 0.22), transparent); filter: blur(40px);
 }
 .feature-shot img {
   border-radius: 14px; border: 1px solid var(--line-2);
@@ -210,7 +211,7 @@ kbd {
 .import-mock {
   position: relative; border-radius: 16px; overflow: hidden;
   background: #161618; border: 1px solid var(--line-2);
-  box-shadow: 0 40px 100px -30px rgba(255, 85, 0, 0.45), 0 30px 60px -20px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 40px 100px -30px rgba(239, 80, 53, 0.45), 0 30px 60px -20px rgba(0, 0, 0, 0.7);
 }
 .im-bar, .code-bar {
   height: 40px; display: flex; align-items: center; gap: 14px; padding: 0 14px;
@@ -268,7 +269,7 @@ kbd {
 .iphone-steps li { margin: 6px 0; padding-left: 4px; }
 .iphone-steps strong, .iphone-steps a { color: var(--text); }
 .iphone-steps a { text-decoration-color: var(--accent); text-underline-offset: 4px; }
-.iphone-icon { width: 120px; height: 120px; flex: none; filter: drop-shadow(0 18px 40px rgba(255, 85, 0, 0.3)); }
+.iphone-icon { width: 120px; height: 120px; flex: none; filter: drop-shadow(0 18px 40px rgba(239, 80, 53, 0.3)); }
 @media (max-width: 600px) {
   .iphone-card { flex-direction: column-reverse; align-items: flex-start; }
   .iphone-icon { width: 88px; height: 88px; }
@@ -307,9 +308,9 @@ kbd {
   border-radius: 28px; border: 1px solid var(--line-2);
   background: linear-gradient(180deg, #1a1a1d, #121214);
 }
-.oss-glow { position: absolute; inset: auto -10% -60% -10%; height: 120%; z-index: -1; background: radial-gradient(50% 50% at 50% 50%, rgba(255, 85, 0, 0.45), transparent 70%); filter: blur(30px); }
+.oss-glow { position: absolute; inset: auto -10% -60% -10%; height: 120%; z-index: -1; background: radial-gradient(50% 50% at 50% 50%, rgba(239, 80, 53, 0.45), transparent 70%); filter: blur(30px); }
 .oss h2 { font-size: clamp(32px, 4.6vw, 56px); max-width: 17ch; margin: 0 auto 18px; letter-spacing: -0.04em; }
-.oss-icon { width: 112px; height: 112px; margin: 0 auto 28px; filter: drop-shadow(0 18px 40px rgba(255, 85, 0, 0.35)); }
+.oss-icon { width: 112px; height: 112px; margin: 0 auto 28px; filter: drop-shadow(0 18px 40px rgba(239, 80, 53, 0.35)); }
 .oss p { color: var(--muted); max-width: 46ch; margin: 0 auto 32px; }
 .oss-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 

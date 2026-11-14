@@ -1,4 +1,4 @@
-// Turns an imported Spotify list into Spotify tracks Stratus can save and play
+// Turns an imported Spotify list into Spotify tracks Nightjar can save and play
 // as they are, for people whose music source is Spotify (docs/spotify.md).
 // Type imports only, so `node --test` can load this file directly.
 import type { Track } from "@/api";

@@ -1,4 +1,4 @@
-// Spotify Web API objects -> Stratus types. Pure functions with no Vue or DOM
+// Spotify Web API objects -> Nightjar types. Pure functions with no Vue or DOM
 // imports so `node --test` can run them (tests/spotifyMap.test.ts).
 // Field notes: since February 2026 dev-mode apps get no `popularity`,
 // `followers`, `available_markets` or `label`, and playlists carry `items`
@@ -199,7 +199,7 @@ export function mapPlaylist(p: SpPlaylist): Playlist {
   };
 }
 
-/** Offset paging -> a Stratus page whose cursor is the next offset. */
+/** Offset paging -> a Nightjar page whose cursor is the next offset. */
 export function mapPage<S, T>(paging: SpPaging<S>, map: (item: S) => T | null): Page<T> {
   const items: T[] = [];
   for (const item of paging.items) {

@@ -1,4 +1,4 @@
-// stratus-api: the hosted backend for Stratus. The contract is docs/hosted-api.md
+// stratus-api: the hosted backend for Nightjar (called Stratus until 0.4.0). The contract is docs/hosted-api.md
 // plus every route in BACKEND.md, all under /v1.
 import { checkEmail, checkPassword, checkUsername, hashPassword, needsRehash, PBKDF2_ITERATIONS, verifyPassword } from "./auth.ts";
 import * as cat from "./catalogue.ts";
@@ -280,7 +280,7 @@ route("GET", "/search/:kind", async (r) =>
 route("GET", "/tracks/:id", async (r) => cat.track(c(r), r.params.id));
 route("GET", "/tracks/:id/comments", async (r) => cat.trackComments(c(r), r.params.id));
 route("POST", "/tracks/:id/comments", async () => {
-  throw new ApiError(501, "not_supported", "Stratus accounts can't post comments to SoundCloud.");
+  throw new ApiError(501, "not_supported", "Nightjar accounts can't post comments to SoundCloud.");
 }, true);
 route("GET", "/tracks/:id/related", async (r) => cat.relatedTracks(c(r), r.params.id));
 route("GET", "/tracks/:id/stream", async (r) => json(await cat.stream(c(r), r.params.id), 200, { "Cache-Control": "no-store" }));
@@ -291,7 +291,7 @@ route("GET", "/playlists/:id", async (r) => {
   return cat.scPlaylist(c(r), id);
 });
 
-// Stratus accounts show up as users too (owner links on saved playlists).
+// Nightjar accounts show up as users too (owner links on saved playlists).
 const accountId = (id: string) => (/^me:[0-9a-f-]{36}$/.test(id) ? id.slice(3) : null);
 async function publicAccount(r: Req, id: string) {
   const row = await r.env.DB.prepare("SELECT id, username FROM users WHERE id = ?1").bind(id).first<{ id: string; username: string }>();
@@ -680,7 +680,7 @@ async function handle(request: Request, env: Env, ctx: ExecutionContext): Promis
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (url.pathname === "/" || url.pathname === "/v1" || url.pathname === "/v1/") {
-    return json({ name: "stratus-api", docs: "https://github.com/Frexxty/stratus/blob/main/docs/hosted-api.md" });
+    return json({ name: "nightjar-api", docs: "https://github.com/Frexxty/nightjar/blob/main/docs/hosted-api.md" });
   }
   if (!url.pathname.startsWith("/v1/")) throw notFound();
   const path = url.pathname.slice(3);

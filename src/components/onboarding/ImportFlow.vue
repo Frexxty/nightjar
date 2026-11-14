@@ -13,7 +13,7 @@ const props = defineProps<{
   stage: ImportStage;
   /** Spotify tracks saved as they are: the third step is "Ready", not "Match". */
   direct: boolean;
-  /** Stratus is working on the current step (reading, searching), not waiting for you. */
+  /** Nightjar is working on the current step (reading, searching), not waiting for you. */
   busy: boolean;
 }>();
 
@@ -35,7 +35,7 @@ const label = computed(() => {
 </script>
 
 <template>
-  <!-- Moves only while Stratus is working; when it waits for you it holds still. -->
+  <!-- Moves only while Nightjar is working; when it waits for you it holds still. -->
   <DiagramFrame :label="label" :still="!busy" class="flow-frame">
     <ol class="flow-steps">
       <template v-for="(s, i) in steps" :key="i">

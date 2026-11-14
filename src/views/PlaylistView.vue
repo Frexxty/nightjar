@@ -42,7 +42,7 @@ const owned = computed(() => {
   return props.id.startsWith("sp_") || p.user.id === me.id;
 });
 const editable = computed(() => isLocal || owned.value);
-/** Playlists made in Stratus have no cover of their own; the header shows their tracks' covers. */
+/** Playlists made in Nightjar have no cover of their own; the header shows their tracks' covers. */
 const madeHere = computed(() => isLocal || (owned.value && props.id.startsWith("sp_")));
 const heroCovers = computed(() => (madeHere.value && !playlist.value?.isAlbum ? distinctCovers(playlist.value?.tracks ?? []) : []));
 const heroArt = computed(() => heroCovers.value[0] ?? playlist.value?.artworkUrl ?? null);
@@ -81,7 +81,7 @@ function withTracks(p: Playlist, list: Track[]): Playlist {
   return { ...p, tracks: list, trackCount: list.length, duration: list.reduce((sum, t) => sum + t.duration, 0) };
 }
 
-// Playlists imported before Stratus looked up track covers show the playlist
+// Playlists imported before Nightjar looked up track covers show the playlist
 // mosaic on every Spotify track. Look the real ones up once, quietly, and save them.
 let repairStarted = false;
 watch(

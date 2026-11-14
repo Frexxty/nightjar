@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { CheckCircle2, CloudUpload, LogOut, RefreshCw, XCircle } from "lucide-vue-next";
 import { api, backendConfig, createBackend, friendlyError, HOSTED_BASE_URL, loadBackendConfig, useBackend, type BackendConfig } from "@/api";
 import Artwork from "@/components/Artwork.vue";
+import { ACCENTS } from "@/lib/accent";
 import { useSpotify } from "@/spotify/auth";
 import { useAccount } from "@/stores/account";
 import { useLibrary } from "@/stores/library";
@@ -20,7 +21,8 @@ const account = useAccount();
 const local = useLocalPlaylists();
 const spotify = useSpotify();
 const router = useRouter();
-const isWindows = window.stratus?.platform === "win32";
+const isWindows = window.nightjar?.platform === "win32";
+const isDesktop = !!window.nightjar;
 const backend = reactive<BackendConfig>(loadBackendConfig());
 // Signing in or out elsewhere changes the saved tokens; keep the form in step.
 watch(backendConfig, (c) => Object.assign(backend, c));
@@ -106,7 +108,7 @@ async function disconnectSpotify() {
   } else ui.notify("Disconnected from Spotify");
 }
 
-const accents = ["#ff5500", "#ff2d55", "#bf5af2", "#0a84ff", "#30d158", "#ffd60a", "#e5e5ea"];
+const accents = ACCENTS;
 
 async function testConnection() {
   testing.value = true;
@@ -133,7 +135,7 @@ const updateStatus = computed(() => {
       return s.version === info.skippedVersion ? `Version ${s.version} is available (skipped).` : `Version ${s.version} is available.`;
     case "downloading": return `Downloading ${s.version ?? "update"}… ${s.progress ?? 0}%`;
     case "downloaded": return `Version ${s.version} is ready to install.`;
-    case "not-available": return "Stratus is up to date.";
+    case "not-available": return "Nightjar is up to date.";
     case "error": return s.error ?? "The last check failed.";
     default: return "Not checked yet.";
   }
@@ -250,16 +252,20 @@ function apply() {
         <code class="client-id">{{ maskedClientId }}</code>
       </div>
       <p v-if="spotify.connected && spotify.viaAccount" class="faint small hint">
-        Saved in your Stratus account, so your other signed-in devices use it too. Disconnect disconnects all of them.
+        Saved in your Nightjar account, so your other signed-in devices use it too. Disconnect disconnects all of them.
       </p>
       <p v-else-if="spotify.connected && library.accounts" class="faint small hint">
-        Only on this device. Sign in to your Stratus account and it's shared with your other devices.
+        Only on this device. Sign in to your Nightjar account and it's shared with your other devices.
       </p>
       <p v-if="spotify.connected && !spotify.isPremium" class="error small hint">
         Spotify only plays in other apps for Premium accounts, so Spotify songs won't play with this account.
       </p>
       <p v-else-if="spotify.premiumMessage" class="error small hint" role="alert">{{ spotify.premiumMessage }}</p>
       <p v-if="spotify.status === 'error' && spotify.error" class="error small hint">{{ spotify.error }}</p>
+      <p v-if="!isDesktop && spotify.clientId && !spotify.viaAccount" class="faint small hint">
+        If Spotify says the redirect URI is invalid, add <code>{{ spotify.redirectUri }}</code> to your Spotify app's Redirect URIs.
+        Nightjar used to be called Stratus, and the old <code>https://stratus-app.k3s.lat/spotify-callback</code> stays valid.
+      </p>
       <div class="row indent">
         <template v-if="spotify.clientId">
           <button class="btn" :disabled="spotify.status === 'connecting'" @click="spotify.connect()">
@@ -283,28 +289,28 @@ function apply() {
         </div>
       </div>
       <p class="faint small hint">
-        <template v-if="settings.spotifyPlayback === 'this-device'">Stratus plays the audio itself.</template>
-        <template v-else>Your Spotify app plays the audio and Stratus works as its remote. Keep the Spotify app open.</template>
+        <template v-if="settings.spotifyPlayback === 'this-device'">Nightjar plays the audio itself.</template>
+        <template v-else>Your Spotify app plays the audio and Nightjar works as its remote. Keep the Spotify app open.</template>
         Phone browsers can't play Spotify audio inside a web page, so on phones the web player starts with "Control my Spotify app".
       </p>
     </section>
 
     <section>
       <h2>Backend</h2>
-      <p class="muted">Where Stratus gets music and keeps your library.</p>
+      <p class="muted">Where Nightjar gets music and keeps your library.</p>
       <div class="field">
         <label>Source</label>
         <div class="seg">
-          <button :class="{ active: backend.kind === 'hosted' }" @click="backend.kind = 'hosted'">Stratus account</button>
+          <button :class="{ active: backend.kind === 'hosted' }" @click="backend.kind = 'hosted'">Nightjar account</button>
           <button :class="{ active: backend.kind === 'http' }" @click="backend.kind = 'http'">Custom server</button>
           <button :class="{ active: backend.kind === 'mock' }" @click="backend.kind = 'mock'">Demo data</button>
         </div>
       </div>
       <p v-if="backend.kind === 'hosted'" class="faint small hint">
-        Recommended. The Stratus server at {{ hostedHost }}, with accounts that work in the desktop app and the browser.
+        Recommended. The Nightjar server at {{ hostedHost }}, with accounts that work in the desktop app and the browser.
       </p>
       <p v-else-if="backend.kind === 'mock'" class="faint small hint">
-        Made-up artists, tracks and generated audio, for trying Stratus without a server.
+        Made-up artists, tracks and generated audio, for trying Nightjar without a server.
       </p>
       <template v-if="backend.kind === 'http'">
         <p class="faint small hint">A server you run that follows BACKEND.md.</p>
@@ -368,7 +374,7 @@ function apply() {
       <h2>Updates</h2>
       <div class="field">
         <label>Version</label>
-        <span>Stratus {{ updates.info.currentVersion }}</span>
+        <span>Nightjar {{ updates.info.currentVersion }}</span>
       </div>
       <div class="field">
         <label>Last checked</label>
@@ -414,6 +420,7 @@ label { color: var(--text-2); }
 .check input { width: 15px; height: 15px; accent-color: var(--accent); }
 .update-status { color: var(--text-2); font-size: 12.5px; user-select: text; }
 .hint { margin: -4px 0 12px 132px; max-width: 460px; }
+.hint code { overflow-wrap: anywhere; }
 .indent { margin: 0 0 16px 132px; }
 .playback { margin-top: 8px; }
 .spotify-who strong { color: var(--text); }

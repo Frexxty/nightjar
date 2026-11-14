@@ -28,7 +28,7 @@ export function spotifyErrorMessage(status: number, reason: string | null, messa
   }
   if (status === 403) return `Spotify refused this${message ? `: ${message}` : "."}`;
   if (status === 404) return "Spotify couldn't find that.";
-  if (status === 429) return "Spotify is rate-limiting Stratus. Wait a moment and try again.";
+  if (status === 429) return "Spotify is rate-limiting Nightjar. Wait a moment and try again.";
   if (status >= 500) return "Spotify is having trouble right now. Try again in a moment.";
   return message || `Spotify error ${status}`;
 }

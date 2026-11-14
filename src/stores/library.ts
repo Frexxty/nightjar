@@ -81,7 +81,7 @@ export const useLibrary = defineStore("library", () => {
 
   /**
    * Spotify items are liked and followed in the user's Spotify library, so
-   * they need a Spotify connection instead of a Stratus account.
+   * they need a Spotify connection instead of a Nightjar account.
    */
   function requireSpotify() {
     if (useSpotify().connected) return true;

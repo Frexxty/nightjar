@@ -1,18 +1,40 @@
-// Dynamic routes for stratus.k3s.lat. Everything else is served from
-// ./public by Workers Static Assets before this script runs.
+// The landing site at nightjar.k3s.lat: /api/* and /download/* here, every
+// other path from ./public through the ASSETS binding. The old address,
+// stratus.k3s.lat, points at this Worker too and gets a 301 to the same
+// path on the new one.
+
+const OLD_HOST = "stratus.k3s.lat";
+const NEW_HOST = "nightjar.k3s.lat";
 
 // GITHUB_REPO can be set as a var to point at another repo (handy for testing).
-const DEFAULT_REPO = "Frexxty/stratus";
+// The repo was Frexxty/stratus before the rename; GitHub redirects that name.
+const DEFAULT_REPO = "Frexxty/nightjar";
 const repoOf = (env) => env.GITHUB_REPO || DEFAULT_REPO;
 const releasesPage = (env) => `https://github.com/${repoOf(env)}/releases`;
 const latestDownload = (env) => `https://github.com/${repoOf(env)}/releases/latest/download`;
 
+// Release file names, newest naming first. Releases up to 0.3.1 were built
+// as Stratus; while one of those is the latest, its files still download.
 const ASSETS = {
-  mac: "Stratus-mac-arm64.dmg",
-  "mac-intel": "Stratus-mac-x64.dmg",
-  windows: "Stratus-Setup-x64.exe",
-  linux: "Stratus-linux-x86_64.AppImage",
+  mac: ["Nightjar-mac-arm64.dmg", "Stratus-mac-arm64.dmg"],
+  "mac-intel": ["Nightjar-mac-x64.dmg", "Stratus-mac-x64.dmg"],
+  windows: ["Nightjar-Setup-x64.exe", "Stratus-Setup-x64.exe"],
+  linux: ["Nightjar-linux-x86_64.AppImage", "Stratus-linux-x86_64.AppImage"],
 };
+
+/** The file for `platform` among a release's asset names, or null. */
+function assetFor(names, platform) {
+  if (!Object.hasOwn(ASSETS, platform)) return null;
+  return ASSETS[platform].find((name) => names.includes(name)) ?? null;
+}
+
+function downloadLinks(env, names) {
+  const link = (platform) => {
+    const name = assetFor(names, platform);
+    return name ? `${latestDownload(env)}/${name}` : null;
+  };
+  return { mac: link("mac"), macIntel: link("mac-intel"), windows: link("windows"), linux: link("linux") };
+}
 
 const CACHE_OK = 600; // seconds, when GitHub answered with a release
 const CACHE_MISS = 60; // seconds, when there is no release or GitHub failed
@@ -20,6 +42,13 @@ const CACHE_MISS = 60; // seconds, when there is no release or GitHub failed
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (url.hostname === OLD_HOST) {
+      return new Response(null, {
+        status: 301,
+        headers: { Location: `https://${NEW_HOST}${url.pathname}${url.search}`, "Cache-Control": "public, max-age=3600" },
+      });
+    }
 
     if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
       return new Response(null, { status: 204, headers: corsHeaders() });
@@ -36,14 +65,13 @@ export default {
     const m = url.pathname.match(/^\/download\/([a-z-]+)\/?$/);
     if (m) return download(m[1], env, ctx, url);
 
-    // Anything else under run_worker_first paths falls through to static assets.
+    // Everything else is a static file.
     return env.ASSETS.fetch(request);
   },
 };
 
 async function download(platform, env, ctx, url) {
-  const asset = ASSETS[platform];
-  if (!asset) {
+  if (!Object.hasOwn(ASSETS, platform)) {
     const page = await env.ASSETS.fetch(new Request(new URL("/404", url)));
     return new Response(page.body, { status: 404, headers: page.headers });
   }
@@ -52,7 +80,8 @@ async function download(platform, env, ctx, url) {
   if (!body.version) return comingSoon(platform, env);
 
   // The release exists but this platform's file isn't attached yet.
-  if (!body._assets.includes(asset)) return redirect(body.url || releasesPage(env));
+  const asset = assetFor(body._assets, platform);
+  if (!asset) return redirect(body.url || releasesPage(env));
 
   return redirect(`${latestDownload(env)}/${asset}`);
 }
@@ -81,7 +110,7 @@ async function getLatest(env, ctx, url) {
 async function fetchLatest(env) {
   const headers = {
     Accept: "application/vnd.github+json",
-    "User-Agent": "stratus-site (+https://stratus.k3s.lat)",
+    "User-Agent": "nightjar-site (+https://nightjar.k3s.lat)",
     "X-GitHub-Api-Version": "2022-11-28",
   };
   if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
@@ -105,7 +134,6 @@ async function fetchLatest(env) {
   if (!rel || !rel.tag_name) return empty(env, "release has no tag");
 
   const names = (rel.assets || []).map((a) => a.name);
-  const link = (name) => (names.includes(name) ? `${latestDownload(env)}/${name}` : null);
 
   return {
     version: rel.tag_name.replace(/^v/i, ""),
@@ -114,12 +142,7 @@ async function fetchLatest(env) {
     publishedAt: rel.published_at,
     notes: (rel.body || "").slice(0, 8000),
     url: rel.html_url,
-    downloads: {
-      mac: link(ASSETS.mac),
-      macIntel: link(ASSETS["mac-intel"]),
-      windows: link(ASSETS.windows),
-      linux: link(ASSETS.linux),
-    },
+    downloads: downloadLinks(env, names),
     _assets: names,
   };
 }
@@ -130,7 +153,7 @@ async function fetchLatest(env) {
 async function fromUpdateFeeds(env) {
   const read = async (name) => {
     try {
-      const res = await fetch(`${latestDownload(env)}/${name}`, { headers: { "User-Agent": "stratus-site (+https://stratus.k3s.lat)" } });
+      const res = await fetch(`${latestDownload(env)}/${name}`, { headers: { "User-Agent": "nightjar-site (+https://nightjar.k3s.lat)" } });
       return res.ok ? await res.text() : "";
     } catch {
       return "";
@@ -141,7 +164,6 @@ async function fromUpdateFeeds(env) {
   if (!version) return null;
 
   const names = [...`${win}\n${mac}\n${linux}`.matchAll(/^\s*-?\s*(?:url|path):\s*['"]?([^\s'"]+)/gm)].map((m) => m[1]);
-  const link = (name) => (names.includes(name) ? `${latestDownload(env)}/${name}` : null);
   // releaseNotes is a YAML block scalar: indented lines after "releaseNotes: |".
   const notes = (mac || win).match(/^releaseNotes:\s*\|-?\n((?:[ \t]+.*\n?|\n)*)/m)?.[1]
     ?.split("\n").map((line) => line.replace(/^ {2}/, "")).join("\n").trim() ?? null;
@@ -150,16 +172,11 @@ async function fromUpdateFeeds(env) {
   return {
     version,
     tag,
-    name: `Stratus ${version}`,
+    name: `Nightjar ${version}`,
     publishedAt: (mac || win).match(/^releaseDate:\s*['"]?([^'"\n]+)/m)?.[1] ?? null,
     notes: notes ? notes.slice(0, 8000) : null,
     url: `https://github.com/${repoOf(env)}/releases/tag/${tag}`,
-    downloads: {
-      mac: link(ASSETS.mac),
-      macIntel: link(ASSETS["mac-intel"]),
-      windows: link(ASSETS.windows),
-      linux: link(ASSETS.linux),
-    },
+    downloads: downloadLinks(env, names),
     _assets: names,
   };
 }
@@ -210,20 +227,20 @@ function comingSoon(platform, env) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>First release coming soon · Stratus</title>
+<title>First release coming soon · Nightjar</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
   :root { color-scheme: dark; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101012; color: #f4f4f6;
     font: 16px/1.55 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; padding: 24px; box-sizing: border-box; }
   main { max-width: 440px; text-align: center; }
-  img { width: 64px; height: auto; }
+  img { width: 58px; height: auto; }
   h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.025em; margin: 18px 0 8px; }
   p { color: #a1a1aa; margin: 0 0 22px; }
   a { color: #fff; }
   .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   .btn { display: inline-block; padding: 11px 18px; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 15px; }
-  .primary { background: #ff5500; color: #fff; }
+  .primary { background: #EF5035; color: #fff; }
   .ghost { background: #1f1f22; color: #f4f4f6; }
 </style>
 </head>

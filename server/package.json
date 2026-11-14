@@ -2,7 +2,7 @@
   "name": "stratus-api",
   "version": "0.1.0",
   "private": true,
-  "description": "Hosted backend for Stratus: a Cloudflare Worker with a D1 database.",
+  "description": "Hosted backend for Nightjar: a Cloudflare Worker with a D1 database.",
   "license": "MIT",
   "type": "module",
   "scripts": {

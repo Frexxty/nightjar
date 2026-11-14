@@ -26,7 +26,7 @@ function menuFor(playback) {
     { label: "Next", enabled: active, click: () => handlers.command("next") },
     { label: "Previous", enabled: active, click: () => handlers.command("previous") },
     { type: "separator" },
-    { label: "Show Stratus", click: () => handlers.show() },
+    { label: "Show Nightjar", click: () => handlers.show() },
     { label: "Quit", click: () => handlers.quit() },
   ]);
 }
@@ -38,7 +38,7 @@ function createTray(options) {
   const icon = iconPath();
   if (!icon || tray) return Boolean(tray);
   tray = new Tray(nativeImage.createFromPath(icon));
-  tray.setToolTip("Stratus");
+  tray.setToolTip("Nightjar");
   tray.on("click", () => handlers.show());
   updateTray({ state: "stopped", track: null });
   return true;
@@ -47,7 +47,7 @@ function createTray(options) {
 function updateTray(playback) {
   if (!tray) return;
   tray.setContextMenu(menuFor(playback));
-  tray.setToolTip(playback.track ? `${playback.track.title} — ${playback.track.artist}`.slice(0, 127) : "Stratus");
+  tray.setToolTip(playback.track ? `${playback.track.title} — ${playback.track.artist}`.slice(0, 127) : "Nightjar");
 }
 
 module.exports = { createTray, updateTray, hasTray: () => Boolean(tray) };

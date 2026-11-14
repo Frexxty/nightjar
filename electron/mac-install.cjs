@@ -53,7 +53,7 @@ async function downloadFile(fetchImpl, url, dest, onProgress = () => {}) {
 async function downloadAndExtract({ fetchImpl, info, baseUrl, arch, onProgress }) {
   const zip = core.pickMacZip(info.files, arch);
   if (!zip) throw new Error(`The update has no zip for ${arch}`);
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "stratus-update-"));
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), "nightjar-update-"));
   try {
     const zipPath = path.join(work, path.basename(zip.url));
     await downloadFile(fetchImpl, core.resolveFileUrl(baseUrl, zip.url), zipPath, onProgress);
@@ -76,29 +76,18 @@ async function downloadAndExtract({ fetchImpl, info, baseUrl, arch, onProgress }
   }
 }
 
-// Wait for the app's PID to exit, move the old bundle aside, move the new one
-// in (restoring the old one if that fails), then relaunch. Paths arrive as
-// positional arguments so nothing needs shell quoting.
-const SWAP_SCRIPT = `
-pid="$1"; app="$2"; staged="$3"; old="$4"; work="$5"; launch="$6"
+
+// Shared by both scripts below. Wait for the app's PID to exit (up to 30 s,
+// then kill it) and, at the end, relaunch whatever is at "$app".
+const WAIT_FOR_EXIT = `
 i=0
 while kill -0 "$pid" 2>/dev/null; do
   i=$((i + 1))
   if [ "$i" -gt 300 ]; then kill -9 "$pid" 2>/dev/null; sleep 1; break; fi
   sleep 0.1
 done
-if mv "$app" "$old"; then
-  if mv "$staged" "$app"; then
-    rm -rf "$old"
-    echo "stratus-update: installed"
-  else
-    echo "stratus-update: moving the new app into place failed, restoring" >&2
-    mv "$old" "$app"
-  fi
-else
-  echo "stratus-update: could not move the old app aside" >&2
-fi
-rm -rf "$staged" "$work"
+`;
+const RELAUNCH = `
 /usr/bin/xattr -dr com.apple.quarantine "$app" 2>/dev/null
 case "$launch" in
   open) /usr/bin/open "$app" ;;
@@ -108,6 +97,53 @@ case "$launch" in
     ;;
 esac
 `;
+
+// Move the old bundle aside, move the new one in (restoring the old one if
+// that fails), then relaunch. Paths arrive as positional arguments so
+// nothing needs shell quoting.
+const SWAP_SCRIPT = `
+pid="$1"; app="$2"; staged="$3"; old="$4"; work="$5"; launch="$6"
+${WAIT_FOR_EXIT}
+if mv "$app" "$old"; then
+  if mv "$staged" "$app"; then
+    rm -rf "$old"
+    echo "nightjar-update: installed"
+  else
+    echo "nightjar-update: moving the new app into place failed, restoring" >&2
+    mv "$old" "$app"
+  fi
+else
+  echo "nightjar-update: could not move the old app aside" >&2
+fi
+rm -rf "$staged" "$work"
+${RELAUNCH}
+`;
+
+// Rename the bundle (Stratus.app -> Nightjar.app) and relaunch it under the
+// new name. If the target appeared in the meantime or the rename fails, the
+// old bundle relaunches as it is.
+const RENAME_SCRIPT = `
+pid="$1"; app="$2"; target="$3"; launch="$4"
+${WAIT_FOR_EXIT}
+if [ ! -e "$target" ] && mv "$app" "$target"; then
+  echo "nightjar-update: renamed to $target"
+  app="$target"
+else
+  echo "nightjar-update: could not rename $app, keeping its name" >&2
+fi
+${RELAUNCH}
+`;
+
+function spawnScript(script, args, logFile) {
+  const log = fs.openSync(logFile ?? path.join(os.tmpdir(), "nightjar-update.log"), "a");
+  const child = spawn("/bin/sh", ["-c", script, "nightjar-update", ...args.map(String)], {
+    detached: true,
+    stdio: ["ignore", log, log],
+  });
+  child.unref();
+  fs.closeSync(log);
+  return child;
+}
 
 // Copies the new bundle next to the running one, then hands off to the swap
 // script. Copying first means the final step is two renames on one volume
@@ -119,15 +155,20 @@ async function stageAndSwap({ bundle, newApp, work, version, pid, launch = "open
   const old = path.join(parent, `.${base}.old-${Date.now()}.app`);
   fs.rmSync(staged, { recursive: true, force: true });
   await run("/usr/bin/ditto", [newApp, staged]);
-
-  const log = fs.openSync(logFile ?? path.join(os.tmpdir(), "stratus-update.log"), "a");
-  const child = spawn("/bin/sh", ["-c", SWAP_SCRIPT, "stratus-update", String(pid), bundle, staged, old, work, launch], {
-    detached: true,
-    stdio: ["ignore", log, log],
-  });
-  child.unref();
-  fs.closeSync(log);
-  return child;
+  return spawnScript(SWAP_SCRIPT, [pid, bundle, staged, old, work, launch], logFile);
 }
 
-module.exports = { canReplaceBundle, downloadFile, downloadAndExtract, stageAndSwap, SWAP_SCRIPT };
+// Installs from before the rename live at .../Stratus.app: 0.3.x's updater
+// swaps each new build into the bundle path that was running, whatever the
+// zip calls it. The first launch of a renamed build calls this, quits, and
+// comes back as .../Nightjar.app. Returns the target, or null when there's
+// nothing to rename (already renamed, renamed by the user, a Nightjar.app
+// already sits next to it, or the folder isn't writable).
+function renameLegacyBundle({ bundle, pid, launch = "open", logFile, exists = fs.existsSync }) {
+  const target = core.renamedBundlePath(bundle);
+  if (!target || exists(target) || !canReplaceBundle(bundle)) return null;
+  spawnScript(RENAME_SCRIPT, [pid, bundle, target, launch], logFile);
+  return target;
+}
+
+module.exports = { canReplaceBundle, downloadFile, downloadAndExtract, stageAndSwap, renameLegacyBundle, SWAP_SCRIPT, RENAME_SCRIPT };

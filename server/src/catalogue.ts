@@ -100,7 +100,7 @@ export async function stream(c: Ctx, id: string): Promise<StreamInfo> {
   const t = await scTrack(c, id, 0);
   if (t.policy === "BLOCK" || t.streamable === false) throw new ApiError(403, "not_streamable", "SoundCloud doesn't allow streaming this track here.");
   const tc = pickTranscoding(t.media?.transcodings);
-  if (!tc) throw new ApiError(403, "not_streamable", "This track has no stream Stratus can play.");
+  if (!tc) throw new ApiError(403, "not_streamable", "This track has no stream Nightjar can play.");
   const url = await resolveTranscoding(c.env, tc.url, t.track_authorization);
   const protocol = tc.format.protocol === "progressive" ? "progressive" : "hls";
   return { url, protocol, mimeType: tc.format.mime_type };

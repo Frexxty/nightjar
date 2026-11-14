@@ -1,13 +1,13 @@
 {
-  "name": "stratus",
-  "productName": "Stratus",
-  "version": "0.3.1",
+  "name": "nightjar",
+  "productName": "Nightjar",
+  "version": "0.4.0",
   "private": true,
   "description": "A desktop SoundCloud client UI in the style of Cider, with a pluggable backend.",
   "author": "Frexxty",
   "license": "MIT",
-  "homepage": "https://github.com/Frexxty/stratus",
-  "repository": "github:Frexxty/stratus",
+  "homepage": "https://github.com/Frexxty/nightjar",
+  "repository": "github:Frexxty/nightjar",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -27,7 +27,7 @@
   },
   "build": {
     "appId": "dev.stratus.app",
-    "productName": "Stratus",
+    "productName": "Nightjar",
     "copyright": "Copyright © 2026 Frexxty",
     "files": [
       "dist/**",
@@ -58,7 +58,7 @@
     "publish": {
       "provider": "github",
       "owner": "Frexxty",
-      "repo": "stratus",
+      "repo": "nightjar",
       "releaseType": "release"
     },
     "mac": {
@@ -80,7 +80,7 @@
           ]
         }
       ],
-      "artifactName": "Stratus-mac-${arch}.${ext}",
+      "artifactName": "Nightjar-mac-${arch}.${ext}",
       "identity": "-",
       "hardenedRuntime": false,
       "notarize": false
@@ -122,12 +122,12 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Stratus",
+      "shortcutName": "Nightjar",
       "deleteAppDataOnUninstall": false,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "include": "build/installer.nsh",
-      "artifactName": "Stratus-Setup-${arch}.exe"
+      "artifactName": "Nightjar-Setup-${arch}.exe"
     },
     "linux": {
       "target": [
@@ -140,7 +140,7 @@
       ],
       "icon": "build/icon.png",
       "category": "Audio",
-      "artifactName": "Stratus-linux-${arch}.${ext}"
+      "artifactName": "Nightjar-linux-${arch}.${ext}"
     }
   },
   "devDependencies": {

@@ -29,7 +29,7 @@ function idOf(id: Id, kind: "track" | "artist" | "playlist" | "album" | "user"):
 
 /** Reads a playlist through the embed/page reader (desktop main process, or the backend's /import/spotify). */
 async function readList(url: string): Promise<SpotifyList | null> {
-  if (window.stratus?.spotify) return window.stratus.spotify.fetchPlaylist(url);
+  if (window.nightjar?.spotify) return window.nightjar.spotify.fetchPlaylist(url);
   const backend = api.value;
   if (backend.importSpotify) return backend.importSpotify(url);
   return null;
@@ -310,7 +310,7 @@ export class SpotifyBackend implements Backend {
 
 export const spotifyBackend = new SpotifyBackend();
 
-/** The backend that serves `id`: Spotify for "spotify:" IDs, otherwise the active Stratus backend. */
+/** The backend that serves `id`: Spotify for "spotify:" IDs, otherwise the active Nightjar backend. */
 export function catalogueFor(id: Id | null | undefined): Backend {
   return isSpotifyId(id) ? spotifyBackend : api.value;
 }

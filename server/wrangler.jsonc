@@ -1,12 +1,17 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // The Worker and its D1 database keep their pre-rename names.
   "name": "stratus-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [{ "pattern": "stratus-api.k3s.lat", "custom_domain": true }],
+  "routes": [
+    { "pattern": "nightjar-api.k3s.lat", "custom_domain": true },
+    // The old address. 0.3.x apps and saved configs use it, so it keeps answering.
+    { "pattern": "stratus-api.k3s.lat", "custom_domain": true }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

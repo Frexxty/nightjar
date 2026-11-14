@@ -1,18 +1,23 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // Keeps its pre-rename name, so a deploy updates the existing Worker.
   "name": "stratus-site",
   "main": "src/worker.js",
   "compatibility_date": "2026-11-01",
   "account_id": "f2cf5d525fceb6c6c5fccbbd10a94bb4",
   "workers_dev": true,
-  "routes": [{ "pattern": "stratus.k3s.lat", "custom_domain": true }],
+  "routes": [
+    { "pattern": "nightjar.k3s.lat", "custom_domain": true },
+    // The old address. src/worker.js answers it with a 301 to nightjar.k3s.lat.
+    { "pattern": "stratus.k3s.lat", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
     "html_handling": "auto-trailing-slash",
-    // Only these paths hit the Worker first. Everything else is a static file.
-    "run_worker_first": ["/api/*", "/download/*"]
+    // Every request goes through the Worker first, so it can redirect the old host.
+    "run_worker_first": true
   },
   "observability": { "enabled": true }
   // Optional: `npx wrangler secret put GITHUB_TOKEN` raises the GitHub API rate limit.

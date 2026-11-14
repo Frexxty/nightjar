@@ -1,4 +1,4 @@
-// Launches the production build of Stratus under Electron, drives it through a
+// Launches the production build of Nightjar under Electron, drives it through a
 // set of scenarios, and samples app.getAppMetrics() once a second through the
 // hook in electron/measure.cjs. Run `npm run build` first. See docs/performance.md.
 //
@@ -21,7 +21,7 @@ const label = args.label ?? "run";
 const seconds = Number(args.seconds ?? 25);
 const runs = Number(args.runs ?? 1);
 const settle = Number(args.settle ?? 5);
-const outFile = args.out ?? path.join(os.tmpdir(), `stratus-measure-${label}.json`);
+const outFile = args.out ?? path.join(os.tmpdir(), `nightjar-measure-${label}.json`);
 const rawFile = outFile.replace(/\.json$/, ".jsonl");
 fs.rmSync(rawFile, { force: true });
 
@@ -32,20 +32,20 @@ const children = new Set();
 process.on("exit", () => children.forEach((c) => c.kill()));
 
 async function launch({ offscreen }) {
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), "stratus-profile-"));
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), "nightjar-profile-"));
   const child = spawn(electron, ["."], {
     cwd: root,
     stdio: ["pipe", "pipe", "inherit"],
     env: {
       ...process.env,
-      STRATUS_MEASURE: "1",
-      STRATUS_MEASURE_OUT: rawFile,
-      STRATUS_MEASURE_PROFILE: profile,
-      STRATUS_MEASURE_OFFSCREEN: offscreen ? "1" : "",
+      NIGHTJAR_MEASURE: "1",
+      NIGHTJAR_MEASURE_OUT: rawFile,
+      NIGHTJAR_MEASURE_PROFILE: profile,
+      NIGHTJAR_MEASURE_OFFSCREEN: offscreen ? "1" : "",
       VITE_DEV_SERVER_URL: "",
       // Every run has a fresh profile, so the Widevine CDM is never installed
       // yet. Don't let its download (seconds, network-bound) into startup times.
-      STRATUS_CDM_WAIT_MS: "1",
+      NIGHTJAR_CDM_WAIT_MS: "1",
     },
   });
   children.add(child);

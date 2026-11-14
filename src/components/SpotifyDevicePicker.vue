@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Which Spotify device plays when Stratus remote-controls Spotify (Connect).
+// Which Spotify device plays when Nightjar remote-controls Spotify (Connect).
 // Shown in the queue panel while a Spotify track is current.
 import { onMounted, ref } from "vue";
 import { Laptop, RefreshCw, Smartphone, Speaker } from "lucide-vue-next";
@@ -62,7 +62,7 @@ onMounted(refresh);
       <span class="ellipsis">{{ d.name }}</span>
       <span v-if="d.is_active" class="faint small">active</span>
     </button>
-    <button class="link small" @click="settings.spotifyPlayback = 'this-device'">Play in Stratus instead</button>
+    <button class="link small" @click="settings.spotifyPlayback = 'this-device'">Play in Nightjar instead</button>
   </div>
 </template>
 

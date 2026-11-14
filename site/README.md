@@ -1,6 +1,6 @@
-# stratus.k3s.lat
+# nightjar.k3s.lat
 
-The landing page and download API for Stratus. It's one Cloudflare Worker named `stratus-site`. Static files in `public/` go out through Workers Static Assets, and `src/worker.js` handles the two dynamic paths. There's no build step and no framework, just HTML, CSS and a bit of vanilla JS.
+The landing page and download API for Nightjar. It's one Cloudflare Worker named `stratus-site` (from before the rename). Static files in `public/` go out through Workers Static Assets, and `src/worker.js` handles the two dynamic paths and answers the old address, stratus.k3s.lat, with a 301 to the same path on nightjar.k3s.lat. There's no build step and no framework, just HTML, CSS and a bit of vanilla JS.
 
 ## Layout
 
@@ -31,11 +31,11 @@ The brand files come from `brand/`, `public/` and `web/icons/` in the main repo 
 | `public/apple-touch-icon.png` | `web/icons/apple-touch-icon.png` (full bleed, 180 px) | iOS home screen |
 | `public/img/app-icon.webp` | `build/icon.svg`, rendered at 256 px | Open source section |
 
-Colours and type follow `brand/README.md`: Ember `#FF5500` as the only accent, Night `#101012` for the page, Panel and Raised for surfaces, Mist for text, and Inter at 400, 500 and 600.
+Colours and type follow `brand/README.md`: Ember `#EF5035` as the only accent (Ember Light `#FF8A4C` for highlights, Afterglow `#D6478A` in one of the hero glows), Night `#101012` for the page, Panel and Raised for surfaces, Mist for text, and Inter at 400, 500 and 600.
 
 ## Routes
 
-`GET /api/latest` returns the latest GitHub release of `Frexxty/stratus` as JSON:
+`GET /api/latest` returns the latest GitHub release of `Frexxty/nightjar` as JSON:
 
 ```json
 {
@@ -44,14 +44,14 @@ Colours and type follow `brand/README.md`: Ember `#FF5500` as the only accent, N
   "name": "v0.1.0",
   "publishedAt": "2026-11-20T12:00:00Z",
   "notes": "release notes in Markdown",
-  "url": "https://github.com/Frexxty/stratus/releases/tag/v0.1.0",
+  "url": "https://github.com/Frexxty/nightjar/releases/tag/v0.1.0",
   "downloads": { "mac": "https://…", "macIntel": "https://…", "windows": "https://…" }
 }
 ```
 
 A download entry is null when that file isn't attached to the release. If the repo doesn't exist, has no release yet, or GitHub rate-limits the request, the response is still a 200 with `version: null` and a `reason` field. The Worker caches the GitHub answer with the Cache API for 10 minutes when there's a release and 1 minute when there isn't. The response has `Access-Control-Allow-Origin: *`, so the app or anything else can call it.
 
-`GET /download/mac`, `/download/mac-intel` and `/download/windows` redirect (302) to `https://github.com/Frexxty/stratus/releases/latest/download/<file>`, where the file is `Stratus-mac-arm64.dmg`, `Stratus-mac-x64.dmg` or `Stratus-Setup-x64.exe`. Before there's a release, these return a short "first release is on its way" page instead. If a release exists but the file for that platform is missing, they redirect to the release page on GitHub. Any other `/download/...` path gets the 404 page.
+`GET /download/mac`, `/download/mac-intel` and `/download/windows` redirect (302) to `https://github.com/Frexxty/nightjar/releases/latest/download/<file>`, where the file is `Nightjar-mac-arm64.dmg`, `Nightjar-mac-x64.dmg` or `Nightjar-Setup-x64.exe`. `/download/linux` does the same for `Nightjar-linux-x86_64.AppImage`. Releases up to 0.3.1 have `Stratus-…` files, so while one of those is the latest, the matching `Stratus-…` file is used. Before there's a release, these return a short "first release is on its way" page instead. If a release exists but the file for that platform is missing, they redirect to the release page on GitHub. Any other `/download/...` path gets the 404 page.
 
 The page calls `/api/latest` on load and shows the version under the download button. When the version is null, the label stays hidden.
 
@@ -75,7 +75,7 @@ cd site
 npx wrangler@latest deploy
 ```
 
-`wrangler.jsonc` attaches the Worker to `stratus.k3s.lat` as a Custom Domain, so Cloudflare creates and manages the DNS record. It also stays reachable at `stratus-site.frexty.workers.dev`.
+`wrangler.jsonc` attaches the Worker to `nightjar.k3s.lat` and `stratus.k3s.lat` as Custom Domains, so Cloudflare creates and manages the DNS records. Every request runs the Worker first (`run_worker_first: true`), which is what lets it redirect the old host. It also stays reachable at `stratus-site.frexty.workers.dev`.
 
 The GitHub API allows 60 unauthenticated requests per hour per IP. The cache keeps the Worker well under that, but if you want more headroom, add a token. It only needs read access to public repos:
 

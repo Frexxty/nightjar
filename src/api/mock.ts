@@ -204,7 +204,7 @@ export class MockBackend implements Backend {
       followingsCount: 6,
       trackCount: 0,
       playlistCount: 4,
-      description: "Demo account. Switch to a Stratus account or your own server in Settings.",
+      description: "Demo account. Switch to a Nightjar account or your own server in Settings.",
     };
     this.applyAccount();
 
@@ -310,7 +310,7 @@ export class MockBackend implements Backend {
     return [
       { id: "more", title: "More of what you like", subtitle: "Based on your likes", kind: "tracks", items: shuffled(this.tracks).slice(0, 12).map(this.decorate) },
       { id: "mixes", title: "Mixed for you", kind: "playlists", items: this.playlists.filter((p) => !p.isAlbum) },
-      { id: "charts", title: "Charts: Top 50", subtitle: "The most played tracks on Stratus this week", kind: "tracks", display: "list", items: byPlays.slice(0, 10).map(this.decorate) },
+      { id: "charts", title: "Charts: Top 50", subtitle: "The most played tracks on Nightjar this week", kind: "tracks", display: "list", items: byPlays.slice(0, 10).map(this.decorate) },
       { id: "artists", title: "Artists to watch", kind: "users", items: shuffled(this.users).slice(0, 10).map(this.userOut) },
       { id: "genre", title: `Trending in ${genre}`, kind: "tracks", items: shuffled(this.tracks).slice(0, 12).map(this.decorate) },
       { id: "albums", title: "New albums & EPs", kind: "playlists", items: this.playlists.filter((p) => p.isAlbum) },

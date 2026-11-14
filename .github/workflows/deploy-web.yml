@@ -1,7 +1,8 @@
 name: Deploy web player
 
-# Builds the web player and deploys it to stratus-app.k3s.lat (Worker
-# `stratus-app`, config in web/wrangler.jsonc).
+# Builds the web player and deploys it to nightjar-app.k3s.lat (Worker
+# `stratus-app`, config in web/wrangler.jsonc; the old stratus-app.k3s.lat
+# address redirects there, see web/worker.js).
 #
 # Needs two repository secrets (Settings > Secrets and variables > Actions):
 #   CLOUDFLARE_API_TOKEN   an API token with "Workers Scripts: Edit" on the account

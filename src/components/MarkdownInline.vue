@@ -4,7 +4,7 @@ import type { Inline } from "@/lib/markdown";
 defineProps<{ parts: Inline[] }>();
 
 function open(href: string) {
-  window.stratus?.window("open-external", href);
+  window.nightjar?.window("open-external", href);
 }
 </script>
 

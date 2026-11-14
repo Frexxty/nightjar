@@ -1,20 +1,20 @@
-# Hosted backend (stratus-api)
+# Hosted backend
 
 The official hosted backend. It implements every route in [BACKEND.md](../BACKEND.md) plus accounts, account playlists and a Spotify import endpoint, so the desktop app and the web player (PWA) share one library.
 
-- Base URL: `https://stratus-api.k3s.lat/v1`. All BACKEND.md routes live under it (`/v1/home`, `/v1/me`, …).
-- Runs as the Cloudflare Worker `stratus-api` with a D1 database. Source lives in `server/`.
-- Web player: `https://stratus-app.k3s.lat` (Worker `stratus-app`, static build of the same Vue app).
+- Base URL: `https://nightjar-api.k3s.lat/v1`. All BACKEND.md routes live under it (`/v1/home`, `/v1/me`, …). The address from before the rename, `https://stratus-api.k3s.lat/v1`, is the same Worker and keeps working; 0.3.x apps use it. Sessions are valid on both.
+- Runs as the Cloudflare Worker `stratus-api` with a D1 database (both named before the rename). Source lives in `server/`.
+- Web player: `https://nightjar-app.k3s.lat` (Worker `stratus-app`, static build of the same Vue app). The old `https://stratus-app.k3s.lat` redirects there.
 
 ## Where data comes from
 
 - SoundCloud catalogue (search, tracks, users, playlists, comments, related tracks, waveforms, stream URLs) comes from SoundCloud's public `api-v2` with the web client's `client_id`, which the server reads from soundcloud.com's script bundles and refreshes when SoundCloud rejects it.
-- Everything personal (account, likes, reposts, follows, saved playlists, history) is stored in D1. Stratus accounts are not SoundCloud accounts; nothing is written to SoundCloud.
+- Everything personal (account, likes, reposts, follows, saved playlists, history) is stored in D1. Nightjar accounts are not SoundCloud accounts; nothing is written to SoundCloud.
 
 ## IDs
 
 - SoundCloud objects keep SoundCloud's numeric IDs as strings: tracks `"248639197"`, users `"1234"`, SoundCloud playlists `"987"`.
-- Playlists saved to a Stratus account use IDs prefixed `sp_` (e.g. `sp_k3j2…`). `GET /v1/playlists/{id}` serves both kinds.
+- Playlists saved to a Nightjar account use IDs prefixed `sp_` (e.g. `sp_k3j2…`). `GET /v1/playlists/{id}` serves both kinds.
 - Spotify tracks use their URI as the ID (`spotify:track:4uLU6hMCjMI75M1A2tKUQC`). Likes, playlists and history accept them alongside SoundCloud IDs; see [Spotify tracks](#spotify-tracks). Escape the colons in paths (`/v1/me/likes/tracks/spotify%3Atrack%3A4uLU…`).
 
 ## Accounts
@@ -32,7 +32,7 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
 - Signup, login and account deletion are limited to 10 requests a minute per IP. Spotify imports are limited to 10 a minute per IP; a list read in the last 10 minutes comes from the cache and doesn't count.
 - `/v1/me`, `/v1/me/*`, `/v1/feed`, likes/reposts/follows and comment posting require a token. Signed out they return 401 `{ "code": "unauthorized" }`. Catalogue routes work signed out. With a token, every `Track` in a response carries `liked` and `reposted`, and every SoundCloud `User` carries `following`.
 - `User` for the signed-in account: `id` is `"me:<uuid>"`-style opaque string, `username`, `avatarUrl: null`, counts from D1. `GET /v1/users/me:<uuid>` serves the same user to anyone, `/v1/users/me:<uuid>/playlists` lists that account's public playlists, and its tracks, likes and top tracks are empty.
-- Stratus can't post to SoundCloud, so `POST /v1/tracks/{id}/comments` answers 501 `{ "code": "not_supported" }` (401 when signed out). Clients should hide the comment box when they see that code. `GET /v1/me/likes/playlists` returns `[]`, because there is no route to like a playlist.
+- Nightjar can't post to SoundCloud, so `POST /v1/tracks/{id}/comments` answers 501 `{ "code": "not_supported" }` (401 when signed out). Clients should hide the comment box when they see that code. `GET /v1/me/likes/playlists` returns `[]`, because there is no route to like a playlist.
 
 ## Account playlists
 
@@ -55,7 +55,7 @@ The server keeps the 500 most recent tracks per account.
 
 ## Spotify tracks
 
-People who pick Spotify as their music source save Spotify tracks in their Stratus account (docs/spotify.md). The server has no Spotify token and can't look tracks up, so the client sends a snapshot of each Spotify `Track` and the server stores it.
+People who pick Spotify as their music source save Spotify tracks in their Nightjar account (docs/spotify.md). The server has no Spotify token and can't look tracks up, so the client sends a snapshot of each Spotify `Track` and the server stores it.
 
 | Where | What to send |
 | --- | --- |
@@ -108,7 +108,7 @@ The server caches SoundCloud responses with the Cache API: search 5 minutes, tra
 
 ## Spotify sign-in
 
-A Stratus account can keep the user's Spotify sign-in so every device signed in to the account is connected after one sign-in (docs/spotify.md). Spotify rotates the refresh token every time it's used, so devices never keep their own copy: the server holds it, refreshes it, and hands out access tokens.
+A Nightjar account can keep the user's Spotify sign-in so every device signed in to the account is connected after one sign-in (docs/spotify.md). Spotify rotates the refresh token every time it's used, so devices never keep their own copy: the server holds it, refreshes it, and hands out access tokens.
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |

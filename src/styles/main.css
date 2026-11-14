@@ -1,5 +1,6 @@
 :root {
-  --accent: #ff5500;
+  /* Ember (brand/README.md). Settings overrides it with the chosen accent. */
+  --accent: #EF5035;
   --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
   --accent-text: #fff;
 

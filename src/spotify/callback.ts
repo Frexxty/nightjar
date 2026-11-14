@@ -17,7 +17,7 @@ function returnTo(): string {
 
 /** The callback's result, or null when this page load isn't a Spotify redirect. */
 export const spotifyCallback: CallbackResult | null =
-  !window.stratus && location.pathname === WEB_CALLBACK_PATH ? parseCallback(location.search) : null;
+  !window.nightjar && location.pathname === WEB_CALLBACK_PATH ? parseCallback(location.search) : null;
 
 // Replacing the entry keeps the code out of the address bar and the back stack.
 if (spotifyCallback) history.replaceState(null, "", `/${returnTo()}`);

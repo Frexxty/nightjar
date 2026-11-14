@@ -41,7 +41,7 @@ export async function deleteSession(env: Env, request: Request): Promise<void> {
 
 export const accountUserId = (id: string) => `me:${id}`;
 
-/** The `User` for a Stratus account. Counts come from D1. */
+/** The `User` for a Nightjar account. Counts come from D1. */
 export async function accountUser(env: Env, account: Pick<Account, "id" | "username">, publicOnly = false): Promise<User> {
   const counts = await env.DB.prepare(
     `SELECT

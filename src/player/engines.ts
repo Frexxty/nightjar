@@ -1,7 +1,7 @@
 // What actually makes sound. The player store owns the queue and picks one of
 // these per track (docs/spotify.md):
 // - HtmlAudioEngine: an <audio> element, with hls.js where the browser has no native HLS (SoundCloud).
-// - SpotifySdkEngine: a Web Playback SDK device inside Stratus (Spotify Premium, needs Widevine).
+// - SpotifySdkEngine: a Web Playback SDK device inside Nightjar (Spotify Premium, needs Widevine).
 // - SpotifyConnectEngine: remote-controls another Spotify device, such as the phone's Spotify app.
 import type Hls from "hls.js";
 import { api, type Track } from "@/api";
@@ -21,7 +21,7 @@ export interface EngineEvents {
   ended(): void;
   /** A playback failure after `load` resolved. `skip`: try the next track. */
   error(message: string, skip: boolean): void;
-  /** The device moved to something Stratus didn't start (Connect, or the SDK device taken over). */
+  /** The device moved to something Nightjar didn't start (Connect, or the SDK device taken over). */
   detached?(): void;
 }
 
@@ -178,7 +178,7 @@ function toPlaybackError(err: unknown): PlaybackError {
   if ((err as Error)?.name === "SpotifyAuthError") return new PlaybackError((err as Error).message, true);
   if (err instanceof SpotifyApiError) {
     if (err.reason === "PREMIUM_REQUIRED") {
-      spotify.markNotPremium("Playing Spotify in Stratus needs Spotify Premium.");
+      spotify.markNotPremium("Playing Spotify in Nightjar needs Spotify Premium.");
       return new PlaybackError(err.message, true);
     }
     if (err.reason === "NO_ACTIVE_DEVICE" || err.status === 404) return new PlaybackError(err.message, true);
@@ -304,7 +304,7 @@ export class SpotifySdkEngine implements PlaybackEngine {
       }
       const sdk = await loadSpotifySdk();
       const player = new sdk.Player({
-        name: window.stratus ? "Stratus (desktop)" : "Stratus (web)",
+        name: window.nightjar ? "Nightjar (desktop)" : "Nightjar (web)",
         getOAuthToken: (cb) => void spotify.accessToken().then(cb, () => {}),
         volume: this.muted ? 0 : this.volume,
       });
@@ -322,7 +322,7 @@ export class SpotifySdkEngine implements PlaybackEngine {
       });
       player.addListener("account_error", () => {
         spotify.markNotPremium();
-        this.events.error(spotify.premiumMessage ?? "This Spotify account can't play music in Stratus.", false);
+        this.events.error(spotify.premiumMessage ?? "This Spotify account can't play music in Nightjar.", false);
       });
       player.addListener("playback_error", ({ message }: { message: string }) => {
         this.events.error(`Spotify couldn't play this track${message ? `: ${message}` : ""}`, true);

@@ -12,8 +12,8 @@ const THEME = "#101012";
 
 const manifest = {
   id: "/",
-  name: "Stratus",
-  short_name: "Stratus",
+  name: "Nightjar",
+  short_name: "Nightjar",
   description: "A SoundCloud player modelled on Cider.",
   start_url: "/",
   scope: "/",
@@ -57,7 +57,7 @@ const HEADERS = `/*
 
 export function pwa(): Plugin {
   return {
-    name: "stratus-pwa",
+    name: "nightjar-pwa",
     apply: "build",
     enforce: "post",
     transformIndexHtml() {
@@ -66,7 +66,7 @@ export function pwa(): Plugin {
         { tag: "link", attrs: { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" }, injectTo: "head" },
         { tag: "meta", attrs: { name: "apple-mobile-web-app-capable", content: "yes" }, injectTo: "head" },
         { tag: "meta", attrs: { name: "mobile-web-app-capable", content: "yes" }, injectTo: "head" },
-        { tag: "meta", attrs: { name: "apple-mobile-web-app-title", content: "Stratus" }, injectTo: "head" },
+        { tag: "meta", attrs: { name: "apple-mobile-web-app-title", content: "Nightjar" }, injectTo: "head" },
         { tag: "meta", attrs: { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" }, injectTo: "head" },
       ];
     },

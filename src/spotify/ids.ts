@@ -1,4 +1,4 @@
-// Spotify objects use their URIs as Stratus IDs ("spotify:track:…"), so they
+// Spotify objects use their URIs as Nightjar IDs ("spotify:track:…"), so they
 // never collide with SoundCloud's numeric IDs. See docs/spotify.md.
 
 /** "user" is a playlist owner; the Web API only shares the signed-in user's profile. */

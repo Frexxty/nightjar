@@ -1,5 +1,5 @@
 import { reactive, shallowRef, triggerRef } from "vue";
-import { backendKey, HOSTED_URL, normalizeBackendConfig, sessionToken, withSessionToken, type BackendConfig } from "./config";
+import { backendKey, canonicalHostedUrl, HOSTED_URL, normalizeBackendConfig, sessionToken, withSessionToken, type BackendConfig } from "./config";
 import { HttpBackend } from "./http";
 import { MockBackend } from "./mock";
 import type { Backend } from "./types";
@@ -9,8 +9,10 @@ export * from "./errors";
 export { sessionToken, type BackendConfig, type BackendKind } from "./config";
 
 /** The hosted backend's base URL. `VITE_BACKEND_URL` points builds at another copy of it. */
-export const HOSTED_BASE_URL = (import.meta.env.VITE_BACKEND_URL || HOSTED_URL).replace(/\/+$/, "");
+export const HOSTED_BASE_URL = canonicalHostedUrl(import.meta.env.VITE_BACKEND_URL || HOSTED_URL);
 
+// localStorage keys keep the "stratus." prefix from before the rename, so
+// existing installs and browsers keep their settings, sessions and library.
 const KEY = "stratus.backend";
 
 export function loadBackendConfig(): BackendConfig {
@@ -52,7 +54,7 @@ let mock: MockBackend | null = null;
 
 export function createBackend(config: BackendConfig): Backend {
   const onUnauthorized = () => queueMicrotask(expireSession);
-  if (config.kind === "hosted") return new HttpBackend(HOSTED_BASE_URL, config.hostedToken, { name: "Stratus", onUnauthorized });
+  if (config.kind === "hosted") return new HttpBackend(HOSTED_BASE_URL, config.hostedToken, { name: "Nightjar", onUnauthorized });
   if (config.kind === "http") return new HttpBackend(config.baseUrl, config.token, { name: "Custom server", onUnauthorized });
   return (mock ??= new MockBackend());
 }

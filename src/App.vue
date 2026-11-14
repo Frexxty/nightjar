@@ -43,9 +43,9 @@ watchEffect(() => {
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.setProperty("--accent", settings.accent);
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#ececef" : "#101012");
-  window.stratus?.window("set-theme", settings.theme);
+  window.nightjar?.window("set-theme", settings.theme);
 });
-watchEffect(() => window.stratus?.window("set-tray-on-close", settings.keepPlayingInTray));
+watchEffect(() => window.nightjar?.window("set-tray-on-close", settings.keepPlayingInTray));
 
 watch(api, () => void library.refresh(), { immediate: true });
 watch(() => route.fullPath, () => content.value?.scrollTo({ top: 0 }));
@@ -88,14 +88,14 @@ function onKey(e: KeyboardEvent) {
     player.toggle();
   } else if (e.key === "ArrowRight" && !e.metaKey && !e.ctrlKey) player.seek(player.currentTime + 5);
   else if (e.key === "ArrowLeft" && !e.metaKey && !e.ctrlKey) player.seek(player.currentTime - 5);
-  else if (!window.stratus && (e.metaKey || e.ctrlKey) && e.key === "f") {
+  else if (!window.nightjar && (e.metaKey || e.ctrlKey) && e.key === "f") {
     e.preventDefault();
     ui.searchFocus++;
   }
 }
 
 onMounted(() => {
-  offCommand = window.stratus?.onCommand(onCommand);
+  offCommand = window.nightjar?.onCommand(onCommand);
   void updates.init();
   window.addEventListener("keydown", onKey);
 });

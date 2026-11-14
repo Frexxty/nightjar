@@ -1,15 +1,15 @@
 // Measurement hook for scripts/measure.mjs. main.cjs only loads this when
-// STRATUS_MEASURE=1. The window is never put on screen: it stays hidden, or
-// with STRATUS_MEASURE_OFFSCREEN=1 it renders offscreen so "visible" scenarios
+// NIGHTJAR_MEASURE=1. The window is never put on screen: it stays hidden, or
+// with NIGHTJAR_MEASURE_OFFSCREEN=1 it renders offscreen so "visible" scenarios
 // still paint. Commands arrive as JSON lines on stdin, answers go to stdout as
 // "@@measure {json}" lines, and each metrics sample is appended to
-// STRATUS_MEASURE_OUT when that's set. See docs/performance.md.
+// NIGHTJAR_MEASURE_OUT when that's set. See docs/performance.md.
 const { app } = require("electron");
 const fs = require("node:fs");
 const readline = require("node:readline");
 
 // A throwaway profile keeps runs comparable and keeps test history out of the real one.
-if (process.env.STRATUS_MEASURE_PROFILE) app.setPath("userData", process.env.STRATUS_MEASURE_PROFILE);
+if (process.env.NIGHTJAR_MEASURE_PROFILE) app.setPath("userData", process.env.NIGHTJAR_MEASURE_PROFILE);
 // Lets the harness call gc() before reading the JS heap.
 app.commandLine.appendSwitch("js-flags", "--expose-gc");
 // Playback still decodes and runs the audio pipeline, but nothing reaches the speakers.
@@ -23,10 +23,10 @@ const background = () => {
 background();
 app.whenReady().then(background);
 
-const offscreen = process.env.STRATUS_MEASURE_OFFSCREEN === "1";
+const offscreen = process.env.NIGHTJAR_MEASURE_OFFSCREEN === "1";
 const webPreferences = offscreen ? { offscreen: true } : {};
 
-const out = process.env.STRATUS_MEASURE_OUT;
+const out = process.env.NIGHTJAR_MEASURE_OUT;
 const reply = (message) => process.stdout.write(`@@measure ${JSON.stringify(message)}\n`);
 
 function metrics(label) {

@@ -28,10 +28,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
               <h2 id="update-title">
                 <template v-if="state.status === 'error'">Update failed</template>
                 <template v-else-if="state.status === 'downloaded'">Ready to install</template>
-                <template v-else>A new version of Stratus is available</template>
+                <template v-else>A new version of Nightjar is available</template>
               </h2>
               <p class="muted">
-                <template v-if="state.version">Stratus {{ state.version }}</template>
+                <template v-if="state.version">Nightjar {{ state.version }}</template>
                 <template v-if="updates.info"> · you have {{ updates.info.currentVersion }}</template>
               </p>
             </div>

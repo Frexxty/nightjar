@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Runs the app's real import matching (src/lib/match.ts) for a Spotify list
-// against a live stratus-api, the same way src/stores/importSession.ts does:
+// against the live hosted API, the same way src/stores/importSession.ts does:
 // findMatches with GET /search/tracks, four tracks at a time, pick = best
 // candidate when it scores at least CHECK.
 //
@@ -10,7 +10,7 @@
 import { CHECK, findMatches, statusOf } from "../../src/lib/match.ts";
 
 const LIST = process.argv[2] ?? "https://open.spotify.com/playlist/4CSw2rcHARwaukSYUegs3R";
-const BASE = (process.argv[3] ?? process.env.STRATUS_API ?? "https://stratus-api.k3s.lat/v1").replace(/\/+$/, "");
+const BASE = (process.argv[3] ?? process.env.NIGHTJAR_API ?? "https://nightjar-api.k3s.lat/v1").replace(/\/+$/, "");
 const CONCURRENCY = 4;
 
 async function get(path) {

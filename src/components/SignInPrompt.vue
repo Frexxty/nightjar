@@ -3,7 +3,7 @@
 import { useRoute, useRouter } from "vue-router";
 import { UserRound } from "lucide-vue-next";
 
-withDefaults(defineProps<{ title?: string; text: string; compact?: boolean }>(), { title: "Sign in to Stratus", compact: false });
+withDefaults(defineProps<{ title?: string; text: string; compact?: boolean }>(), { title: "Sign in to Nightjar", compact: false });
 
 const route = useRoute();
 const router = useRouter();

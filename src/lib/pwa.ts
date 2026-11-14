@@ -10,18 +10,26 @@ export const updateReady = ref(false);
 let waiting: ServiceWorker | null = null;
 
 export function registerServiceWorker() {
-  if (!isWebBuild || !import.meta.env.PROD || !("serviceWorker" in navigator)) return;
+  // Insecure origins, some private modes and embedded browsers have the
+  // property but no container, or a register() that resolves to nothing.
+  const container = isWebBuild && import.meta.env.PROD ? navigator.serviceWorker : undefined;
+  if (!container || typeof container.register !== "function") return;
   window.addEventListener("load", async () => {
-    let reg: ServiceWorkerRegistration;
+    let registered: ServiceWorkerRegistration | undefined;
     try {
-      reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      registered = await container.register("/sw.js", { scope: "/" });
     } catch (err) {
       console.warn("Service worker registration failed", err);
       return;
     }
+    if (!registered) {
+      console.warn("Service worker registration returned nothing");
+      return;
+    }
+    const reg = registered;
     const offer = (sw: ServiceWorker | null) => {
       // Without a controller this is the first install, not an update.
-      if (!sw || !navigator.serviceWorker.controller) return;
+      if (!sw || !container.controller) return;
       waiting = sw;
       updateReady.value = true;
     };
@@ -39,7 +47,7 @@ export function registerServiceWorker() {
   });
 
   let reloading = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
+  container.addEventListener("controllerchange", () => {
     if (!waiting || reloading) return;
     reloading = true;
     location.reload();

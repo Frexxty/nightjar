@@ -55,15 +55,15 @@ function authorize(authorizeUrl, { openExternal, timeoutMs = TIMEOUT_MS } = {}) 
       const error = reqUrl.searchParams.get("error");
       // A stray request (or a stale tab) with the wrong state doesn't end the wait.
       if (state !== expectedState) {
-        res.writeHead(400, { "Content-Type": "text/html; charset=utf-8", Connection: "close" }).end(page("Stratus", "This sign-in link is out of date. Go back to Stratus and connect again."));
+        res.writeHead(400, { "Content-Type": "text/html; charset=utf-8", Connection: "close" }).end(page("Nightjar", "This sign-in link is out of date. Go back to Nightjar and connect again."));
         return;
       }
       const ok = !!code && !error;
       res.writeHead(ok ? 200 : 400, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", Connection: "close" });
       // Close the server only once the page has reached the browser.
       res.end(ok
-        ? page("Connected to Spotify", "You can close this tab and go back to Stratus.")
-        : page("Spotify sign-in didn't finish", "Go back to Stratus to try again."),
+        ? page("Connected to Spotify", "You can close this tab and go back to Nightjar.")
+        : page("Spotify sign-in didn't finish", "Go back to Nightjar to try again."),
       () => finish(() => resolve(ok ? { code, state } : { error: error ?? "missing_code", state })));
     });
 
@@ -82,7 +82,7 @@ function authorize(authorizeUrl, { openExternal, timeoutMs = TIMEOUT_MS } = {}) 
     pending = { server, cancel: () => finish(() => reject(new AuthError("cancelled"))) };
     server.on("error", (err) => {
       finish(() => reject(new AuthError(err.code === "EADDRINUSE"
-        ? `Port ${PORT} is in use, so Stratus can't receive Spotify's reply. Close whatever is using it and try again.`
+        ? `Port ${PORT} is in use, so Nightjar can't receive Spotify's reply. Close whatever is using it and try again.`
         : `Couldn't wait for Spotify's reply: ${err.message}`)));
     });
     server.listen(PORT, "127.0.0.1", () => {

@@ -3,7 +3,7 @@
 // gets the code through a loopback server in the main process; the web player
 // redirects the page and finishes in `completeWebCallback` at boot.
 //
-// When the user is signed in to a Stratus account, the account keeps the
+// When the user is signed in to a Nightjar account, the account keeps the
 // sign-in ("account" mode): the server holds the refresh token and hands out
 // access tokens, so every signed-in device is connected after one sign-in.
 // Spotify rotates refresh tokens on use, so devices must not keep copies.
@@ -54,7 +54,7 @@ interface PendingWebSignIn {
   startedAt: number;
 }
 
-const desktop = () => window.stratus?.spotifyAuth;
+const desktop = () => window.nightjar?.spotifyAuth;
 
 function readJson<T>(key: string): T | null {
   try {
@@ -87,13 +87,13 @@ export const useSpotify = defineStore("spotify", () => {
   let tokens: TokenSet | null = null;
   let refreshing: Promise<TokenSet> | null = null;
   let ready: Promise<void> | null = null;
-  /** "account": the Stratus account holds the sign-in and hands out tokens. "local": this device keeps its own. */
+  /** "account": the Nightjar account holds the sign-in and hands out tokens. "local": this device keeps its own. */
   const mode = ref<"local" | "account">("local");
-  /** Signed in to a Stratus server that can keep the Spotify sign-in. */
+  /** Signed in to a Nightjar server that can keep the Spotify sign-in. */
   const accountAvailable = ref(false);
   let accountToken: { token: string; expiresAt: number } | null = null;
   let accountFetch: Promise<string> | null = null;
-  /** The Stratus account the current state belongs to; `undefined` until the library first reports one. */
+  /** The Nightjar account the current state belongs to; `undefined` until the library first reports one. */
   let accountKey: string | null | undefined;
 
   const connected = computed(() => status.value === "connected");
@@ -109,7 +109,7 @@ export const useSpotify = defineStore("spotify", () => {
   });
   const premiumMessage = computed(() => {
     if (sdkRejected.value) return sdkRejected.value;
-    if (!isPremium.value) return "Playing Spotify in Stratus needs Spotify Premium. Free accounts can still browse.";
+    if (!isPremium.value) return "Playing Spotify in Nightjar needs Spotify Premium. Free accounts can still browse.";
     return null;
   });
   const redirectUri = computed(() => (desktop() ? DESKTOP_REDIRECT_URI : webRedirectUri()));
@@ -222,7 +222,7 @@ export const useSpotify = defineStore("spotify", () => {
   }
 
   /**
-   * Called when the Stratus account changes (sign-in, sign-out, backend switch).
+   * Called when the Nightjar account changes (sign-in, sign-out, backend switch).
    * The first call only records the account, since `init` already asked the server.
    */
   async function syncAccount(key: string | null) {
@@ -257,7 +257,7 @@ export const useSpotify = defineStore("spotify", () => {
           mode.value = "local";
           accountToken = null;
           const message = isUnauthorized(err)
-            ? "Sign in to your Stratus account again to use Spotify."
+            ? "Sign in to your Nightjar account again to use Spotify."
             : "Your Spotify sign-in ended. Connect Spotify again.";
           fail(message);
           throw new SpotifyAuthError(message, code);
@@ -320,7 +320,7 @@ export const useSpotify = defineStore("spotify", () => {
       return;
     }
     if (!desktop() && location.hostname === "localhost") {
-      fail("Spotify doesn't accept \"localhost\" redirects. Open Stratus at 127.0.0.1 instead and connect from there.");
+      fail("Spotify doesn't accept \"localhost\" redirects. Open Nightjar at 127.0.0.1 instead and connect from there.");
       return;
     }
     status.value = "connecting";
@@ -454,7 +454,7 @@ export const useSpotify = defineStore("spotify", () => {
     error.value = null;
   }
 
-  /** The Stratus account holds this sign-in, so the user's other devices share it. */
+  /** The Nightjar account holds this sign-in, so the user's other devices share it. */
   const viaAccount = computed(() => mode.value === "account");
 
   return {

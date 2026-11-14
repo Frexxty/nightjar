@@ -27,7 +27,7 @@ const router = useRouter();
 
 // A browser tab can't read Spotify's pages. The desktop app reads them in its
 // main process (full playlists); elsewhere the backend may read them for us.
-const desktop = !!window.stratus?.spotify;
+const desktop = !!window.nightjar?.spotify;
 const viaBackend = computed(() => !desktop && typeof api.value.importSpotify === "function");
 const canReadLinks = computed(() => desktop || viaBackend.value);
 
@@ -38,9 +38,9 @@ const fetching = ref(false);
 const inputError = ref<string | null>(null);
 
 function readSpotify(url: string): Promise<SpotifyList> {
-  if (window.stratus?.spotify) return window.stratus.spotify.fetchPlaylist(url);
+  if (window.nightjar?.spotify) return window.nightjar.spotify.fetchPlaylist(url);
   const read = api.value.importSpotify;
-  if (!read) throw new Error("Reading Spotify links needs the Stratus desktop app.");
+  if (!read) throw new Error("Reading Spotify links needs the Nightjar desktop app.");
   return read.call(api.value, url).catch((err) => {
     // A custom server without the route.
     if (err instanceof ApiError && (err.status === 404 || err.status === 405) && !err.code) {
@@ -222,7 +222,7 @@ async function saveRemote() {
 }
 
 function openExternal(url: string) {
-  if (window.stratus) window.stratus.window("open-external", url);
+  if (window.nightjar) window.nightjar.window("open-external", url);
   else window.open(url, "_blank", "noopener");
 }
 </script>
@@ -241,7 +241,7 @@ function openExternal(url: string) {
         Paste a link to a public Spotify playlist or album. It's saved as a playlist that plays from Spotify, no matching needed.
       </p>
       <p v-else class="muted intro">
-        Paste a link to a public Spotify playlist or album. Stratus searches SoundCloud for each track and you check the matches.
+        Paste a link to a public Spotify playlist or album. Nightjar searches SoundCloud for each track and you check the matches.
       </p>
       <div class="tabs">
         <button class="tab" :class="{ active: tab === 'link' }" @click="tab = 'link'"><Link2 :size="14" /> Spotify link</button>
@@ -252,7 +252,7 @@ function openExternal(url: string) {
         <div v-if="!canReadLinks" class="notice">
           <Monitor :size="18" />
           <div>
-            <strong>Importing from a link needs the Stratus desktop app.</strong>
+            <strong>Importing from a link needs the Nightjar desktop app.</strong>
             <p class="muted">A browser tab isn't allowed to read Spotify's pages. You can still paste a track list here.</p>
           </div>
         </div>
@@ -269,7 +269,7 @@ function openExternal(url: string) {
           </button>
         </form>
         <p v-if="fetching" class="faint small">
-          {{ desktop ? "Playlists over 100 tracks take a few seconds while Stratus reads the full page." : "Reading the playlist through the Stratus server…" }}
+          {{ desktop ? "Playlists over 100 tracks take a few seconds while Nightjar reads the full page." : "Reading the playlist through the Nightjar server…" }}
         </p>
       </section>
 

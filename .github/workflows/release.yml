@@ -76,7 +76,7 @@ jobs:
           flags=""
           if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then flags="--prerelease"; fi
           gh release create "$TAG" --draft --verify-tag $flags \
-            --title "Stratus ${{ steps.version.outputs.version }}" \
+            --title "Nightjar ${{ steps.version.outputs.version }}" \
             --notes-file release-notes.md
 
   build:
@@ -151,12 +151,12 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
             for dir in ${{ matrix.unpacked }}; do
-              codesign --verify --deep --strict --verbose=1 "$dir/Stratus.app"
+              codesign --verify --deep --strict --verbose=1 "$dir/Nightjar.app"
             done
           fi
           if [ "$HAS_EVS" = true ]; then
             # Offline check: production VMP signature present and matching.
-            "$EVS_PYTHON" -m castlabs_evs.vmp --no-ask verify-pkg --name-hint Stratus ${{ matrix.unpacked }}
+            "$EVS_PYTHON" -m castlabs_evs.vmp --no-ask verify-pkg --name-hint Nightjar ${{ matrix.unpacked }}
           fi
 
   # Linux AppImage, best effort: it isn't part of the release contract yet, so
@@ -197,16 +197,16 @@ jobs:
           assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           missing=0
           for name in \
-            Stratus-mac-arm64.dmg Stratus-mac-x64.dmg \
-            Stratus-mac-arm64.zip Stratus-mac-x64.zip \
-            Stratus-Setup-x64.exe Stratus-Setup-x64.exe.blockmap \
+            Nightjar-mac-arm64.dmg Nightjar-mac-x64.dmg \
+            Nightjar-mac-arm64.zip Nightjar-mac-x64.zip \
+            Nightjar-Setup-x64.exe Nightjar-Setup-x64.exe.blockmap \
             latest.yml latest-mac.yml; do
             if ! printf '%s\n' "$assets" | grep -qx "$name"; then
               echo "::error::Missing release asset $name"
               missing=1
             fi
           done
-          for name in Stratus-linux-x86_64.AppImage latest-linux.yml; do
+          for name in Nightjar-linux-x86_64.AppImage latest-linux.yml; do
             if ! printf '%s\n' "$assets" | grep -qx "$name"; then
               echo "::warning::Linux asset $name is missing; publishing without it"
             fi

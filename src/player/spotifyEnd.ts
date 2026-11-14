@@ -1,4 +1,4 @@
-// Decides when a Spotify track Stratus asked for has finished, from the
+// Decides when a Spotify track Nightjar asked for has finished, from the
 // snapshots the Web Playback SDK (player_state_changed, getCurrentState) or
 // the Connect API (GET /me/player) report. Spotify doesn't send an "ended"
 // event, and the signs differ by client, so several are checked.
@@ -17,7 +17,7 @@ export interface PlaybackSnapshot {
 }
 
 export interface EndTracker {
-  /** The URI Stratus started. */
+  /** The URI Nightjar started. */
   uri: string;
   /** Seen playing past the start, so a later stop at 0 means it finished rather than hadn't started. */
   played: boolean;

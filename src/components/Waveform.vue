@@ -123,7 +123,7 @@ function paint() {
   ctx.clearRect(0, 0, width.value, props.height);
   if (peaks.length !== count) peaks = resample(props.samples ?? [], count);
   const styles = getComputedStyle(el);
-  accent = props.color || styles.getPropertyValue("--accent").trim() || "#ff5500";
+  accent = props.color || styles.getPropertyValue("--accent").trim() || "#EF5035";
   base = styles.getPropertyValue("--wave").trim() || "rgba(255,255,255,.3)";
   for (let i = 0; i < count; i++) drawBar(ctx, i, played, hovered);
   ctx.globalAlpha = 1;

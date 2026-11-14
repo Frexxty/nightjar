@@ -11,8 +11,8 @@ const mac = require("./mac-install.cjs");
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
-const feedOverride = process.env.STRATUS_UPDATE_FEED || "";
-const autoInstall = process.env.STRATUS_UPDATE_AUTOINSTALL === "1";
+const feedOverride = process.env.NIGHTJAR_UPDATE_FEED || "";
+const autoInstall = process.env.NIGHTJAR_UPDATE_AUTOINSTALL === "1";
 const FIRST_CHECK_DELAY = 10_000;
 const CHECK_INTERVAL = 6 * 60 * 60 * 1000;
 
@@ -50,7 +50,7 @@ function setState(next) {
   for (const w of BrowserWindow.getAllWindows()) {
     if (!w.isDestroyed()) w.webContents.send("update:state", state);
   }
-  if (process.env.STRATUS_UPDATE_LOG) console.log("[updater]", JSON.stringify({ ...state, notes: undefined }));
+  if (process.env.NIGHTJAR_UPDATE_LOG) console.log("[updater]", JSON.stringify({ ...state, notes: undefined }));
 }
 
 function fail(err, extra = {}) {
@@ -111,7 +111,7 @@ function getWinUpdater() {
 // ---------- macOS: our own feed reader and installer ----------
 
 async function fetchText(url) {
-  const res = await net.fetch(url, { headers: { "Cache-Control": "no-cache", "User-Agent": `Stratus/${app.getVersion()}` } });
+  const res = await net.fetch(url, { headers: { "Cache-Control": "no-cache", "User-Agent": `Nightjar/${app.getVersion()}` } });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
   return res.text();
 }
@@ -156,7 +156,7 @@ function runningBundle() {
   return core.appBundleFromExe(app.getPath("exe"));
 }
 
-const fetchWithAgent = (url) => net.fetch(url, { headers: { "User-Agent": `Stratus/${app.getVersion()}` } });
+const fetchWithAgent = (url) => net.fetch(url, { headers: { "User-Agent": `Nightjar/${app.getVersion()}` } });
 
 async function downloadMac() {
   if (!macRelease) throw new Error("No update to download");
@@ -169,8 +169,8 @@ async function downloadMac() {
     const dmg = core.pickMacDmg(remote.files, process.arch);
     void shell.openExternal(dmg ? core.resolveFileUrl(baseUrl, dmg.url) : pageUrl);
     fail(
-      `Stratus can't replace itself in ${bundle ? path.dirname(bundle) : "its current folder"}. ` +
-        "The installer is downloading in your browser. Open it and drag Stratus to Applications.",
+      `Nightjar can't replace itself in ${bundle ? path.dirname(bundle) : "its current folder"}. ` +
+        "The installer is downloading in your browser. Open it and drag Nightjar to Applications.",
       meta,
     );
     return;
@@ -196,8 +196,8 @@ async function installMac() {
     ...macStaged,
     pid: process.pid,
     // Test mode relaunches the binary directly so the new copy inherits
-    // STRATUS_HEADLESS_TEST and stays hidden; `open` would start it fresh.
-    launch: process.env.STRATUS_HEADLESS_TEST === "1" ? "exec" : "open",
+    // NIGHTJAR_HEADLESS_TEST and stays hidden; `open` would start it fresh.
+    launch: process.env.NIGHTJAR_HEADLESS_TEST === "1" ? "exec" : "open",
   });
   hooks.beforeQuit();
   app.quit();

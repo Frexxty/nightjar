@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { reactive, toRefs, watch } from "vue";
+import { DEFAULT_ACCENT, migrateAccent } from "../lib/accent";
 
 export type MusicSource = "soundcloud" | "spotify";
 
@@ -13,12 +14,13 @@ export interface Settings {
   keepPlayingInTray: boolean;
   /** Where music comes from. Null until chosen on /welcome (docs/spotify.md). */
   musicSource: MusicSource | null;
-  /** Spotify tracks: play inside Stratus, or remote-control the user's Spotify app. */
+  /** Spotify tracks: play inside Nightjar, or remote-control the user's Spotify app. */
   spotifyPlayback: "this-device" | "remote";
   /** Connect target for "remote", from GET /me/player/devices. Null picks the active device. */
   spotifyDeviceId: string | null;
 }
 
+// Keeps its pre-rename name so existing installs keep their settings.
 const KEY = "stratus.settings";
 
 /**
@@ -26,12 +28,12 @@ const KEY = "stratus.settings";
  * player there starts out controlling the Spotify app instead.
  */
 export function defaultSpotifyPlayback(): Settings["spotifyPlayback"] {
-  if (window.stratus) return "this-device";
+  if (window.nightjar) return "this-device";
   return window.matchMedia("(max-width: 760px), (hover: none) and (pointer: coarse)").matches ? "remote" : "this-device";
 }
 
 const defaults: Settings = {
-  accent: "#ff5500",
+  accent: DEFAULT_ACCENT,
   theme: "dark",
   autoplayRelated: true,
   showCommentsOnWaveform: true,
@@ -48,6 +50,11 @@ export const useSettings = defineStore("settings", () => {
     saved = JSON.parse(localStorage.getItem(KEY) ?? "{}");
   } catch {
     // Fall back to defaults.
+  }
+  if (saved && typeof saved === "object" && "accent" in saved) {
+    const accent = migrateAccent(saved.accent);
+    if (accent) saved.accent = accent;
+    else delete saved.accent;
   }
   const settings = reactive<Settings>({ ...defaults, ...saved });
 

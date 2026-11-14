@@ -1,9 +1,16 @@
 // Which backend to use, and how a saved choice from an older version maps onto
 // today's kinds. No imports, so `node --test` can load this file directly.
 
-export const HOSTED_URL = "https://stratus-api.k3s.lat/v1";
+export const HOSTED_URL = "https://nightjar-api.k3s.lat/v1";
 
-/** "hosted": the Stratus account server. "http": a server you run. "mock": demo data. */
+/**
+ * Where the hosted backend lived before the rename to Nightjar. The same
+ * Worker still answers there, so 0.3.x apps keep working, but saved configs
+ * that name it are moved to HOSTED_URL.
+ */
+export const LEGACY_HOSTED_URLS = ["https://stratus-api.k3s.lat/v1"];
+
+/** "hosted": the Nightjar account server. "http": a server you run. "mock": demo data. */
 export type BackendKind = "hosted" | "http" | "mock";
 
 export interface BackendConfig {
@@ -12,7 +19,7 @@ export interface BackendConfig {
   baseUrl: string;
   /** Bearer token for the custom server, typed in Settings or set by signing in there. */
   token: string;
-  /** Session token for the Stratus account on the hosted backend. */
+  /** Session token for the Nightjar account on the hosted backend. */
   hostedToken: string;
 }
 
@@ -21,12 +28,19 @@ export const DEFAULT_CUSTOM_URL = "http://localhost:8787";
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const trimSlash = (url: string) => url.trim().replace(/\/+$/, "");
 
+/** Maps the hosted backend's old address to its current one. Other URLs come back trimmed. */
+export function canonicalHostedUrl(url: string): string {
+  const trimmed = trimSlash(url);
+  return LEGACY_HOSTED_URLS.some((old) => trimSlash(old).toLowerCase() === trimmed.toLowerCase()) ? HOSTED_URL : trimmed;
+}
+
 /**
  * Turns whatever is in localStorage into a full config. Nothing saved means a
  * new install, which gets the hosted backend. Older versions saved
  * `{ kind: "mock" | "http", baseUrl, token }`. Their "mock" becomes "hosted"
  * (demo data was simply the old default), "http" keeps working, and an "http"
- * entry that points at the hosted URL becomes "hosted" with its token.
+ * entry that points at the hosted URL, old or new, becomes "hosted" with its
+ * token.
  */
 export function normalizeBackendConfig(raw: unknown, hostedUrl = HOSTED_URL): BackendConfig {
   const saved = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -41,7 +55,8 @@ export function normalizeBackendConfig(raw: unknown, hostedUrl = HOSTED_URL): Ba
   // picked in today's Settings is saved with hostedToken and stays.
   if (saved.kind === "mock" && "hostedToken" in saved) config.kind = "mock";
   else if (saved.kind === "http") {
-    if (trimSlash(config.baseUrl) === trimSlash(hostedUrl)) {
+    const url = canonicalHostedUrl(config.baseUrl);
+    if (url === canonicalHostedUrl(hostedUrl)) {
       config.kind = "hosted";
       config.hostedToken ||= config.token;
       config.token = "";

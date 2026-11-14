@@ -7,7 +7,9 @@ const semver = require("semver");
 const yaml = require("js-yaml");
 
 const GITHUB_OWNER = "Frexxty";
-const GITHUB_REPO = "stratus";
+// The repo was Frexxty/stratus before the rename. GitHub redirects the old
+// name, which is how 0.3.x installs still find releases published here.
+const GITHUB_REPO = "nightjar";
 const GITHUB_RELEASES = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
 const GITHUB_API_RELEASES = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
 
@@ -133,10 +135,23 @@ async function verifySha512(file, expected) {
   return false;
 }
 
-// /Applications/Stratus.app/Contents/MacOS/Stratus -> /Applications/Stratus.app
+// /Applications/Nightjar.app/Contents/MacOS/Nightjar -> /Applications/Nightjar.app
 function appBundleFromExe(exe) {
   const match = /^(.*?\.app)(?:\/|$)/.exec(exe);
   return match ? match[1] : null;
+}
+
+const BUNDLE_NAME = "Nightjar.app";
+const LEGACY_BUNDLE_NAME = "Stratus.app";
+
+// /Applications/Stratus.app -> /Applications/Nightjar.app. Null for any other
+// name, so a bundle the user renamed themselves stays as they named it.
+function renamedBundlePath(bundle) {
+  if (!bundle) return null;
+  const trimmed = bundle.replace(/\/+$/, "");
+  const slash = trimmed.lastIndexOf("/");
+  if (trimmed.slice(slash + 1) !== LEGACY_BUNDLE_NAME) return null;
+  return `${trimmed.slice(0, slash + 1)}${BUNDLE_NAME}`;
 }
 
 module.exports = {
@@ -155,4 +170,7 @@ module.exports = {
   sha512File,
   verifySha512,
   appBundleFromExe,
+  BUNDLE_NAME,
+  LEGACY_BUNDLE_NAME,
+  renamedBundlePath,
 };

@@ -1,4 +1,4 @@
-// Turns SoundCloud api-v2 objects into the Stratus shapes in types.ts.
+// Turns SoundCloud api-v2 objects into the Nightjar shapes in types.ts.
 // Pure functions only, so `node --test` can import this file directly.
 import type {
   Comment, Playlist, ScComment, ScPlaylist, ScTrack, ScTranscoding, ScUser, Track, User, UserSummary,

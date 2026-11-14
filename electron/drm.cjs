@@ -13,7 +13,7 @@
 const { BrowserWindow, ipcMain, components } = require("electron");
 
 // A first install took 3.4 to 6.2 s on a home connection; later launches 2 to 3 ms.
-const WAIT_MS = Number(process.env.STRATUS_CDM_WAIT_MS) || 5000;
+const WAIT_MS = Number(process.env.NIGHTJAR_CDM_WAIT_MS) || 5000;
 
 let state = { widevine: components ? "updating" : "unavailable", version: null };
 let waited = null;

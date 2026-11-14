@@ -1,6 +1,6 @@
 # Backend contract
 
-Stratus never talks to SoundCloud. It talks to a server that returns JSON shaped like the types in [`src/api/types.ts`](src/api/types.ts). By default that is the hosted Stratus server, which implements everything here plus accounts; [docs/hosted-api.md](docs/hosted-api.md) describes its extra routes. To use your own server instead, pick "Custom server" in Settings, enter the base URL and an optional bearer token, and press Apply. `VITE_BACKEND_URL` at build time replaces the hosted server's URL, for example with a staging copy.
+Nightjar never talks to SoundCloud. It talks to a server that returns JSON shaped like the types in [`src/api/types.ts`](src/api/types.ts). By default that is the hosted Nightjar server, which implements everything here plus accounts; [docs/hosted-api.md](docs/hosted-api.md) describes its extra routes. To use your own server instead, pick "Custom server" in Settings, enter the base URL and an optional bearer token, and press Apply. `VITE_BACKEND_URL` at build time replaces the hosted server's URL, for example with a staging copy.
 
 If you'd rather not run a server, write a class that implements the `Backend` interface in `src/api/types.ts` and return it from `createBackend` in `src/api/index.ts`. The UI doesn't care which one it gets. Every optional method it leaves out hides the matching feature.
 
@@ -64,7 +64,7 @@ A playlist counts as yours, and gets the edit buttons, when its `user.id` matche
 
 ## Importing from Spotify
 
-The desktop app reads the Spotify playlist itself (see the README). In a browser it calls `GET /import/spotify?url=` instead, if the server has it. Either way Stratus then calls `GET /search/tracks?q=` for each track, usually twice: first with "artist title" and, if nothing scores well, with the title alone. It runs four searches at a time and does its own scoring, so pass the query to SoundCloud's track search unchanged. A 500-track playlist means 500 to 1,000 searches, so rate-limit or cache on your side if SoundCloud needs it.
+The desktop app reads the Spotify playlist itself (see the README). In a browser it calls `GET /import/spotify?url=` instead, if the server has it. Either way Nightjar then calls `GET /search/tracks?q=` for each track, usually twice: first with "artist title" and, if nothing scores well, with the title alone. It runs four searches at a time and does its own scoring, so pass the query to SoundCloud's track search unchanged. A 500-track playlist means 500 to 1,000 searches, so rate-limit or cache on your side if SoundCloud needs it.
 
 `POST /me/playlists` is optional. If your server implements it, the import page's main button is "Save to my library", with "Save on this computer" next to it. The body is `{ "title": string, "trackIds": string[], "public": boolean, "sourceUrl"?: string }`, where `trackIds` are track `id`s your server returned and `sourceUrl` is the Spotify link. Respond with the new `Playlist`; the UI then opens it and refreshes `/me/playlists`. Settings uses the same route to upload playlists saved on this computer. With a custom `Backend` class, implement `createPlaylist(title, trackIds, isPublic, extras)` instead, or leave it out.
 

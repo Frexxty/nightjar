@@ -2,13 +2,13 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { useUi } from "@/stores/ui";
 
-const isMac = window.stratus?.platform === "darwin";
+const isMac = window.nightjar?.platform === "darwin";
 // macOS restarts on its own after a short countdown, like DaUpdatea does.
 const RESTART_COUNTDOWN = 5;
 
 export const useUpdates = defineStore("updates", () => {
   const ui = useUi();
-  const bridge = window.stratus?.updates;
+  const bridge = window.nightjar?.updates;
   const info = ref<UpdateInfo | null>(null);
   const state = ref<UpdateState>({ status: "idle" });
   const dialog = ref(false);
@@ -30,7 +30,7 @@ export const useUpdates = defineStore("updates", () => {
       if (manual || next.version !== info.value?.skippedVersion) dialog.value = true;
       manual = false;
     } else if (next.status === "not-available") {
-      if (manual) ui.notify(`Stratus ${info.value?.currentVersion ?? ""} is the latest version`);
+      if (manual) ui.notify(`Nightjar ${info.value?.currentVersion ?? ""} is the latest version`);
       manual = false;
     } else if (next.status === "error" && manual) {
       dialog.value = true;

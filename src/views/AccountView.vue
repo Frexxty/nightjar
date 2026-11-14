@@ -112,13 +112,13 @@ function close() {
       <!-- No accounts on this backend -->
       <template v-else-if="!library.accounts">
         <h1>No accounts here</h1>
-        <p class="muted center">The backend in use doesn't have accounts. Switch to a Stratus account in Settings.</p>
+        <p class="muted center">The backend in use doesn't have accounts. Switch to a Nightjar account in Settings.</p>
         <RouterLink to="/settings" class="btn primary wide">Open Settings</RouterLink>
       </template>
 
       <!-- Sign in / create account -->
       <template v-else>
-        <h1>{{ mode === "signin" ? "Sign in to Stratus" : "Create your Stratus account" }}</h1>
+        <h1>{{ mode === "signin" ? "Sign in to Nightjar" : "Create your Nightjar account" }}</h1>
         <p class="muted center intro">
           Likes, playlists, follows and history stay in your account, on the desktop app and in the browser.
         </p>
@@ -170,7 +170,7 @@ function close() {
         <p class="faint small center foot">
           <template v-if="backendConfig.kind === 'mock'">Demo data: sign in as "you" with any password of 8 or more characters.</template>
           <template v-else>
-            Stratus accounts are separate from SoundCloud, and nothing is posted to SoundCloud.
+            Nightjar accounts are separate from SoundCloud, and nothing is posted to SoundCloud.
             <template v-if="serverLabel">Server: {{ serverLabel }}.</template>
           </template>
           <RouterLink to="/settings" class="link">Change server</RouterLink>

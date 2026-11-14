@@ -314,7 +314,7 @@ export const usePlayer = defineStore("player", () => {
         ? new MediaMetadata({
             title: t.title,
             artist: t.user.username,
-            album: t.album?.title ?? "Stratus",
+            album: t.album?.title ?? "Nightjar",
             // Lock screens need an absolute URL. iOS skips data: URLs (the mock's artwork).
             artwork: t.artworkUrl ? [{ src: new URL(t.artworkUrl, location.href).href, sizes: "500x500" }] : [],
           })
@@ -332,7 +332,7 @@ export const usePlayer = defineStore("player", () => {
     () => [state.value, current.value?.id, current.value && library.isLiked(current.value)] as const,
     () => {
       const t = current.value;
-      window.stratus?.reportPlayback({
+      window.nightjar?.reportPlayback({
         state: state.value === "loading" ? "playing" : state.value,
         track: t ? { id: t.id, title: t.title, artist: t.user.username } : null,
         liked: t ? library.isLiked(t) : false,

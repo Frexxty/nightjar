@@ -2,7 +2,7 @@
   "use strict";
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const RELEASES = "https://github.com/Frexxty/stratus/releases";
+  const RELEASES = "https://github.com/Frexxty/nightjar/releases";
 
   /* ---------- OS detection and download buttons ---------- */
 

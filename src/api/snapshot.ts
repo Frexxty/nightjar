@@ -1,4 +1,4 @@
-// Spotify tracks saved in a Stratus account travel as snapshots: the server
+// Spotify tracks saved in a Nightjar account travel as snapshots: the server
 // can't ask Spotify for them, so it keeps what the client sends (docs/spotify.md).
 // No imports beyond types, so `node --test` can load this file directly.
 import type { Track } from "./types";
