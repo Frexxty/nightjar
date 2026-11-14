@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ArrowLeft, ArrowRight, Check, Copy, ExternalLink, Loader2, TriangleAlert } from "lucide-vue-next";
+import { ArrowLeft, ArrowRight, Check, Cloud, Copy, ExternalLink, Loader2, LogIn, TriangleAlert } from "lucide-vue-next";
 import logoMark from "@/assets/logo-mark.svg?raw";
 import Artwork from "@/components/Artwork.vue";
+import DevicesDiagram from "@/components/onboarding/DevicesDiagram.vue";
+import SetupStepArt from "@/components/onboarding/SetupStepArt.vue";
+import SoundCloudMatchDiagram from "@/components/onboarding/SoundCloudMatchDiagram.vue";
+import SpotifyFlowDiagram from "@/components/onboarding/SpotifyFlowDiagram.vue";
 import { useSpotify } from "@/spotify/auth";
 import { useLibrary } from "@/stores/library";
 import { useSettings } from "@/stores/settings";
@@ -92,6 +96,16 @@ const idHint = computed(() => {
   return "A Client ID only has the digits 0 to 9 and the letters a to f.";
 });
 
+/**
+ * Which steps are behind the user, for the progress rail. Steps 1 to 3 happen
+ * on Spotify's site, so a valid Client ID is the first sign they're done.
+ */
+const connected = computed(() => spotify.status === "connected");
+const stepDone = computed(() => {
+  const haveId = validId.value || connected.value;
+  return [haveId, haveId, haveId, haveId, connected.value];
+});
+
 async function connect() {
   if (!validId.value) return;
   spotify.setClientId(trimmedId.value);
@@ -131,10 +145,8 @@ async function useAnotherAccount() {
             <span class="name">Spotify</span>
             <span class="tag">Premium</span>
           </span>
-          <span class="body">
-            Play your Spotify library and playlists with Spotify's own audio. Needs Spotify Premium and a free Spotify developer app
-            (one-time, about 5 minutes).
-          </span>
+          <SpotifyFlowDiagram class="figure" />
+          <span class="body">Plays Spotify's own audio. Needs Premium and a free developer app (one-time, about 5 minutes).</span>
           <span class="go">Set up Spotify <ArrowRight :size="15" /></span>
         </button>
 
@@ -143,9 +155,10 @@ async function useAnotherAccount() {
             <span class="name">SoundCloud</span>
             <span class="tag">Free</span>
           </span>
+          <SoundCloudMatchDiagram class="figure" />
           <span class="body">
-            Free. Plays music uploaded to SoundCloud. When you import a Spotify playlist, Stratus finds the closest SoundCloud uploads.
-            These may be relevant, but most songs from a typical playlist will be missing or only partly there.
+            Imported playlists are matched to SoundCloud uploads. These may be relevant, but most songs from a typical playlist will be
+            missing or only partly there.
           </span>
           <span class="go">Use SoundCloud <ArrowRight :size="15" /></span>
         </button>
@@ -157,145 +170,152 @@ async function useAnotherAccount() {
       <div class="guide">
         <button class="btn back" @click="back"><ArrowLeft :size="15" /> Back</button>
         <h1>Set up Spotify</h1>
-        <p class="muted lead">
-          Stratus signs in through a Spotify developer app that you create. Each Spotify developer app works for up to 5 accounts,
-          so everyone creates their own. It's free and takes about 5 minutes.
+        <p class="muted lead">Stratus signs in through a free Spotify developer app that you create. About 5 minutes, once.</p>
+        <p v-if="spotify.accountAvailable" class="muted lead shared">
+          <Cloud :size="15" /> You're signed in, so your other devices get this connection too.
         </p>
-        <p v-if="spotify.accountAvailable" class="muted lead">
-          You're signed in to Stratus, so the connection is saved in your account and your other devices get it too.
-        </p>
-        <p v-else-if="library.accounts" class="muted lead">
-          Using Stratus on more than one device?
-          <RouterLink :to="{ path: '/account', query: { next: route.fullPath } }">Sign in to your Stratus account</RouterLink>
-          first, and you only connect Spotify once for all of them.
-        </p>
+        <div v-else-if="library.accounts" class="tip">
+          <DevicesDiagram class="tip-figure" />
+          <div class="tip-text">
+            <strong>More than one device?</strong>
+            <p class="muted">Sign in first and connect Spotify once for all of them.</p>
+            <RouterLink class="btn" :to="{ path: '/account', query: { next: route.fullPath } }"><LogIn :size="14" /> Sign in</RouterLink>
+          </div>
+        </div>
 
         <ol class="steps">
-          <li>
-            <span class="num">1</span>
+          <li :class="{ done: stepDone[0] }">
+            <span class="marker"><span class="num"><Check v-if="stepDone[0]" :size="14" :stroke-width="3" /><template v-else>1</template></span><span class="rail"><span class="rail-fill" /></span></span>
             <div class="step">
               <h2>Open the Spotify developer dashboard</h2>
-              <p class="muted">Sign in with the Spotify account you listen with. It needs Premium.</p>
-              <button v-if="desktop" class="btn" @click="openDashboard"><ExternalLink :size="14" /> Open developer.spotify.com</button>
-              <a v-else class="btn" :href="DASHBOARD" target="_blank" rel="noopener"><ExternalLink :size="14" /> Open developer.spotify.com</a>
+              <SetupStepArt class="art" :step="1" :done="stepDone[0]" />
+              <div class="step-body">
+                <p class="muted">Sign in with the Premium account you listen with.</p>
+                <button v-if="desktop" class="btn" @click="openDashboard"><ExternalLink :size="14" /> Open developer.spotify.com</button>
+                <a v-else class="btn" :href="DASHBOARD" target="_blank" rel="noopener"><ExternalLink :size="14" /> Open developer.spotify.com</a>
+              </div>
             </div>
           </li>
 
-          <li>
-            <span class="num">2</span>
+          <li :class="{ done: stepDone[1] }">
+            <span class="marker"><span class="num"><Check v-if="stepDone[1]" :size="14" :stroke-width="3" /><template v-else>2</template></span><span class="rail"><span class="rail-fill" /></span></span>
             <div class="step">
               <h2>Create an app</h2>
-              <p class="muted">
-                Click <strong>Create app</strong>. The name and description can be anything, such as "Stratus". Under
-                "Which API/SDKs are you planning to use?", check <strong>Web API</strong> and <strong>Web Playback SDK</strong>.
-              </p>
+              <SetupStepArt class="art" :step="2" :done="stepDone[1]" />
+              <div class="step-body">
+                <p class="muted">Any name works. Tick <strong>Web API</strong> and <strong>Web Playback SDK</strong>.</p>
+              </div>
             </div>
           </li>
 
-          <li>
-            <span class="num">3</span>
+          <li :class="{ done: stepDone[2] }">
+            <span class="marker"><span class="num"><Check v-if="stepDone[2]" :size="14" :stroke-width="3" /><template v-else>3</template></span><span class="rail"><span class="rail-fill" /></span></span>
             <div class="step">
               <h2>Add the redirect URIs</h2>
-              <p class="muted">
-                In the same form, add these under <strong>Redirect URIs</strong>, then accept the terms and save. Spotify compares them
-                character by character. The first is the one this app uses; add the second too if you also use Stratus there.
-              </p>
-              <div class="uris">
-                <div v-for="r in redirects" :key="r.uri" class="uri">
-                  <span class="uri-label faint">{{ r.label }}</span>
-                  <!-- Line breaks only after slashes when the URI has to wrap. -->
-                  <code><template v-for="(part, i) in r.uri.split(/(?<=\/)/)" :key="i">{{ part }}<wbr /></template></code>
-                  <button class="btn small" :aria-label="`Copy ${r.uri}`" @click="copy(r.uri)">
-                    <Check v-if="copied === r.uri" :size="14" />
-                    <Copy v-else :size="14" />
-                    {{ copied === r.uri ? "Copied" : "Copy" }}
-                  </button>
+              <SetupStepArt class="art" :step="3" :done="stepDone[2]" />
+              <div class="step-body">
+                <p class="muted">Copy both into <strong>Redirect URIs</strong> in the same form, then save. They must match exactly.</p>
+                <div class="uris">
+                  <div v-for="r in redirects" :key="r.uri" class="uri">
+                    <span class="uri-label faint">{{ r.label }}</span>
+                    <!-- Line breaks only after slashes when the URI has to wrap. -->
+                    <code><template v-for="(part, i) in r.uri.split(/(?<=\/)/)" :key="i">{{ part }}<wbr /></template></code>
+                    <button class="btn small" :aria-label="`Copy ${r.uri}`" @click="copy(r.uri)">
+                      <Check v-if="copied === r.uri" :size="14" />
+                      <Copy v-else :size="14" />
+                      {{ copied === r.uri ? "Copied" : "Copy" }}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </li>
 
-          <li>
-            <span class="num">4</span>
+          <li :class="{ done: stepDone[3] }">
+            <span class="marker"><span class="num"><Check v-if="stepDone[3]" :size="14" :stroke-width="3" /><template v-else>4</template></span><span class="rail"><span class="rail-fill" /></span></span>
             <div class="step">
               <h2>Paste the Client ID</h2>
-              <p class="muted">
-                Open the app you made and go to its settings. Copy the <strong>Client ID</strong>. Stratus never needs the Client secret.
-              </p>
-              <label class="field">
-                <span class="sr-only">Client ID</span>
-                <input
-                  v-model="clientIdInput"
-                  class="client-id"
-                  placeholder="32 characters, like 1a2b3c…"
-                  spellcheck="false"
-                  autocapitalize="off"
-                  autocomplete="off"
-                  maxlength="64"
-                  :aria-invalid="!!idHint"
-                  @keydown.enter="connect"
-                />
-                <small v-if="idHint" class="err">{{ idHint }}</small>
-                <small v-else-if="validId" class="ok"><Check :size="13" /> Looks like a Client ID.</small>
-              </label>
+              <SetupStepArt class="art" :step="4" :done="stepDone[3]" />
+              <div class="step-body">
+                <p class="muted">Copy the <strong>Client ID</strong> from your app's settings. The Client secret isn't needed.</p>
+                <label class="field">
+                  <span class="sr-only">Client ID</span>
+                  <input
+                    v-model="clientIdInput"
+                    class="client-id"
+                    placeholder="32 characters, like 1a2b3c…"
+                    spellcheck="false"
+                    autocapitalize="off"
+                    autocomplete="off"
+                    maxlength="64"
+                    :aria-invalid="!!idHint"
+                    @keydown.enter="connect"
+                  />
+                  <small v-if="idHint" class="err">{{ idHint }}</small>
+                  <small v-else-if="validId" class="ok"><Check :size="13" /> Looks like a Client ID.</small>
+                </label>
+              </div>
             </div>
           </li>
 
-          <li>
-            <span class="num">5</span>
+          <li :class="{ done: stepDone[4] }">
+            <span class="marker"><span class="num"><Check v-if="stepDone[4]" :size="14" :stroke-width="3" /><template v-else>5</template></span></span>
             <div class="step">
               <h2>Connect</h2>
-              <p class="muted">
-                {{ desktop
-                  ? "Spotify opens in your browser. Approve Stratus there, then come back to this window."
-                  : "This page goes to Spotify. Approve Stratus there and it brings you back here." }}
-              </p>
+              <SetupStepArt class="art" :step="5" :done="stepDone[4]" />
+              <div class="step-body">
+                <p class="muted">
+                  {{ desktop
+                    ? "Spotify opens in your browser. Approve Stratus there, then come back to this window."
+                    : "This page goes to Spotify. Approve Stratus there and it brings you back here." }}
+                </p>
 
-              <!-- Connected: who, and whether playback will work -->
-              <div v-if="spotify.status === 'connected' && spotify.profile" class="result">
-                <div class="who">
-                  <Artwork :src="spotify.profile.avatarUrl" :size="44" round />
-                  <div class="who-text">
-                    <strong>{{ spotify.profile.displayName }}</strong>
-                    <span class="muted">
-                      Premium:
-                      <template v-if="premium === 'yes'">yes</template>
-                      <template v-else-if="premium === 'no'">no</template>
-                      <template v-else>not reported by Spotify</template>
-                    </span>
+                <!-- Connected: who, and whether playback will work -->
+                <div v-if="spotify.status === 'connected' && spotify.profile" class="result">
+                  <div class="who">
+                    <Artwork :src="spotify.profile.avatarUrl" :size="44" round />
+                    <div class="who-text">
+                      <strong>{{ spotify.profile.displayName }}</strong>
+                      <span class="muted">
+                        Premium:
+                        <template v-if="premium === 'yes'">yes</template>
+                        <template v-else-if="premium === 'no'">no</template>
+                        <template v-else>not reported by Spotify</template>
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <template v-if="premium === 'no'">
-                  <div class="notice warn">
-                    <TriangleAlert :size="18" />
-                    <p>
-                      Spotify only lets Premium accounts play music in other apps, so Spotify playback won't work with this account.
-                      You can use SoundCloud instead, or connect a Premium account.
+                  <template v-if="premium === 'no'">
+                    <div class="notice warn">
+                      <TriangleAlert :size="18" />
+                      <p>
+                        Spotify only lets Premium accounts play music in other apps, so Spotify playback won't work with this account.
+                        You can use SoundCloud instead, or connect a Premium account.
+                      </p>
+                    </div>
+                    <div class="row">
+                      <button class="btn primary" @click="chooseSoundCloud">Use SoundCloud</button>
+                      <button class="btn" @click="useAnotherAccount">Use another Spotify account</button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <p v-if="premium === 'unknown'" class="faint small">
+                      Spotify didn't say which plan this account has. Stratus finds out when you first play a song.
                     </p>
-                  </div>
-                  <div class="row">
-                    <button class="btn primary" @click="chooseSoundCloud">Use SoundCloud</button>
-                    <button class="btn" @click="useAnotherAccount">Use another Spotify account</button>
-                  </div>
-                </template>
-                <template v-else>
-                  <p v-if="premium === 'unknown'" class="faint small">
-                    Spotify didn't say which plan this account has. Stratus finds out when you first play a song.
-                  </p>
-                  <div class="row">
-                    <button class="btn primary" @click="startSpotify">Start listening</button>
-                    <button class="btn" :disabled="!validId" @click="connect">Reconnect</button>
-                  </div>
-                </template>
-              </div>
+                    <div class="row">
+                      <button class="btn primary" @click="startSpotify">Start listening</button>
+                      <button class="btn" :disabled="!validId" @click="connect">Reconnect</button>
+                    </div>
+                  </template>
+                </div>
 
-              <div v-else class="row">
-                <button class="btn primary" :disabled="!validId || spotify.status === 'connecting'" @click="connect">
-                  <Loader2 v-if="spotify.status === 'connecting'" :size="15" class="spin" />
-                  {{ spotify.status === "connecting" ? "Waiting for Spotify…" : "Connect Spotify" }}
-                </button>
+                <div v-else class="row">
+                  <button class="btn primary" :disabled="!validId || spotify.status === 'connecting'" @click="connect">
+                    <Loader2 v-if="spotify.status === 'connecting'" :size="15" class="spin" />
+                    {{ spotify.status === "connecting" ? "Waiting for Spotify…" : "Connect Spotify" }}
+                  </button>
+                </div>
+                <p v-if="spotify.status === 'error' && spotify.error" class="err form-err" role="alert">{{ spotify.error }}</p>
               </div>
-              <p v-if="spotify.status === 'error' && spotify.error" class="err form-err" role="alert">{{ spotify.error }}</p>
             </div>
           </li>
         </ol>
@@ -345,16 +365,30 @@ h1 { margin: 0; font-size: 28px; font-weight: 750; letter-spacing: -0.02em; }
   color: var(--brand);
   background: color-mix(in srgb, var(--brand) 16%, transparent);
 }
-.body { color: var(--text-2); line-height: 1.55; flex: 1; }
+.figure { align-self: stretch; margin: 4px 0; }
+.body { color: var(--text-2); line-height: 1.5; flex: 1; }
 .go { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; color: var(--brand); }
 :root[data-theme="light"] .choice.spotify { --brand: #128a3e; }
 
 .guide { max-width: 640px; margin: 0 auto; }
 .back { margin-bottom: 18px; }
 .lead { margin: 8px 0 24px; line-height: 1.55; }
-.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; padding: 16px; border-radius: var(--radius); background: var(--hover); }
+.lead.shared { display: flex; align-items: center; gap: 7px; margin-top: -14px; }
+.lead.shared svg { flex: none; color: var(--accent); }
+
+/* Sign-in tip: the devices diagram with one line and a button. */
+.tip { display: flex; align-items: center; gap: 22px; margin: 0 0 28px; padding: 16px 20px; border-radius: var(--radius-lg); background: var(--hover); }
+.tip-figure { flex: none; }
+.tip-text { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.tip-text strong { font-size: 14px; }
+.tip-text p { margin: 0 0 6px; line-height: 1.45; }
+
+/* Steps on a rail that fills as they're done. */
+.steps { list-style: none; margin: 0; padding: 0; }
+.steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 16px; }
+.marker { display: flex; flex-direction: column; align-items: center; }
 .num {
+  flex: none;
   display: grid;
   place-items: center;
   width: 28px;
@@ -365,8 +399,23 @@ h1 { margin: 0; font-size: 28px; font-weight: 750; letter-spacing: -0.02em; }
   font-weight: 750;
   font-variant-numeric: tabular-nums;
 }
-.step { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.step h2 { margin: 3px 0 0; font-size: 15px; }
+.steps li.done .num { background: var(--accent); color: var(--accent-text); }
+.rail { position: relative; flex: 1; width: 2px; margin: 6px 0; border-radius: 1px; background: var(--border); overflow: hidden; }
+.rail-fill { position: absolute; inset: 0; background: var(--accent); transform-origin: top; transform: scaleY(0); transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1); }
+.steps li.done .rail-fill { transform: scaleY(1); }
+.step {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "head art" "body art";
+  grid-template-rows: auto 1fr;
+  gap: 8px 24px;
+  padding-bottom: 30px;
+}
+.steps li:last-child .step { padding-bottom: 0; }
+.step h2 { grid-area: head; margin: 4px 0 0; font-size: 15px; }
+.art { grid-area: art; align-self: start; }
+.step-body { grid-area: body; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .step p { margin: 0; line-height: 1.5; }
 .step strong { color: var(--text); }
 a.btn:hover { text-decoration: none; }
@@ -417,8 +466,13 @@ a.btn:hover { text-decoration: none; }
   .welcome { padding: calc(28px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom)); }
   h1 { font-size: 26px; }
   .choices { grid-template-columns: minmax(0, 1fr); }
-  .steps li { grid-template-columns: 24px minmax(0, 1fr); gap: 12px; padding: 14px 12px; }
+  .tip { flex-direction: column; align-items: stretch; gap: 14px; padding: 16px; }
+  .tip-figure { align-self: center; }
+  .steps li { grid-template-columns: 24px minmax(0, 1fr); column-gap: 12px; }
   .num { width: 24px; height: 24px; font-size: 12px; }
+  .step { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "art" "body"; grid-template-rows: none; gap: 10px; padding-bottom: 26px; }
+  .step h2 { margin-top: 2px; }
+  .art { justify-self: start; }
   .client-id { height: 42px; }
   /* Copy button on the label's line, so the URI gets the full width. */
   .uri { grid-template-areas: "label copy" "code code"; gap: 6px 8px; }
