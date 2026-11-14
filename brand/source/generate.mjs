@@ -1,18 +1,20 @@
-// Builds every Stratus logo, icon and brand asset from vector source.
+// Builds every Nightjar logo, icon and brand asset from vector source.
 //
-//   npm install --no-save opentype.js @fontsource/inter png-to-ico
+//   npm install --no-save opentype.js @fontsource/inter png-to-ico clipper-lib
 //   node brand/source/generate.mjs
 //
-// Needs rsvg-convert (brew install librsvg) and, for build/icon.icns, macOS
-// iconutil. All text is converted to outlines with opentype.js, so the SVGs
-// render the same everywhere and need no fonts installed.
+// Needs rsvg-convert (brew install librsvg), cwebp (brew install webp) for the
+// site's app icon and, for build/icon.icns, macOS iconutil. All text is
+// converted to outlines with opentype.js, so the SVGs render the same
+// everywhere and need no fonts installed.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { markParts, foldS } from "./mark.mjs";
+import { fold, placement, TIP, H } from "./mark.mjs";
+import { transform, toD, bbox } from "./geometry.mjs";
 
 const require = createRequire(import.meta.url);
 const opentype = require("opentype.js");
@@ -20,28 +22,39 @@ const { default: pngToIco } = require("png-to-ico");
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const at = (...p) => path.join(root, ...p);
-for (const d of ["build", "public", "brand", "src/assets"]) fs.mkdirSync(at(d), { recursive: true });
+for (const d of ["build", "public", "brand", "src/assets", "web/icons", "site/public/img"]) fs.mkdirSync(at(d), { recursive: true });
 // Intermediate rasters and SVGs that don't ship go here (check.mjs reads them).
-export const OUT = path.join(os.tmpdir(), "stratus-brand-out");
+export const OUT = path.join(os.tmpdir(), "nightjar-brand-out");
 fs.mkdirSync(OUT, { recursive: true });
 
 // ---------------------------------------------------------------- palette
 
 export const C = {
-  ember: "#FF5500",
-  emberLight: "#FF7A26",
-  emberDeep: "#FF4A00",
-  night: "#101012",
+  ember: "#EF5035", // the accent, in the app and in the mark
+  emberLight: "#FF8A4C",
+  afterglow: "#D6478A",
+  dusk: "#6650E6",
+  indigo: "#1E1A38", // icon tile, top
+  nightfall: "#0E0D1A", // icon tile, bottom; dark brand surfaces
+  night: "#101012", // app window, dark theme
   panel: "#161618",
   raised: "#1F1F22",
   mist: "#F4F4F6",
   paper: "#ECECEF",
   ink: "#121214",
 };
-const FOLD_SHADE = 0.28; // black over the ember gradient on the two turns
+const TONE = { violet: C.dusk, rose: C.afterglow, ember: C.ember };
+const MONO_OPACITY = { violet: 0.5, rose: 0.75, ember: 1 };
 
-const emberGradient = (id = "ember") =>
-  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.emberLight}"/><stop offset="1" stop-color="${C.emberDeep}"/></linearGradient>`;
+// The ember leg is the only gradient: lighter where it owns its corner, deeper
+// where it tucks under the afterglow leg at the tip.
+const markDefs = (id = "nj") =>
+  `<linearGradient id="${id}Ember" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="${C.emberLight}"/><stop offset="0.75" stop-color="${C.ember}"/></linearGradient>`;
+const tileGradient = (id = "njTile") =>
+  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.indigo}"/><stop offset="1" stop-color="${C.nightfall}"/></linearGradient>`;
+// A low ember glow at the foot of the tile, like the last light on the horizon.
+const tileGlow = (id = "njGlow") =>
+  `<radialGradient id="${id}" cx="0.5" cy="1.08" r="0.62"><stop offset="0" stop-color="${C.afterglow}" stop-opacity="0.22"/><stop offset="0.5" stop-color="${C.dusk}" stop-opacity="0.08"/><stop offset="1" stop-color="${C.dusk}" stop-opacity="0"/></radialGradient>`;
 
 // ---------------------------------------------------------------- type
 
@@ -55,12 +68,29 @@ const CAP = 1490 / 2048; // Inter cap height in em
 function measure(str, size, weight = 600, track = 0) {
   const f = fonts[weight];
   let w = 0;
-  const chars = [...str];
-  chars.forEach((ch, i) => {
-    w += (f.charToGlyph(ch).advanceWidth / f.unitsPerEm) * size;
-    if (i < chars.length - 1) w += track * size;
+  const glyphs = [...str].map((ch) => f.charToGlyph(ch));
+  glyphs.forEach((g, i) => {
+    w += (g.advanceWidth / f.unitsPerEm) * size;
+    if (i < glyphs.length - 1) w += track * size + (f.getKerningValue(g, glyphs[i + 1]) / f.unitsPerEm) * size;
   });
   return w;
+}
+
+// opentype.js's own toPathData() sometimes prints NaN for a valid coordinate,
+// so format the commands here.
+function pathData(p) {
+  const n = (v) => {
+    const s = (+v).toFixed(2);
+    return s.replace(/0+$/, "").replace(/\.$/, "");
+  };
+  return p.commands
+    .map((c) => {
+      if (c.type === "M" || c.type === "L") return `${c.type}${n(c.x)} ${n(c.y)}`;
+      if (c.type === "Q") return `Q${n(c.x1)} ${n(c.y1)} ${n(c.x)} ${n(c.y)}`;
+      if (c.type === "C") return `C${n(c.x1)} ${n(c.y1)} ${n(c.x2)} ${n(c.y2)} ${n(c.x)} ${n(c.y)}`;
+      return "Z";
+    })
+    .join("");
 }
 
 /** Text as outlined path data. anchor: start | middle | end. */
@@ -71,42 +101,72 @@ function text(str, { x, y, size, weight = 600, track = 0, anchor = "start", fill
   if (anchor === "middle") cx -= w / 2;
   if (anchor === "end") cx -= w;
   let d = "";
-  for (const ch of str) {
-    const g = f.charToGlyph(ch);
-    d += g.getPath(cx, y, size).toPathData(2);
-    cx += (g.advanceWidth / f.unitsPerEm) * size + track * size;
-  }
+  const glyphs = [...str].map((ch) => f.charToGlyph(ch));
+  glyphs.forEach((g, i) => {
+    d += pathData(g.getPath(cx, y, size));
+    let adv = (g.advanceWidth / f.unitsPerEm) * size + track * size;
+    if (i < glyphs.length - 1) adv += (f.getKerningValue(g, glyphs[i + 1]) / f.unitsPerEm) * size;
+    cx += adv;
+  });
   const op = opacity != null ? ` fill-opacity="${opacity}"` : "";
   return `<path fill="${fill}"${op} d="${d}"/>`;
 }
 
 // ---------------------------------------------------------------- mark
 
-/**
- * mode "ember": gradient with shaded folds.
- * mode "mono":  one colour, folds at reduced opacity.
- * mode "solid": one colour, no fold shading (tiny sizes, template images).
- */
-function mark({ cx, cy, w, mode = "ember", color = C.mist, t, g, gradient = "ember" }) {
-  const m = markParts({ cx, cy, w, t, g });
-  if (mode === "ember")
-    return `<path fill="url(#${gradient})" d="${m.outline}"/><path fill="#000" fill-opacity="${FOLD_SHADE}" d="${m.folds}"/>`;
-  if (mode === "mono") return `<path fill="${color}" fill-opacity="0.5" d="${m.outline}"/><path fill="${color}" d="${m.runs}"/>`;
-  return `<path fill="${color}" d="${m.outline}"/>`;
-}
-const markHeight = (w) => markParts({ cx: 0, cy: 0, w }).h;
+// Master geometry: ribbon t = 0.215 of the mark height, gap 0.022, outer
+// corners r = 0.11. The hole keeps sharp corners.
+export const MASTER = { r: 110, t: 215, gap: 22, ri: 0 };
+const GEO = fold(MASTER);
+// Small-size variants: thicker ribbon, and below 24 px no gaps at all.
+const GEO_32 = fold({ r: 120, t: 250, gap: 40, ri: 0 });
+const GEO_16 = fold({ r: 130, t: 300, gap: 0, ri: 0 });
+// Menu bar template at 16 pt: thick ribbon, gaps of about one pixel.
+const GEO_T16 = fold({ r: 130, t: 300, gap: 75, ri: 0 });
 
-/** Mark + "Stratus" on one line, vertically centred on cy. Returns { svg, width }. */
-function lockup({ x, cy, markW, textFill = C.mist, mode = "ember", color }) {
-  const mh = markHeight(markW);
-  const size = (mh * 1.02) / CAP;
-  const gap = mh * 0.5;
-  const track = -0.025;
-  const tw = measure("Stratus", size, 600, track);
+/**
+ * Mark paths for a placement {k, dx, dy}.
+ * mode "color": dusk, afterglow and an ember gradient.
+ * mode "mono":  one colour, legs at 50 / 75 / 100 % from dusk to ember.
+ * mode "solid": one colour, every leg opaque (template images, tiny sizes).
+ */
+function markPaths(geo, p, { mode = "color", color = C.mist, id = "nj" } = {}) {
+  return geo.layers
+    .map((l) => {
+      const d = toD(transform(l.shape, p.k, p.dx, p.dy));
+      if (mode === "color") return `<path fill="${l.tone === "ember" ? `url(#${id}Ember)` : TONE[l.tone]}" d="${d}"/>`;
+      if (mode === "mono") return `<path fill="${color}"${MONO_OPACITY[l.tone] < 1 ? ` fill-opacity="${MONO_OPACITY[l.tone]}"` : ""} d="${d}"/>`;
+      return `<path fill="${color}" d="${d}"/>`;
+    })
+    .join("");
+}
+/** Optically centred on (cx, cy), h tall. */
+const markCentred = (cx, cy, h, opts = {}, geo = GEO) => markPaths(geo, placement(geo.silhouette, { cx, cy, h }), opts);
+/** Top-left of the bounding box at (x, y), h tall. */
+function boxPlace(geo, x, y, h) {
+  const b = bbox(geo.silhouette);
+  const k = h / b.h;
+  return { k, dx: x - b.x0 * k, dy: y - b.y0 * k, w: b.w * k };
+}
+const markBox = (x, y, h, opts = {}, geo = GEO) => markPaths(geo, boxPlace(geo, x, y, h), opts);
+const markWidth = (h, geo = GEO) => {
+  const b = bbox(geo.silhouette);
+  return (b.w / b.h) * h;
+};
+
+/** Mark + "Nightjar" on one line, vertically centred on cy. */
+function lockup({ x, cy, markH, textFill = C.mist, mode = "color", color, id }) {
+  const size = (markH * 0.6) / CAP;
+  const gap = markH * 0.34;
+  const track = -0.02;
+  const mw = markWidth(markH);
+  const tw = measure("Nightjar", size, 600, track);
+  // Inter's x-height sits a little low against a centred triangle; nudge the
+  // baseline down 2% so the caps look centred on the mark.
   const svg =
-    mark({ cx: x + markW / 2, cy, w: markW, mode, color }) +
-    text("Stratus", { x: x + markW + gap, y: cy + (CAP * size) / 2, size, weight: 600, track, fill: textFill });
-  return { svg, width: markW + gap + tw, height: mh };
+    markBox(x, cy - markH / 2, markH, { mode, color, id }) +
+    text("Nightjar", { x: x + mw + gap, y: cy + (CAP * size) / 2 + markH * 0.02, size, weight: 600, track, fill: textFill });
+  return { svg, width: mw + gap + tw, height: markH };
 }
 
 // ---------------------------------------------------------------- docs
@@ -126,13 +186,10 @@ function png(svgPath, out, w, h = w) {
 
 // ---------------------------------------------------------------- app icons
 
-const MAC = { x: 100, y: 100, s: 824, r: 185.4 }; // Apple's 1024 grid
+const MAC = { x: 100, y: 100, s: 824 }; // Apple's 1024 grid
+const MARK_IN_TILE = 0.6; // mark height as a share of the tile
 
-/**
- * Apple's icon tile uses continuous corners rather than circular ones. A
- * superellipse with n = 5 matches it closely (its 45 degree point sits where a
- * 185.4 px circular corner's would on an 824 px tile).
- */
+/** Apple's continuous-corner tile, approximated by a superellipse (n = 5). */
 function squircle(x, y, s, n = 5, steps = 256) {
   const a = s / 2;
   const cx = x + a;
@@ -148,16 +205,24 @@ function squircle(x, y, s, n = 5, steps = 256) {
 }
 const shadowFilter = (id = "tileShadow") =>
   `<filter id="${id}" x="-10%" y="-10%" width="120%" height="125%"><feGaussianBlur stdDeviation="14"/></filter>`;
+const iconDefs = () => markDefs() + tileGradient() + tileGlow() + shadowFilter();
 
 /** The macOS tile and mark in 1024 space. */
-function macIconBody({ shadow = true, gradient = "ember", filterId = "tileShadow" } = {}) {
-  const { x, y, s, r } = MAC;
+function macIconBody({ shadow = true } = {}) {
+  const { x, y, s } = MAC;
+  const sq = squircle(x, y, s);
   return (
-    (shadow ? `<path transform="translate(0 12)" d="${squircle(x, y, s)}" fill="#000" fill-opacity="0.42" filter="url(#${filterId})"/>` : "") +
-    `<path d="${squircle(x, y, s)}" fill="${C.panel}"/>` +
-    `<path d="${squircle(x + 1.5, y + 1.5, s - 3)}" fill="none" stroke="#fff" stroke-opacity="0.07" stroke-width="3"/>` +
-    mark({ cx: 512, cy: 512, w: 590, gradient })
+    (shadow ? `<path transform="translate(0 12)" d="${sq}" fill="#000" fill-opacity="0.42" filter="url(#tileShadow)"/>` : "") +
+    `<path d="${sq}" fill="url(#njTile)"/>` +
+    `<path d="${sq}" fill="url(#njGlow)"/>` +
+    `<path d="${squircle(x + 1.5, y + 1.5, s - 3)}" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="3"/>` +
+    markCentred(512, 512, s * MARK_IN_TILE)
   );
+}
+
+/** Full-bleed square tile (iOS, Android maskable); `scale` sizes the mark. */
+function bleedBody(markH) {
+  return `<rect width="1024" height="1024" fill="url(#njTile)"/><rect width="1024" height="1024" fill="url(#njGlow)"/>` + markCentred(512, 512, markH);
 }
 
 /** Windows / favicon tile: nearly full bleed, mark a bit larger. */
@@ -166,34 +231,46 @@ function winIconBody({ small = false } = {}) {
   const s = 1024 - inset * 2;
   const r = small ? 200 : 210;
   return (
-    `<rect x="${inset}" y="${inset}" width="${s}" height="${s}" rx="${r}" fill="${C.panel}"/>` +
-    (small ? "" : `<rect x="${inset + 2}" y="${inset + 2}" width="${s - 4}" height="${s - 4}" rx="${r - 2}" fill="none" stroke="#fff" stroke-opacity="0.07" stroke-width="4"/>`) +
-    mark({ cx: 512, cy: 512, w: small ? 800 : 700, mode: small ? "solid" : "ember", color: "url(#ember)" })
+    `<rect x="${inset}" y="${inset}" width="${s}" height="${s}" rx="${r}" fill="url(#njTile)"/>` +
+    (small ? "" : `<rect x="${inset}" y="${inset}" width="${s}" height="${s}" rx="${r}" fill="url(#njGlow)"/>`) +
+    (small ? "" : `<rect x="${inset + 2}" y="${inset + 2}" width="${s - 4}" height="${s - 4}" rx="${r - 2}" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="4"/>`) +
+    (small ? markCentred(512, 512, 700, {}, GEO_16) : markCentred(512, 512, 640))
   );
 }
 
-const iconSvg = write("build/icon.svg", svgDoc(1024, 1024, macIconBody(), emberGradient() + shadowFilter()));
-const winSvg = write("brand/source/icon-windows.svg", svgDoc(1024, 1024, winIconBody(), emberGradient()));
-const winSmallSvg = write("brand/source/icon-windows-small.svg", svgDoc(1024, 1024, winIconBody({ small: true }), emberGradient()));
+const iconSvg = write("build/icon.svg", svgDoc(1024, 1024, macIconBody(), iconDefs()));
+const winSvg = write("brand/source/icon-windows.svg", svgDoc(1024, 1024, winIconBody(), iconDefs()));
+const winSmallSvg = write("brand/source/icon-windows-small.svg", svgDoc(1024, 1024, winIconBody({ small: true }), iconDefs()));
 png(iconSvg, "build/icon.png", 1024);
 
 /**
- * Hand-hinted macOS icons for the 16 and 32 px slots: same tile grid, but the
- * mark is snapped to whole pixels and drawn a little larger so the three
- * bands stay separate. 16 px drops the fold shading.
+ * Hinted macOS icons for the 16 and 32 px slots: same tile grid, but the mark
+ * is larger, the ribbon thicker, and the flat back edge and the tip land on
+ * whole pixels. 16 px also drops the gaps between the legs.
  */
+function snappedPlace(geo, size, h, nudge = 0) {
+  const b = bbox(geo.silhouette);
+  const hh = Math.round(h);
+  const k = hh / b.h;
+  // optical centre as in placement(), then snap the flat back edge to a pixel
+  const vx = (b.x0 + b.w / 2 + TIP / 3) / 2;
+  const dx = Math.round(size / 2 - vx * k) - b.x0 * k + nudge;
+  const dy = Math.round((size - hh) / 2) - b.y0 * k;
+  return { k, dx, dy };
+}
 function macSmallSvg(size) {
   const k = size / 1024;
-  const tile = `<path d="${squircle(MAC.x * k, MAC.y * k, MAC.s * k)}" fill="${C.panel}"/>`;
-  const spec = size === 16 ? { t: 2, g: 1, w: 11, cy: 8 } : { t: 4, g: 2, w: 22, cy: 16 };
-  const m = mark({ cx: size / 2, cy: spec.cy, w: spec.w, t: spec.t, g: spec.g, mode: size === 16 ? "solid" : "ember", color: "url(#ember)" });
-  return write(path.join(OUT, `icon-mac-${size}.svg`), svgDoc(size, size, tile + m, emberGradient()));
+  const tile = `<path d="${squircle(MAC.x * k, MAC.y * k, MAC.s * k)}" fill="url(#njTile)"/>`;
+  const geo = size === 16 ? GEO_16 : GEO_32;
+  const h = size === 16 ? 10 : 20;
+  const p = snappedPlace(geo, size, h);
+  return write(path.join(OUT, `icon-mac-${size}.svg`), svgDoc(size, size, tile + markPaths(geo, p), markDefs() + tileGradient()));
 }
 const macSmall = { 16: macSmallSvg(16), 32: macSmallSvg(32) };
 
 // macOS .icns
 {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stratus-")) + "/icon.iconset";
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nightjar-")) + "/icon.iconset";
   fs.mkdirSync(dir);
   const src = (px) => macSmall[px] ?? iconSvg;
   for (const base of [16, 32, 128, 256, 512]) {
@@ -206,64 +283,76 @@ const macSmall = { 16: macSmallSvg(16), 32: macSmallSvg(32) };
 
 // Windows .ico: 16 and 24 use the simplified full-bleed tile.
 {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stratus-ico-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nightjar-ico-"));
   const files = [16, 24, 32, 48, 64, 128, 256].map((s) => {
     const f = `${dir}/${s}.png`;
     execFileSync("rsvg-convert", ["-w", String(s), "-h", String(s), s <= 24 ? winSmallSvg : winSvg, "-o", f]);
     return f;
   });
-  for (const s of [16, 32, 256]) fs.copyFileSync(`${dir}/${s}.png`, path.join(OUT, `icon-windows-${s}.png`));
+  for (const s of [16, 24, 32, 48, 256]) fs.copyFileSync(`${dir}/${s}.png`, path.join(OUT, `icon-windows-${s}.png`));
   fs.writeFileSync(at("build/icon.ico"), await pngToIco(files));
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
 // ---------------------------------------------------------------- tray
 
-// Template images: black on transparent, snapped to whole pixels.
 {
-  const t1 = foldS({ t: 3, g: 1, w: 16, x0: 0, y0: 2 });
-  const t2 = foldS({ t: 6, g: 2, w: 32, x0: 0, y0: 4 });
-  const s1 = write(path.join(OUT, "trayTemplate.svg"), svgDoc(16, 16, `<path fill="#000" d="${t1.d}"/>`));
-  const s2 = write(path.join(OUT, "trayTemplate@2x.svg"), svgDoc(32, 32, `<path fill="#000" d="${t2.d}"/>`));
+  // macOS menu bar template: black on transparent. Menu bar icons sit in a
+  // 16 pt square with the glyph about 14 pt tall.
+  const s1 = write(path.join(OUT, "trayTemplate.svg"), svgDoc(16, 16, markPaths(GEO_T16, snappedPlace(GEO_T16, 16, 14), { mode: "solid", color: "#000" })));
+  const s2 = write(path.join(OUT, "trayTemplate@2x.svg"), svgDoc(32, 32, markPaths(GEO_32, snappedPlace(GEO_32, 32, 28), { mode: "solid", color: "#000" })));
   png(s1, "build/trayTemplate.png", 16);
   png(s2, "build/trayTemplate@2x.png", 32);
-  // Windows tray, coloured, on any taskbar.
-  const m = markParts({ cx: 16, cy: 15, w: 32, t: 6, g: 2 });
-  const s3 = write(
-    path.join(OUT, "tray.svg"),
-    svgDoc(32, 32, `<path fill="url(#ember)" d="${m.outline}"/><path fill="#000" fill-opacity="${FOLD_SHADE}" d="${m.folds}"/>`, emberGradient()),
-  );
+  // Windows tray, coloured, on a light or dark taskbar.
+  const s3 = write(path.join(OUT, "tray.svg"), svgDoc(32, 32, markPaths(GEO_32, snappedPlace(GEO_32, 32, 30)), markDefs()));
   png(s3, "build/tray.png", 32);
 }
 
 // ---------------------------------------------------------------- favicon
 
 {
-  const fav = write("public/favicon.svg", svgDoc(1024, 1024, winIconBody(), emberGradient()).replace(' width="1024" height="1024"', ""));
-  png(fav, "public/favicon.png", 64);
+  const fav = svgDoc(1024, 1024, winIconBody(), markDefs() + tileGradient() + tileGlow()).replace(' width="1024" height="1024"', "");
+  write("public/favicon.svg", fav);
+  png(at("public/favicon.svg"), "public/favicon.png", 64);
+}
+
+// ---------------------------------------------------------------- PWA icons
+
+{
+  // Android maskable: the mark has to stay inside the central 80% circle.
+  // The triangle's corners are about 0.58 h from its optical centre, so
+  // h = 560 keeps them inside a 410 px radius with room to spare.
+  const maskable = svgDoc(1024, 1024, `<!-- Full-bleed tile for Android maskable icons. The mark stays inside the 80% safe circle. -->` + bleedBody(560), markDefs() + tileGradient() + tileGlow());
+  write("web/icons/maskable.svg", maskable);
+  png(at("web/icons/maskable.svg"), "web/icons/maskable-512.png", 512);
+  // iOS rounds the corners itself, so the tile runs edge to edge. The mark has
+  // the same size relative to the tile as in build/icon.svg.
+  const touch = svgDoc(1024, 1024, `<!-- Full-bleed tile for iOS, which rounds the corners itself. Mark at the same size relative to the tile as build/icon.svg. -->` + bleedBody(1024 * MARK_IN_TILE), markDefs() + tileGradient() + tileGlow());
+  write("web/icons/apple-touch-icon.svg", touch);
+  png(at("web/icons/apple-touch-icon.svg"), "web/icons/apple-touch-icon.png", 180);
+  png(iconSvg, "web/icons/icon-192.png", 192);
+  png(iconSvg, "web/icons/icon-512.png", 512);
 }
 
 // ---------------------------------------------------------------- logos
 
 function tightMark(mode, color) {
-  const w = 612;
-  const h = markHeight(w);
-  const pad = 0;
-  return svgDoc(w + pad * 2, h + pad * 2, mark({ cx: w / 2 + pad, cy: h / 2 + pad, w, mode, color }), mode === "ember" ? emberGradient() : "");
+  const h = 600;
+  const w = markWidth(h);
+  return svgDoc(+w.toFixed(2), h, markBox(0, 0, h, { mode, color }), mode === "color" ? markDefs() : "");
 }
-write("brand/logo-mark.svg", tightMark("ember"));
+write("brand/logo-mark.svg", tightMark("color"));
 write(
   "src/assets/logo-mark.svg",
   tightMark("mono", "currentColor").replace(/ width="\d+(\.\d+)?" height="\d+(\.\d+)?"/, ' width="100%" height="100%"'),
 );
 
 function wordmarkDoc(textFill) {
-  const markW = 300;
-  const mh = markHeight(markW);
+  const markH = 300;
   // The letters overshoot the cap height a little, so leave room above and below.
-  const pad = Math.round(mh * 0.06);
-  const L = lockup({ x: 0, cy: mh / 2 + pad, markW, textFill });
-  return svgDoc(Math.ceil(L.width) + 4, Math.ceil(mh) + pad * 2, L.svg, emberGradient());
+  const pad = Math.round(markH * 0.04);
+  const L = lockup({ x: 0, cy: markH / 2 + pad, markH, textFill });
+  return svgDoc(Math.ceil(L.width) + 4, markH + pad * 2, L.svg, markDefs());
 }
 write("brand/logo-wordmark.svg", wordmarkDoc(C.mist));
 write("brand/logo-wordmark-light.svg", wordmarkDoc(C.ink));
@@ -281,41 +370,50 @@ function rng(seed) {
 }
 
 /**
- * A dusk sky over a stratus deck: flat cloud bands, lit from below by an
- * ember horizon, with film grain. Returns { defs, body } sized w x h.
+ * Dusk: an indigo sky that warms through afterglow to an ember horizon, a few
+ * early stars, a low dark ridge, and film grain. Returns { defs, body }.
  */
-function atmosphere(id, w, h, { horizon = 0.7, spread = 0.42, seed = 7, bands = 9, glow = 1 } = {}) {
+function atmosphere(id, w, h, { horizon = 0.72, seed = 7, stars = 40, glow = 1, ridge = true, grain = true } = {}) {
   const r = rng(seed);
   const hy = h * horizon;
   let defs =
     `<linearGradient id="${id}Sky" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop offset="0" stop-color="#0B0B0D"/><stop offset="${Math.max(0, horizon - spread)}" stop-color="#121013"/>` +
-    `<stop offset="${horizon - 0.07}" stop-color="#341407"/><stop offset="${horizon}" stop-color="#9A3606"/>` +
-    `<stop offset="${Math.min(1, horizon + 0.06)}" stop-color="#2B120A"/><stop offset="1" stop-color="#0C0A0A"/></linearGradient>` +
-    `<radialGradient id="${id}Glow" cx="0.5" cy="${horizon}" r="0.6" gradientTransform="translate(0.5 ${horizon}) scale(1 0.3) translate(-0.5 ${-horizon})">` +
-    `<stop offset="0" stop-color="${C.ember}" stop-opacity="${0.7 * glow}"/><stop offset="1" stop-color="${C.ember}" stop-opacity="0"/></radialGradient>` +
-    `<filter id="${id}Deck" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="${h * 0.02}"/></filter>` +
-    `<filter id="${id}Grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="${seed}" stitchTiles="stitch"/>` +
-    `<feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.10"/></feComponentTransfer></filter>`;
-  let body = `<rect width="${w}" height="${h}" fill="url(#${id}Sky)"/><rect width="${w}" height="${h}" fill="url(#${id}Glow)"/>`;
-  for (let i = 0; i < bands; i++) {
-    // Bands get thicker and closer together the nearer they are to the horizon.
-    const k = i / Math.max(1, bands - 1);
-    const y = hy - h * spread + Math.pow(k, 0.75) * h * (spread + 0.02) + (r() - 0.5) * h * 0.02;
-    const th = h * (0.014 + 0.05 * k) * (0.7 + r() * 0.6);
-    const len = w * (0.55 + r() * 0.6);
-    const x = (r() * 1.1 - 0.45) * w;
-    const lit = Math.max(0, 1 - Math.abs(y - hy) / (h * 0.3));
-    const blur = Math.max(1.5, th * 0.42);
-    defs += `<filter id="${id}B${i}" x="-10%" y="-300%" width="120%" height="700%"><feGaussianBlur stdDeviation="${blur.toFixed(2)}"/></filter>`;
-    // underside lit by the horizon, then the cloud body over its top half
-    body +=
-      `<rect x="${x}" y="${y + th * 0.55}" width="${len}" height="${th * 0.6}" rx="${th * 0.3}" fill="${C.emberLight}" fill-opacity="${((0.08 + 0.5 * lit) * glow).toFixed(3)}" filter="url(#${id}B${i})"/>` +
-      `<rect x="${x}" y="${y}" width="${len}" height="${th}" rx="${th / 2}" fill="#0D0A0B" fill-opacity="${(0.45 + 0.45 * k).toFixed(3)}" filter="url(#${id}B${i})"/>`;
+    `<stop offset="0" stop-color="#090811"/>` +
+    `<stop offset="${(horizon * 0.45).toFixed(3)}" stop-color="#14112A"/>` +
+    `<stop offset="${(horizon * 0.78).toFixed(3)}" stop-color="#2E1D4D"/>` +
+    `<stop offset="${(horizon * 0.93).toFixed(3)}" stop-color="#7A2E5E"/>` +
+    `<stop offset="${horizon.toFixed(3)}" stop-color="#D2523E"/>` +
+    `<stop offset="${Math.min(1, horizon + 0.001).toFixed(3)}" stop-color="#120E1A"/>` +
+    `<stop offset="1" stop-color="#0A0910"/></linearGradient>` +
+    `<radialGradient id="${id}Glow" gradientUnits="userSpaceOnUse" cx="${w * 0.5}" cy="${hy}" r="${w * 0.55}" gradientTransform="translate(0 ${hy}) scale(1 ${0.32}) translate(0 ${-hy})">` +
+    `<stop offset="0" stop-color="${C.emberLight}" stop-opacity="${0.55 * glow}"/><stop offset="0.5" stop-color="${C.afterglow}" stop-opacity="${0.16 * glow}"/><stop offset="1" stop-color="${C.dusk}" stop-opacity="0"/></radialGradient>`;
+  if (grain)
+    defs +=
+      `<filter id="${id}Grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="${seed}" stitchTiles="stitch"/>` +
+      `<feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.09"/></feComponentTransfer></filter>`;
+  let body = `<rect width="${w}" height="${h}" fill="url(#${id}Sky)"/>`;
+  // stars, densest and brightest high up
+  let st = "";
+  for (let i = 0; i < stars; i++) {
+    const sy = Math.pow(r(), 1.7) * hy * 0.7;
+    const sx = r() * w;
+    const big = r() > 0.88;
+    st += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${(big ? 1.3 : 0.7) * Math.max(1, w / 1200)}" fill="#fff" fill-opacity="${(0.25 + r() * 0.55 * (1 - sy / hy)).toFixed(2)}"/>`;
   }
-  // low deck below the horizon
-  body += `<rect x="${-w * 0.1}" y="${hy + h * 0.03}" width="${w * 1.2}" height="${h}" fill="#0C0A0A" fill-opacity="0.85" filter="url(#${id}Deck)"/>`;
-  body += `<rect width="${w}" height="${h}" filter="url(#${id}Grain)"/>`;
+  body += st;
+  body += `<rect width="${w}" height="${h}" fill="url(#${id}Glow)"/>`;
+  if (ridge) {
+    // a low ridge line along the horizon
+    const pts = [];
+    const n = 24;
+    for (let i = 0; i <= n; i++) {
+      const x = (i / n) * w;
+      const y = hy - h * (0.012 + 0.03 * Math.abs(Math.sin(i * 0.7 + seed)) * (0.4 + r() * 0.6));
+      pts.push(`${x.toFixed(1)} ${y.toFixed(1)}`);
+    }
+    body += `<path fill="#0B0910" d="M0 ${h}L${pts.join("L")}L${w} ${h}Z"/>`;
+  }
+  if (grain) body += `<rect width="${w}" height="${h}" filter="url(#${id}Grain)"/>`;
   return { defs, body };
 }
 
@@ -337,110 +435,130 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
     if (k < progress) played += rect;
     else rest += rect;
   }
-  return `<path fill="url(#ember)" d="${played}"/><path fill="${color}" fill-opacity="${opacity}" d="${rest}"/>`;
+  return `<path fill="${C.ember}" d="${played}"/><path fill="${color}" fill-opacity="${opacity}" d="${rest}"/>`;
 }
 
 // ---------------------------------------------------------------- DMG
 
 {
+  // Finder draws the icon labels in black in light mode and white in dark
+  // mode, on top of this picture. The band behind the labels (y 228 to 262)
+  // is a mid-tone mauve with a luminance near 0.16, where both black and
+  // white text get better than 4:1 contrast.
   const W = 540;
-  const H = 380;
-  const a = atmosphere("dmg", W, H, { horizon: 0.95, spread: 0.2, seed: 11, bands: 5, glow: 0.5 });
-  const L = lockup({ x: 0, cy: 0, markW: 34 });
+  const H2 = 380;
+  const id = "dmg";
+  const defs =
+    markDefs() +
+    `<linearGradient id="${id}Sky" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#0D0B18"/><stop offset="0.32" stop-color="#1C1736"/>` +
+    `<stop offset="0.55" stop-color="#5A4A7E"/><stop offset="0.6" stop-color="#76618F"/><stop offset="0.69" stop-color="#7A6290"/>` +
+    `<stop offset="0.8" stop-color="#9A5A79"/><stop offset="0.92" stop-color="#D9674A"/><stop offset="1" stop-color="#E9794A"/></linearGradient>` +
+    `<filter id="${id}Grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" stitchTiles="stitch"/>` +
+    `<feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.06"/></feComponentTransfer></filter>`;
+  const r = rng(11);
+  let stars = "";
+  for (let i = 0; i < 26; i++) {
+    const sy = Math.pow(r(), 1.6) * 120 + 6;
+    stars += `<circle cx="${(r() * W).toFixed(1)}" cy="${sy.toFixed(1)}" r="${r() > 0.85 ? 1 : 0.6}" fill="#fff" fill-opacity="${(0.3 + r() * 0.5 * (1 - sy / 130)).toFixed(2)}"/>`;
+  }
+  const L = lockup({ x: 0, cy: 0, markH: 30, id: "nj" });
   const arrow =
-    `<g fill="none" stroke="${C.mist}" stroke-opacity="0.38" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">` +
-    `<path d="M226 190H312"/><path d="M302 180l11 10-11 10"/></g>`;
+    `<g fill="none" stroke="${C.mist}" stroke-opacity="0.7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">` +
+    `<path d="M228 190H310"/><path d="M300 180l11 10-11 10"/></g>`;
   const body =
-    `<rect width="${W}" height="${H}" fill="${C.night}"/>` +
-    a.body +
-    `<g transform="translate(${(W - L.width) / 2} 44)">${L.svg}</g>` +
+    `<rect width="${W}" height="${H2}" fill="url(#${id}Sky)"/>` +
+    stars +
+    `<rect width="${W}" height="${H2}" filter="url(#${id}Grain)"/>` +
+    `<g transform="translate(${((W - L.width) / 2).toFixed(2)} 52)">${L.svg}</g>` +
     arrow +
-    text("Drag Stratus into Applications", { x: W / 2, y: 318, size: 12.5, weight: 500, anchor: "middle", fill: C.mist, opacity: 0.6, track: 0.01 });
-  const s = write("brand/source/dmg-background.svg", svgDoc(W, H, body, emberGradient() + a.defs));
-  png(s, "build/dmg-background.png", W, H);
-  png(s, "build/dmg-background@2x.png", W * 2, H * 2);
+    text("Drag Nightjar into Applications", { x: W / 2, y: 336, size: 12.5, weight: 500, anchor: "middle", fill: "#1A0E14", opacity: 0.72, track: 0.01 });
+  const s = write("brand/source/dmg-background.svg", svgDoc(W, H2, body, defs));
+  png(s, "build/dmg-background.png", W, H2);
+  png(s, "build/dmg-background@2x.png", W * 2, H2 * 2);
 }
 
 // ---------------------------------------------------------------- OG image
 
 {
   const W = 1200;
-  const H = 630;
-  const a = atmosphere("og", W, H, { horizon: 0.8, seed: 5, bands: 11 });
-  const L = lockup({ x: 0, cy: 0, markW: 132 });
+  const H2 = 630;
+  const a = atmosphere("og", W, H2, { horizon: 0.84, seed: 5, stars: 70 });
+  const L = lockup({ x: 0, cy: 0, markH: 128 });
+  const shade = `<linearGradient id="ogShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#07060D" stop-opacity="0.6"/><stop offset="0.75" stop-color="#07060D" stop-opacity="0"/></linearGradient>`;
   const body =
     a.body +
-    `<rect width="${W}" height="${H}" fill="url(#ogShade)"/>` +
-    `<g transform="translate(88 150)">${L.svg}</g>` +
-    text("Hear every layer.", { x: 86, y: 318, size: 76, weight: 600, track: -0.03, fill: C.mist }) +
-    text("An open-source SoundCloud player for macOS and Windows.", { x: 89, y: 372, size: 26, weight: 400, fill: C.mist, opacity: 0.62 });
-  const shade = `<linearGradient id="ogShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0B0B0D" stop-opacity="0.75"/><stop offset="0.7" stop-color="#0B0B0D" stop-opacity="0"/></linearGradient>`;
-  const s = write("brand/source/og-image.svg", svgDoc(W, H, body, emberGradient() + a.defs + shade));
-  png(s, "brand/og-image.png", W, H);
+    `<rect width="${W}" height="${H2}" fill="url(#ogShade)"/>` +
+    `<g transform="translate(92 236)">${L.svg}</g>` +
+    text("A free desktop and web music player", { x: 94, y: 382, size: 40, weight: 500, track: -0.015, fill: C.mist, opacity: 0.92 }) +
+    text("for SoundCloud and Spotify.", { x: 94, y: 432, size: 40, weight: 500, track: -0.015, fill: C.mist, opacity: 0.6 });
+  const s = write("brand/source/og-image.svg", svgDoc(W, H2, body, markDefs() + a.defs + shade));
+  png(s, "brand/og-image.png", W, H2);
 }
 
 // ---------------------------------------------------------------- brand board
 
 {
   const W = 2400;
-  const H = 1500;
+  const H2 = 1500;
   const M = 60;
   const G = 24;
   const PW = (W - 2 * M - 2 * G) / 3;
-  const PH = (H - 2 * M - 2 * G) / 3;
+  const PH = (H2 - 2 * M - 2 * G) / 3;
   const panels = [];
   const label = (num, name, dark = false) =>
-    text(num, { x: 36, y: 50, size: 15, weight: 600, fill: dark ? C.night : C.ember, track: 0.04 }) +
-    text(name.toUpperCase(), { x: 66, y: 50, size: 15, weight: 500, fill: dark ? C.night : C.mist, opacity: dark ? 0.75 : 0.5, track: 0.12 });
+    text(num, { x: 36, y: 50, size: 15, weight: 600, fill: dark ? C.nightfall : C.ember, track: 0.04 }) +
+    text(name.toUpperCase(), { x: 66, y: 50, size: 15, weight: 500, fill: dark ? C.nightfall : C.mist, opacity: dark ? 0.75 : 0.5, track: 0.12 });
   const bg = (fill) => `<rect width="${PW}" height="${PH}" fill="${fill}"/>`;
-  let defs = emberGradient() + shadowFilter();
+  const PANEL = "#131220";
+  let defs = iconDefs();
 
   // 1. Cover
   {
-    const L = lockup({ x: 0, cy: 0, markW: 140 });
+    const L = lockup({ x: 0, cy: 0, markH: 132 });
     panels.push(
-      bg("#131315") +
-        `<g transform="translate(${(PW - L.width) / 2} ${PH / 2 - 6})">${L.svg}</g>` +
+      bg(PANEL) +
+        `<g transform="translate(${((PW - L.width) / 2).toFixed(2)} ${PH / 2 - 4})">${L.svg}</g>` +
         label("01", "Logo") +
         text("Brand identity", { x: 36, y: PH - 34, size: 15, weight: 500, opacity: 0.45, track: 0.02 }) +
-        text("v1.0  2026", { x: PW - 36, y: PH - 34, size: 15, weight: 500, opacity: 0.45, anchor: "end", track: 0.02 }),
+        text("v2.0  2026", { x: PW - 36, y: PH - 34, size: 15, weight: 500, opacity: 0.45, anchor: "end", track: 0.02 }),
     );
   }
 
   // 2. Construction
   {
-    const w = 360;
-    const cx = PW / 2;
-    const cy = PH / 2 + 4;
-    const m = markParts({ cx, cy, w });
-    const line = `stroke="${C.mist}" stroke-opacity="0.16" stroke-width="1.5" fill="none"`;
-    const ys = [m.y0, m.y0 + m.t, m.y0 + m.p, m.y0 + m.p + m.t, m.y0 + 2 * m.p, m.y0 + 2 * m.p + m.t];
-    const xs = [m.x0, m.xL, m.xR, m.x0 + w];
-    let guides = ys.map((y) => `<path ${line} d="M24 ${y}H${PW - 24}"/>`).join("");
-    guides += xs.map((x) => `<path ${line} d="M${x} 74V${PH - 70}"/>`).join("");
-    const c1 = m.y0 + (m.p + m.t) / 2;
-    const c2 = m.y0 + 1.5 * m.p + m.t / 2;
-    const circ = `stroke="${C.ember}" stroke-opacity="0.75" stroke-width="1.5" fill="none"`;
-    guides += `<circle ${circ} cx="${m.xL}" cy="${c1}" r="${m.Ro}"/><circle ${circ} cx="${m.xL}" cy="${c1}" r="${m.Ri}"/>`;
-    guides += `<circle ${circ} cx="${m.xR}" cy="${c2}" r="${m.Ro}"/><circle ${circ} cx="${m.xR}" cy="${c2}" r="${m.Ri}"/>`;
-    const tick = (x, y1, y2, s) =>
-      `<path stroke="${C.mist}" stroke-opacity="0.6" stroke-width="1.5" fill="none" d="M${x} ${y1}V${y2}M${x - 5} ${y1}H${x + 5}M${x - 5} ${y2}H${x + 5}"/>` +
-      text(s, { x: x + 12, y: (y1 + y2) / 2 + 5.5, size: 15, weight: 500, opacity: 0.7 });
-    const dx = m.x0 + w + 44;
+    const h = 205;
+    const p = placement(GEO.silhouette, { cx: PW / 2 - 90, cy: PH / 2 - 20, h });
+    const tr = (s) => toD(transform(s, p.k, p.dx, p.dy));
+    const line = `stroke="${C.mist}" stroke-opacity="0.22" stroke-width="1.5" fill="none"`;
+    // the rounded outline, the hole (dashed) and the sharp triangle it is cut from
+    let g = `<path ${line} d="${tr(GEO.T)}"/><path ${line} stroke-dasharray="5 6" d="${tr(GEO.hole)}"/>`;
+    const sharp = [[0, 0], [TIP, H / 2], [0, H]].map(([x, y]) => [x * p.k + p.dx, y * p.k + p.dy]);
+    g += `<path stroke="${C.ember}" stroke-opacity="0.7" stroke-width="1.5" fill="none" d="M${sharp.map((q) => q.map((v) => v.toFixed(1)).join(" ")).join("L")}Z"/>`;
+    // ribbon width, measured on the back leg under the mark
+    const x0 = p.dx;
+    const t = MASTER.t * p.k;
+    const yT = sharp[2][1] + 18;
+    const tick = (xa, xb, y, s) =>
+      `<path stroke="${C.mist}" stroke-opacity="0.7" stroke-width="1.5" fill="none" d="M${xa} ${y}H${xb}M${xa} ${y - 5}V${y + 5}M${xb} ${y - 5}V${y + 5}"/>` +
+      text(s, { x: (xa + xb) / 2, y: y + 21, size: 15, weight: 500, opacity: 0.75, anchor: "middle" });
+    const legend = (y, color, s) => `<rect x="${PW - 250}" y="${y - 11}" width="14" height="14" rx="3" fill="${color}"/>` + text(s, { x: PW - 226, y, size: 14, weight: 500, opacity: 0.7 });
     panels.push(
-      bg("#131315") +
-        `<g opacity="0.92">${mark({ cx, cy, w })}</g>` +
-        guides +
-        tick(dx, m.y0, m.y0 + m.t, "t") +
-        tick(dx, m.y0 + m.t, m.y0 + m.p, "g") +
+      bg(PANEL) +
+        `<g opacity="0.9">${markPaths(GEO, p)}</g>` +
+        g +
+        tick(x0, x0 + t, yT, "t") +
+        legend(110, C.dusk, "1  back edge, owns top") +
+        legend(136, C.afterglow, "2  upper edge, owns tip") +
+        legend(162, C.ember, "3  lower edge, owns base") +
         label("02", "Construction") +
-        text("One band, folded twice. t : g = 15 : 8, turns on concentric circles.", { x: 36, y: PH - 34, size: 15, weight: 500, opacity: 0.45 }),
+        text("One ribbon, three legs. Each leg passes over the next. t = 0.215 h, gap = 0.022 h.", { x: 36, y: PH - 34, size: 15, weight: 500, opacity: 0.45 }),
     );
   }
 
   // 3. Dock and menu bar
   {
-    const a = atmosphere("p3", PW, PH, { horizon: 0.62, seed: 21, bands: 8 });
+    const a = atmosphere("p3", PW, PH, { horizon: 0.66, seed: 21, stars: 50, grain: false });
     defs += a.defs;
     const n = 6;
     const icon = 78;
@@ -455,7 +573,7 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
       const glyph = [
         `<circle cx="${x + icon / 2}" cy="${y + icon / 2}" r="${s * 0.22}" fill="#9A9AA0"/>`,
         `<rect x="${x + icon / 2 - s * 0.22}" y="${y + icon / 2 - s * 0.22}" width="${s * 0.44}" height="${s * 0.44}" rx="${s * 0.08}" fill="#6B6C72"/>`,
-        `<path d="M${x + icon / 2} ${y + o + s * 0.26}L${x + icon / 2 + s * 0.24} ${y + o + s * 0.72}H${x + icon / 2 - s * 0.24}Z" fill="#9A9AA0"/>`,
+        `<circle cx="${x + icon / 2}" cy="${y + icon / 2}" r="${s * 0.2}" fill="none" stroke="#9A9AA0" stroke-width="${s * 0.07}"/>`,
         `<circle cx="${x + icon / 2}" cy="${y + icon / 2}" r="${s * 0.24}" fill="none" stroke="#7A8592" stroke-width="${s * 0.08}"/>`,
         `<rect x="${x + o + s * 0.24}" y="${y + icon / 2 - s * 0.05}" width="${s * 0.52}" height="${s * 0.1}" rx="${s * 0.05}" fill="#8E8E94"/>`,
         "",
@@ -463,35 +581,34 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
       return `<rect x="${x + o}" y="${y + o}" width="${s}" height="${s}" rx="${s * 0.225}" fill="${fills[i]}"/>${glyph}`;
     };
     let dock = `<rect x="${dx}" y="${dy}" width="${dw}" height="${icon + 18}" rx="24" fill="#fff" fill-opacity="0.13" stroke="#fff" stroke-opacity="0.2" stroke-width="1"/>`;
-    const order = [0, 1, 2, "S", 3, 4];
+    const order = [0, 1, 2, "N", 3, 4];
     order.forEach((k, i) => {
       const x = dx + 9 + i * pitch + (pitch - icon) / 2;
       const y = dy + 9;
-      if (k === "S") {
+      if (k === "N") {
         dock += `<g transform="translate(${x} ${y}) scale(${icon / 1024})">${macIconBody()}</g>`;
         dock += `<circle cx="${x + icon / 2}" cy="${dy + icon + 14}" r="2.5" fill="${C.mist}" fill-opacity="0.85"/>`;
-        const tw = measure("Stratus", 15, 500) + 28;
-        dock += `<rect x="${x + icon / 2 - tw / 2}" y="${dy - 46}" width="${tw}" height="30" rx="8" fill="#1E1E21" fill-opacity="0.92" stroke="#fff" stroke-opacity="0.12"/>`;
-        dock += text("Stratus", { x: x + icon / 2, y: dy - 26, size: 15, weight: 500, anchor: "middle" });
+        const tw = measure("Nightjar", 15, 500) + 28;
+        dock += `<rect x="${x + icon / 2 - tw / 2}" y="${dy - 46}" width="${tw}" height="30" rx="8" fill="#1E1C2A" fill-opacity="0.92" stroke="#fff" stroke-opacity="0.12"/>`;
+        dock += text("Nightjar", { x: x + icon / 2, y: dy - 26, size: 15, weight: 500, anchor: "middle" });
       } else dock += placeholder(k, x, y);
     });
-    // Menu bar with the template icon.
-    const tray = foldS({ t: 3.4, g: 1.4, w: 19, x0: PW - 140, y0: 12 });
     const menubar =
       `<rect width="${PW}" height="36" fill="#000" fill-opacity="0.32"/>` +
-      `<path fill="${C.mist}" d="${tray.d}"/>` +
+      markBox(PW - 152, 10, 16, { mode: "solid", color: C.mist }, GEO_T16) +
       text("Fri 9:41", { x: PW - 36, y: 23.5, size: 14, weight: 500, anchor: "end" });
     panels.push(a.body + menubar + dock + `<g transform="translate(0 30)">${label("03", "Dock")}</g>`);
   }
 
   // 4. Promise
   {
+    defs += `<linearGradient id="promise" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="${C.ember}"/><stop offset="1" stop-color="#E2453A"/></linearGradient>`;
     panels.push(
-      `<rect width="${PW}" height="${PH}" fill="${C.ember}"/>` +
+      `<rect width="${PW}" height="${PH}" fill="url(#promise)"/>` +
         label("04", "Promise", true) +
-        text("Hear every", { x: 34, y: 268, size: 96, weight: 600, track: -0.035, fill: C.night }) +
-        text("layer.", { x: 34, y: 366, size: 96, weight: 600, track: -0.035, fill: C.night }) +
-        `<g opacity="0.9">${mark({ cx: PW - 36 - 45, cy: 366 - 26, w: 90, mode: "solid", color: C.night })}</g>`,
+        text("Sings after", { x: 34, y: 268, size: 96, weight: 600, track: -0.035, fill: C.nightfall }) +
+        text("dark.", { x: 34, y: 366, size: 96, weight: 600, track: -0.035, fill: C.nightfall }) +
+        `<g opacity="0.92">${markBox(PW - 36 - markWidth(84), 366 - 72, 84, { mode: "solid", color: C.nightfall })}</g>`,
     );
   }
 
@@ -499,29 +616,38 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
   {
     const sw = (x, y, w, h, fill, name, hex, dark, stroke = false) =>
       `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="${fill}"${stroke ? ` stroke="#fff" stroke-opacity="0.1"` : ""}/>` +
-      text(name, { x: x + 16, y: y + h - 38, size: 16, weight: 600, fill: dark ? C.night : C.mist }) +
-      text(hex, { x: x + 16, y: y + h - 16, size: 14, weight: 500, fill: dark ? C.night : C.mist, opacity: 0.7, track: 0.02 });
+      text(name, { x: x + 16, y: y + h - 38, size: 16, weight: 600, fill: dark ? C.nightfall : C.mist }) +
+      text(hex, { x: x + 16, y: y + h - 16, size: 14, weight: 500, fill: dark ? C.nightfall : C.mist, opacity: 0.7, track: 0.02 });
     const x0 = 36;
     const full = PW - 72;
     let s = "";
-    s += sw(x0, 76, full * 0.62, 176, "url(#ember)", "Ember", "#FF5500", true);
-    s += sw(x0 + full * 0.62 + 12, 76, full * 0.38 - 12, 176, C.emberLight, "Ember Light", "#FF7A26", true);
+    const top = [
+      [C.ember, "Ember", C.ember, true, 0.4],
+      [C.afterglow, "Afterglow", C.afterglow, true, 0.3],
+      [C.dusk, "Dusk", C.dusk, false, 0.3],
+    ];
+    let x = x0;
+    top.forEach(([f, nm, hx, dark, share]) => {
+      const w = full * share - (share === 0.3 ? 8 : 8);
+      s += sw(x, 76, w, 176, f, nm, hx.toUpperCase(), dark);
+      x += w + 12;
+    });
     const neutrals = [
-      [C.night, "Night", "#101012", false, true],
-      [C.panel, "Panel", "#161618", false, true],
-      [C.raised, "Raised", "#1F1F22", false, true],
-      [C.mist, "Mist", "#F4F4F6", true],
-      [C.paper, "Paper", "#ECECEF", true],
+      [C.nightfall, "Nightfall", C.nightfall, false, true],
+      [C.indigo, "Indigo", C.indigo, false, true],
+      [C.night, "Night", C.night, false, true],
+      [C.mist, "Mist", C.mist, true],
+      [C.paper, "Paper", C.paper, true],
     ];
     const nw = (full - 4 * 12) / 5;
-    neutrals.forEach(([f, nm, hx, dark, st], i) => (s += sw(x0 + i * (nw + 12), 264, nw, 140, f, nm, hx, dark, st)));
-    panels.push(bg("#131315") + label("05", "Colour") + s);
+    neutrals.forEach(([f, nm, hx, dark, st], i) => (s += sw(x0 + i * (nw + 12), 264, nw, 140, f, nm, hx.toUpperCase(), dark, st)));
+    panels.push(bg(PANEL) + label("05", "Colour") + s);
   }
 
   // 6. Type
   {
     panels.push(
-      bg("#131315") +
+      bg(PANEL) +
         label("06", "Type") +
         text("Aa", { x: 30, y: 300, size: 220, weight: 600, track: -0.04 }) +
         text("Inter", { x: 336, y: 132, size: 46, weight: 600, track: -0.02 }) +
@@ -537,11 +663,18 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
   {
     const sizes = [128, 64, 32, 16];
     const split = 252;
-    const row = (cy, shadow) => {
+    const smallImg = (sz, x, y) => {
+      if (sz > 32) return `<g transform="translate(${x} ${y}) scale(${sz / 1024})">${macIconBody()}</g>`;
+      // the hinted rasters, embedded as they ship
+      const f = path.join(OUT, `icon-mac-${sz}.png`);
+      png(macSmall[sz], f, sz);
+      return `<image x="${x}" y="${y}" width="${sz}" height="${sz}" href="data:image/png;base64,${fs.readFileSync(f).toString("base64")}"/>`;
+    };
+    const row = (cy) => {
       let x = 40;
       let s = "";
       for (const sz of sizes) {
-        s += `<g transform="translate(${x} ${cy - sz / 2}) scale(${sz / 1024})">${macIconBody({ shadow })}</g>`;
+        s += smallImg(sz, x, cy - sz / 2);
         x += sz + 40;
       }
       return s;
@@ -558,19 +691,21 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
       const w = 210;
       const x = PW - 36 - w;
       const fg = light ? "#000" : "#fff";
+      const tpl = path.join(OUT, "tray-board.png");
       return (
         `<rect x="${x}" y="${y}" width="${w}" height="30" rx="8" fill="${light ? "#fff" : "#2A2A2E"}" fill-opacity="0.9"/>` +
-        `<path fill="${fg}" d="${foldS({ t: 3, g: 1, w: 16, x0: x + 92, y0: y + 9.5 }).d}"/>` +
-        text("Fri 9:41", { x: x + w - 14, y: y + 20, size: 13, weight: 500, anchor: "end", fill: fg })
+        markBox(x + 90, y + 7, 16, { mode: "solid", color: fg }, GEO_T16) +
+        text("Fri 9:41", { x: x + w - 14, y: y + 20, size: 13, weight: 500, anchor: "end", fill: fg }) +
+        (void tpl, "")
       );
     };
     panels.push(
-      bg("#131315") +
+      bg(PANEL) +
         `<rect y="${split}" width="${PW}" height="${PH - split}" fill="${C.paper}"/>` +
         label("07", "Icon") +
-        row(150, true) +
+        row(150) +
         labels +
-        row(split + 96, true) +
+        row(split + 96) +
         bar(136, false) +
         bar(split + 82, true) +
         text("menu bar template", { x: PW - 36, y: split - 18, size: 13, weight: 500, anchor: "end", opacity: 0.45 }),
@@ -579,13 +714,13 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
 
   // 8. Atmosphere
   {
-    const a = atmosphere("p8", PW, PH, { horizon: 0.76, spread: 0.6, seed: 9, bands: 13 });
+    const a = atmosphere("p8", PW, PH, { horizon: 0.78, seed: 9, stars: 90 });
     defs += a.defs;
     panels.push(
       a.body +
         label("08", "Atmosphere") +
-        text("Dusk over a stratus deck.", { x: 36, y: PH - 34, size: 15, weight: 500, opacity: 0.6 }) +
-        `<g opacity="0.95">${mark({ cx: PW - 36 - 24, cy: PH - 40, w: 48, mode: "solid", color: C.mist })}</g>`,
+        text("Dusk, when the nightjar starts to sing.", { x: 36, y: PH - 34, size: 15, weight: 500, opacity: 0.7 }) +
+        `<g opacity="0.95">${markBox(PW - 36 - markWidth(44), PH - 40 - 30, 44, { mode: "solid", color: C.mist })}</g>`,
     );
   }
 
@@ -594,7 +729,6 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
     const ox = 36;
     const bw = PW - 72;
     let s = bg(C.night) + label("09", "Interface");
-    // chrome bar
     s += `<rect x="${ox}" y="78" width="${bw}" height="64" rx="12" fill="${C.panel}" stroke="#fff" stroke-opacity="0.06"/>`;
     [0, 1, 2].forEach((i) => (s += `<circle cx="${ox + 22 + i * 20}" cy="110" r="6" fill="#3A3A3F"/>`));
     const tx = ox + 104;
@@ -604,13 +738,12 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
     const lx = ox + 210;
     const lw = 300;
     s += `<rect x="${lx}" y="86" width="${lw}" height="48" rx="9" fill="#fff" fill-opacity="0.06" stroke="#fff" stroke-opacity="0.08"/>`;
-    s += `<rect x="${lx}" y="86" width="48" height="48" rx="9" fill="url(#ember)"/>`;
-    s += `<path fill="${C.night}" fill-opacity="0.35" d="M${lx + 9} 86h39v48h-48v-39z"/>`;
+    defs += `<linearGradient id="art" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E1D4D"/><stop offset="0.7" stop-color="#7A2E5E"/><stop offset="1" stop-color="#D2523E"/></linearGradient>`;
+    s += `<rect x="${lx}" y="86" width="48" height="48" rx="9" fill="url(#art)"/>`;
     s += text("Low Tide", { x: lx + 48 + (lw - 48) / 2, y: 104, size: 13, weight: 600, anchor: "middle" });
     s += text("Marlow", { x: lx + 48 + (lw - 48) / 2, y: 119, size: 12, weight: 400, anchor: "middle", opacity: 0.6 });
     s += waveform({ x: lx + 58, y: 123, w: lw - 68, h: 8, bar: 2, gap: 1, progress: 0.38, seed: 4 });
     [0, 1].forEach((i) => (s += `<circle cx="${ox + bw - 26 - i * 26}" cy="110" r="7" fill="none" stroke="${C.mist}" stroke-opacity="0.55" stroke-width="2"/>`));
-    // big waveform with timed comments
     const wy = 180;
     s += waveform({ x: ox, y: wy, w: bw, h: 112, bar: 3, gap: 1.5, progress: 0.42, seed: 8 });
     s += `<rect x="${ox}" y="${wy + 113}" width="${bw}" height="1" fill="#fff" fill-opacity="0.08"/>`;
@@ -624,28 +757,42 @@ function waveform({ x, y, w, h, bar = 3, gap = 1, progress = 0.4, seed = 3, colo
     const bwid = measure(bubble, 13, 500) + 24;
     s += `<rect x="${bx}" y="${wy + 144}" width="${bwid}" height="28" rx="14" fill="${C.raised}"/>`;
     s += text(bubble, { x: bx + 12, y: wy + 162.5, size: 13, weight: 500, opacity: 0.85 });
-    // chips
     const chips = ["Timed comments", "Immersive", "Spotify import"];
     let cx = ox;
     chips.forEach((c, i) => {
       const cw = measure(c, 13, 500) + 28;
       const on = i === 0;
       s += `<rect x="${cx}" y="${PH - 66}" width="${cw}" height="30" rx="15" fill="${on ? C.ember : "#fff"}" fill-opacity="${on ? 1 : 0.07}"/>`;
-      s += text(c, { x: cx + 14, y: PH - 46, size: 13, weight: 500, fill: on ? C.night : C.mist, opacity: on ? 1 : 0.8 });
+      s += text(c, { x: cx + 14, y: PH - 46, size: 13, weight: 500, fill: on ? "#fff" : C.mist, opacity: on ? 1 : 0.8 });
       cx += cw + 10;
     });
     panels.push(s);
   }
 
-  let body = `<rect width="${W}" height="${H}" fill="#0A0A0B"/>`;
+  let body = `<rect width="${W}" height="${H2}" fill="#09080F"/>`;
   panels.forEach((p, i) => {
     const x = M + (i % 3) * (PW + G);
     const y = M + Math.floor(i / 3) * (PH + G);
     defs += `<clipPath id="clip${i}"><rect width="${PW}" height="${PH}" rx="18"/></clipPath>`;
     body += `<g transform="translate(${x} ${y})"><g clip-path="url(#clip${i})">${p}</g></g>`;
   });
-  const s = write("brand/brand-board.svg", svgDoc(W, H, body, defs));
-  png(s, "brand/brand-board.png", W, H);
+  const s = write("brand/brand-board.svg", svgDoc(W, H2, body, defs));
+  png(s, "brand/brand-board.png", W, H2);
+}
+
+// ---------------------------------------------------------------- site copies
+
+// The marketing site only serves site/public, so it keeps its own copies.
+{
+  fs.copyFileSync(at("brand/logo-mark.svg"), at("site/public/logo-mark.svg"));
+  fs.copyFileSync(at("brand/logo-wordmark.svg"), at("site/public/logo-wordmark.svg"));
+  fs.copyFileSync(at("brand/og-image.png"), at("site/public/og-image.png"));
+  fs.copyFileSync(at("public/favicon.svg"), at("site/public/favicon.svg"));
+  fs.copyFileSync(at("public/favicon.png"), at("site/public/favicon.png"));
+  fs.copyFileSync(at("web/icons/apple-touch-icon.png"), at("site/public/apple-touch-icon.png"));
+  const tmp = path.join(OUT, "app-icon-256.png");
+  png(iconSvg, tmp, 256);
+  execFileSync("cwebp", ["-quiet", "-q", "92", "-alpha_q", "100", tmp, "-o", at("site/public/img/app-icon.webp")]);
 }
 
 console.log("done");

@@ -20,7 +20,7 @@ wrangler.jsonc         Worker config
 
 ## Logo and icons
 
-The brand files come from `brand/` and `public/` in the main repo and are copied here, because the site only serves what's inside `site/public/`. If the logo changes, copy the new versions over these files and redeploy. The HTML only refers to them by path.
+The brand files come from `brand/`, `public/` and `web/icons/` in the main repo and are copied here, because the site only serves what's inside `site/public/`. `node brand/source/generate.mjs` writes these copies. The HTML only refers to them by path.
 
 | File | Source in the repo | Used for |
 | --- | --- | --- |
@@ -28,8 +28,8 @@ The brand files come from `brand/` and `public/` in the main repo and are copied
 | `public/logo-mark.svg` | `brand/logo-mark.svg` | 404 and "coming soon" pages |
 | `public/og-image.png` | `brand/og-image.png` | Social preview |
 | `public/favicon.svg`, `public/favicon.png` | `public/favicon.*` | Favicon |
-| `public/apple-touch-icon.png` | `build/icon.png`, resized to 180 px | iOS home screen |
-| `public/img/app-icon.webp` | `build/icon.png`, resized to 256 px | Open source section |
+| `public/apple-touch-icon.png` | `web/icons/apple-touch-icon.png` (full bleed, 180 px) | iOS home screen |
+| `public/img/app-icon.webp` | `build/icon.svg`, rendered at 256 px | Open source section |
 
 Colours and type follow `brand/README.md`: Ember `#FF5500` as the only accent, Night `#101012` for the page, Panel and Raised for surfaces, Mist for text, and Inter at 400, 500 and 600.
 

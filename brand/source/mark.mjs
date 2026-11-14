@@ -1,125 +1,120 @@
-// Geometry for the Stratus mark and the two concepts it beat.
-// Every function returns SVG path data in its own coordinate box so callers
-// can place it with a transform.
+// Geometry for the Nightjar mark and the two concepts it was compared with.
+// Everything is built in a 1000-unit box: a play triangle with its flat side
+// on the left (x = 0, y = 0..1000) and its tip at (866, 500).
+// Each concept returns { layers: [{ shape, tone }], silhouette } where tone is
+// a palette key and layers are listed back to front.
+import { round, union, subtract, intersect, offset, bbox, quadPoints } from "./geometry.mjs";
 
-const n = (v) => +v.toFixed(3);
+export const H = 1000;
+export const TIP = (Math.sqrt(3) / 2) * H;
+const A = [0, 0];
+const B = [0, H];
+const C = [TIP, H / 2];
+export const triangle = (r) => round([[A, C, B]], r);
+
+const unit = (x, y) => {
+  const l = Math.hypot(x, y);
+  return [x / l, y / l];
+};
+
+/** Long band along the line p->q, `t` wide, on the side of the normal n. */
+function strip(p, q, t, n) {
+  const [ux, uy] = unit(q[0] - p[0], q[1] - p[1]);
+  const L = 4000;
+  const a = [p[0] - ux * L, p[1] - uy * L];
+  const b = [q[0] + ux * L, q[1] + uy * L];
+  return [[a, b, [b[0] + n[0] * t, b[1] + n[1] * t], [a[0] + n[0] * t, a[1] + n[1] * t]]];
+}
+// inward normals of the three edges
+const N_LEFT = [1, 0];
+const N_TOP = unit(C[1] - A[1], -(C[0] - A[0])).map((v) => -v);
+const N_BOT = unit(C[1] - B[1], -(C[0] - B[0]));
 
 /**
- * "Fold S": one band that folds back on itself twice. The three horizontal
- * runs are the stratus layers, the two turns make the S.
- *
- *   t  band thickness
- *   g  gap between bands
- *   w  overall width
- *   x0, y0  top-left of the bounding box
- *   cap  "round" or "butt" terminals
- *   inset  how far the terminals stop short of the outer edge
+ * A, "Prism": three translucent ribbons, one along each edge. Where two cross
+ * at a corner they mix, which gives the triangle bright vertices and a small
+ * open centre.
  */
-export function foldS({ t, g, w, x0 = 0, y0 = 0, cap = "round", inset = 0 }) {
-  const p = t + g; // band pitch
-  const Ro = (p + t) / 2; // outer turn radius
-  const Ri = g / 2; // inner turn radius
-  const xL = x0 + Ro; // centre x of the left turn
-  const xR = x0 + w - Ro; // centre x of the right turn
-  const r = t / 2;
-  // Terminal positions: the top band ends on the right, the bottom on the left.
-  const xa = x0 + w - inset - (cap === "round" ? r : 0);
-  const xb = x0 + inset + (cap === "round" ? r : 0);
-  const Y = (v) => n(y0 + v);
-  const X = n;
-
-  const d = [];
-  d.push(`M${X(xa)} ${Y(0)}`);
-  d.push(`L${X(xL)} ${Y(0)}`);
-  d.push(`A${n(Ro)} ${n(Ro)} 0 0 0 ${X(xL)} ${Y(p + t)}`);
-  d.push(`L${X(xR)} ${Y(p + t)}`);
-  d.push(`A${n(Ri)} ${n(Ri)} 0 0 1 ${X(xR)} ${Y(2 * p)}`);
-  d.push(`L${X(xb)} ${Y(2 * p)}`);
-  if (cap === "round") d.push(`A${n(r)} ${n(r)} 0 0 0 ${X(xb)} ${Y(2 * p + t)}`);
-  else d.push(`L${X(xb)} ${Y(2 * p + t)}`);
-  d.push(`L${X(xR)} ${Y(2 * p + t)}`);
-  d.push(`A${n(Ro)} ${n(Ro)} 0 0 0 ${X(xR)} ${Y(p)}`);
-  d.push(`L${X(xL)} ${Y(p)}`);
-  d.push(`A${n(Ri)} ${n(Ri)} 0 0 1 ${X(xL)} ${Y(t)}`);
-  d.push(`L${X(xa)} ${Y(t)}`);
-  if (cap === "round") d.push(`A${n(r)} ${n(r)} 0 0 0 ${X(xa)} ${Y(0)}`);
-  d.push("Z");
-  return { d: d.join(""), width: w, height: 3 * t + 2 * g };
-}
-
-/** Proportions of the master mark, as fractions of its width. */
-export const MARK = { t: 90 / 612, g: 48 / 612 };
-MARK.h = 3 * MARK.t + 2 * MARK.g;
-
-/**
- * The master mark, centred on (cx, cy) at width w, split into parts:
- *   outline  the whole S as one shape
- *   runs     the three horizontal bands
- *   folds    the two half-ring turns (drawn darker so they read as the
- *            ribbon passing behind itself)
- */
-export function markParts({ cx, cy, w, t = w * MARK.t, g = w * MARK.g }) {
-  // t and g can be overridden to snap the mark to a pixel grid at small sizes.
-  const h = 3 * t + 2 * g;
-  const x0 = cx - w / 2;
-  const y0 = cy - h / 2;
-  const p = t + g;
-  const Ro = (p + t) / 2;
-  const Ri = g / 2;
-  const r = t / 2;
-  const xL = x0 + Ro;
-  const xR = x0 + w - Ro;
-  const xa = x0 + w - r;
-  const xb = x0 + r;
-  const outline = foldS({ t, g, w, x0, y0 }).d;
-  const runs =
-    `M${n(xL)} ${n(y0)}H${n(xa)}A${n(r)} ${n(r)} 0 0 1 ${n(xa)} ${n(y0 + t)}H${n(xL)}Z` +
-    `M${n(xL)} ${n(y0 + p)}H${n(xR)}V${n(y0 + p + t)}H${n(xL)}Z` +
-    `M${n(xR)} ${n(y0 + 2 * p)}H${n(xb)}A${n(r)} ${n(r)} 0 0 0 ${n(xb)} ${n(y0 + 2 * p + t)}H${n(xR)}Z`;
-  const folds =
-    `M${n(xL)} ${n(y0)}A${n(Ro)} ${n(Ro)} 0 0 0 ${n(xL)} ${n(y0 + p + t)}V${n(y0 + p)}A${n(Ri)} ${n(Ri)} 0 0 1 ${n(xL)} ${n(y0 + t)}Z` +
-    `M${n(xR)} ${n(y0 + p)}A${n(Ro)} ${n(Ro)} 0 0 1 ${n(xR)} ${n(y0 + 2 * p + t)}V${n(y0 + 2 * p)}A${n(Ri)} ${n(Ri)} 0 0 0 ${n(xR)} ${n(y0 + p + t)}Z`;
-  return { outline, runs, folds, t, g, h, x0, y0, p, Ro, Ri, xL, xR };
-}
-
-/** Rounded horizontal bar (pill). */
-export function pill(x, y, w, h) {
-  const r = h / 2;
-  return `M${n(x + r)} ${n(y)}H${n(x + w - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w - r)} ${n(y + h)}H${n(x + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + r)} ${n(y)}Z`;
+export function prism({ r = 120, t = 200, ri = 30 } = {}) {
+  const T = triangle(r);
+  const left = round(intersect(T, strip(A, B, t, N_LEFT)), ri);
+  const top = round(intersect(T, strip(A, C, t, N_TOP)), ri);
+  const bot = round(intersect(T, strip(B, C, t, N_BOT)), ri);
+  return {
+    layers: [
+      { shape: left, tone: "violet", opacity: 0.92 },
+      { shape: top, tone: "rose", opacity: 0.8 },
+      { shape: bot, tone: "ember", opacity: 0.8 },
+    ],
+    silhouette: union(union(left, top), bot),
+  };
 }
 
 /**
- * Concept A, "Strata": four drifting bands whose lengths follow a waveform
- * envelope turned on its side.
+ * B, "Fold": one ribbon wound round the three edges. Each corner belongs to
+ * one leg, which passes over the next with a hairline gap, so the loop reads
+ * as a single band tucked under itself. The colour steps from violet to ember
+ * along its length.
  */
-export function strata({ size, x0 = 0, y0 = 0 }) {
-  const t = size * 0.15;
-  const g = size * 0.083;
-  const rows = [
-    [0.34, 0.86],
-    [0.1, 1.0],
-    [0.0, 0.78],
-    [0.22, 0.62],
-  ];
-  return rows
-    .map(([a, b], i) => pill(x0 + a * size, y0 + i * (t + g), (b - a) * size, t))
-    .join("");
+export function fold({ r = 110, t = 220, gap = 22, ri = 0 } = {}) {
+  const T = triangle(r);
+  const hole = round(offset(T, -t), ri);
+  const ring = subtract(T, hole);
+  // Each band is exactly t wide, so its inner edge lies on the hole's edge.
+  const band = (p, q, n) => intersect(ring, strip(p, q, t, n));
+  const L = band(A, B, N_LEFT);
+  const Tp = band(A, C, N_TOP);
+  const Bt = band(B, C, N_BOT);
+  // left owns corner A, top owns the tip, bottom owns corner B
+  const g = (s) => (gap > 0 ? offset(s, gap) : s);
+  const left = subtract(L, g(Bt));
+  const top = subtract(Tp, g(left));
+  const bot = subtract(Bt, g(top));
+  return {
+    layers: [
+      { shape: bot, tone: "ember" },
+      { shape: top, tone: "rose" },
+      { shape: left, tone: "violet" },
+    ],
+    silhouette: T,
+    hole,
+    T,
+    params: { r, t, gap, ri },
+  };
 }
 
 /**
- * Concept C, "Horizon": a disc (record, sun) whose lower half breaks into
- * horizontal layers. Returns path data for the disc and the cut rectangles,
- * meant to be used with the cuts as a mask.
+ * C, "Wing": a violet play shape with an ember crescent along its underside.
+ * The crescent runs out past the back corner into a short pointed tail, so
+ * the outline hints at a bird gliding right.
  */
-export function horizon({ size, x0 = 0, y0 = 0 }) {
-  const r = size / 2;
-  const cx = x0 + r;
-  const cy = y0 + r;
-  const disc = `M${n(cx - r)} ${n(cy)}A${n(r)} ${n(r)} 0 1 1 ${n(cx + r)} ${n(cy)}A${n(r)} ${n(r)} 0 1 1 ${n(cx - r)} ${n(cy)}Z`;
-  const cuts = [
-    [0.5, 0.035],
-    [0.64, 0.05],
-    [0.78, 0.065],
-  ].map(([at, h]) => `M${n(x0 - 2)} ${n(y0 + at * size)}h${n(size + 4)}v${n(h * size)}h${n(-size - 4)}Z`);
-  return { disc, cuts: cuts.join("") };
+export function wing({ r = 120, thick = 0.13, tail = [-60, 40], gap = 24, tipInset = 40 } = {}) {
+  const T = triangle(r);
+  const [ux, uy] = unit(C[0] - B[0], C[1] - B[1]);
+  const p0 = [B[0] + tail[0], B[1] + tail[1]];
+  const p2 = [C[0] - ux * tipInset, C[1] - uy * tipInset];
+  const mid = [(B[0] + C[0]) / 2, (B[1] + C[1]) / 2];
+  const n = N_BOT; // points into the triangle
+  const inner = quadPoints(p0, [mid[0] + n[0] * thick * H * 2, mid[1] + n[1] * thick * H * 2], p2, 96);
+  const outer = quadPoints(p0, [mid[0] - n[0] * 30, mid[1] - n[1] * 30], p2, 96);
+  const cres = [[...outer, ...inner.reverse()]];
+  const crescent = round(cres, 14);
+  const body = subtract(T, offset(crescent, gap));
+  return {
+    layers: [
+      { shape: body, tone: "violet" },
+      { shape: crescent, tone: "ember" },
+    ],
+    silhouette: union(T, crescent),
+  };
+}
+
+/** Place a shape so the play triangle looks centred on (cx, cy) at height h. */
+export function placement(silhouette, { cx, cy, h }) {
+  const b = bbox(silhouette);
+  const k = h / b.h;
+  // A triangle looks left-heavy when its box is centred. Put the point halfway
+  // between the box centre and the centroid on the centre instead.
+  const vx = (b.x0 + b.w / 2 + TIP / 3) / 2;
+  return { k, dx: cx - vx * k, dy: cy - (b.y0 + b.h / 2) * k, b };
 }
