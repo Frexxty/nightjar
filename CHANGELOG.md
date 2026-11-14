@@ -2,6 +2,12 @@
 
 Each release's section becomes its GitHub release notes and the notes shown in the in-app update dialog. Add a section before tagging.
 
+## 0.3.1
+
+- The macOS and Windows apps are now VMP-signed by castlabs, which Spotify's DRM requires on those systems. In 0.3.0 Spotify tracks stopped after about a second with "Playback error"; this release fixes that.
+- Your Spotify sign-in is kept in your Stratus account, so you connect Spotify once and every device signed in to Stratus is connected. A new device skips the "Spotify or SoundCloud" question.
+- Linux download on the website.
+
 ## 0.3.0
 
 Stratus can now play Spotify's own audio with a Spotify Premium account, so imported playlists play complete instead of being matched on SoundCloud.
