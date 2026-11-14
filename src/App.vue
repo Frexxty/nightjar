@@ -121,7 +121,10 @@ onBeforeUnmount(() => {
     <AppSidebar v-if="!isPhone" />
     <div class="column">
       <AppChrome v-if="!isPhone" />
-      <PhoneHeader v-else :scrolled="scrolled" :content="content" />
+      <template v-else>
+        <div v-if="!isWebBuild" class="compact-titlebar drag" />
+        <PhoneHeader :scrolled="scrolled" :content="content" />
+      </template>
       <div class="panel">
         <main ref="content" class="content" @scroll.passive="onScroll">
           <RouterView v-slot="{ Component }">
@@ -159,6 +162,7 @@ onBeforeUnmount(() => {
 .app { display: flex; height: 100%; }
 .column { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .panel {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -190,6 +194,8 @@ onBeforeUnmount(() => {
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
 
 /* Phone layout: header on top, pages scroll under the floating mini player and the tab bar. */
+.compact-titlebar { height: 40px; flex: none; }
+:root:not([data-platform="darwin"]) .compact-titlebar { height: 52px; }
 .phone { height: 100dvh; }
 .phone .column { position: relative; }
 .phone .panel { border-radius: 0; box-shadow: none; background: var(--window); }

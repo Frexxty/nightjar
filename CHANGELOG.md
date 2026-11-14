@@ -2,6 +2,12 @@
 
 Each release's section becomes its GitHub release notes and the notes shown in the in-app update dialog. Add a section before tagging. Releases up to 0.3.1 were called Stratus; their sections are kept as written.
 
+## 0.4.1
+
+- Resize the desktop window down to 420 pixels wide and 480 pixels tall.
+- Windows below 760 pixels wide use compact navigation and a bottom mini player, with a draggable title bar and room for the native window buttons.
+- Smaller desktop windows use a narrower sidebar and flexible playback controls. Queue and comments open over the content instead of squeezing it.
+
 ## 0.4.0
 
 Stratus is now Nightjar: new name, new icon, and Ember as the accent colour.

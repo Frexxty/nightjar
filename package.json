@@ -1,7 +1,7 @@
 {
   "name": "nightjar",
   "productName": "Nightjar",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "A desktop SoundCloud client UI in the style of Cider, with a pluggable backend.",
   "author": "Frexxty",

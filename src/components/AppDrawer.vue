@@ -34,4 +34,7 @@ h3 { margin: 0; font-size: 15px; font-weight: 700; }
 .drawer > :last-child { flex: 1; min-height: 0; }
 .drawer-enter-active, .drawer-leave-active { transition: margin-right 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s; }
 .drawer-enter-from, .drawer-leave-to { margin-right: calc(var(--drawer-width) * -1); opacity: 0; }
+@media (max-width: 1100px) {
+  .drawer { position: absolute; inset: 0 0 0 auto; z-index: 5; max-width: 100%; box-shadow: var(--shadow); }
+}
 </style>

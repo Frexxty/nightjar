@@ -93,8 +93,9 @@ function createWindow() {
     height: saved.height ?? 780,
     x: saved.x,
     y: saved.y,
-    minWidth: 960,
-    minHeight: 600,
+    // Narrow windows use the compact navigation and player below 760px.
+    minWidth: 420,
+    minHeight: 480,
     title: profile.APP_NAME,
     show: false,
     titleBarStyle: "hidden",

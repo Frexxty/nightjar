@@ -44,6 +44,7 @@ function back() {
 <style scoped>
 .phone-header {
   position: relative;
+  flex-shrink: 0;
   z-index: 2;
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr) 52px;

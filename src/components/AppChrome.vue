@@ -73,7 +73,7 @@ const liked = computed(() => !!player.current && library.isLiked(player.current)
 <style scoped>
 .chrome {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   height: var(--chrome-height);
@@ -83,7 +83,9 @@ const liked = computed(() => !!player.current && library.isLiked(player.current)
 :root:not([data-platform="darwin"]):not([data-platform="web"]) .chrome { padding-right: 150px; }
 .left, .right { display: flex; align-items: center; gap: 2px; }
 .right { justify-content: flex-end; }
-.center { display: flex; align-items: center; gap: 14px; }
+.center { display: flex; align-items: center; justify-content: center; gap: 14px; min-width: 0; }
+.center :deep(.lcd) { flex: 1; min-width: 0; max-width: 460px; }
+.controls { flex-shrink: 0; }
 .controls { display: flex; align-items: center; gap: 2px; }
 .play {
   display: grid;
@@ -101,5 +103,13 @@ const liked = computed(() => !!player.current && library.isLiked(player.current)
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1120px) {
   .controls .icon-btn:first-child, .controls .icon-btn:last-child { display: none; }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .chrome { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .center { gap: 6px; }
+  .right :deep(.volume input) { display: none; }
+  .right > .icon-btn:first-child { display: none; }
+  .left { display: none; }
+  .chrome { grid-template-columns: minmax(0, 1fr) auto; }
 }
 </style>

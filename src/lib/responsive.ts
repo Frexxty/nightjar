@@ -10,7 +10,7 @@ function media(query: string) {
   return readonly(matches);
 }
 
-/** Phone layout: tab bar, mini player, now-playing sheet. Never true in Electron (min width 960). */
+/** Compact layout for phones and narrow desktop windows: tab bar, mini player, now-playing sheet. */
 export const isPhone = media(PHONE_QUERY);
 /** A finger is the main input: no hover, so no hover-only controls. */
 export const isTouch = media("(hover: none) and (pointer: coarse)");

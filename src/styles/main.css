@@ -206,6 +206,12 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
+/* Keep browsing space beside the sidebar in smaller desktop windows. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  :root { --sidebar-width: 190px; }
+  .page { padding: 24px 20px; }
+}
+
 /* Phone layout. Components carry their own rules at the same breakpoint (src/lib/responsive.ts). */
 @media (max-width: 760px) {
   .page { padding: 8px 16px 32px; }
