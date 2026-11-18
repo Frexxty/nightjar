@@ -1,5 +1,6 @@
 import { ApiError } from "./errors";
 import { arrange, artwork, hash, renderWav, rng, waveformFor, type Arrangement } from "./synth";
+import { pickSeeds, recommendationSections, topArtists, type SeedResult } from "../lib/recommend";
 import type {
   AuthSession, Backend, Comment, FeedItem, Id, NewPlaylistExtras, Page, Playlist, PlaylistPatch, SearchKind, SearchResults,
   Section, SpotifyList, StreamInfo, Track, User, UserSummary,
@@ -46,6 +47,7 @@ const LIKES_KEY = "stratus.mock.likes";
 const FOLLOW_KEY = "stratus.mock.following";
 const REPOST_KEY = "stratus.mock.reposts";
 const HISTORY_KEY = "stratus.mock.history";
+const PLAYS_KEY = "stratus.mock.playCounts";
 const ACCOUNT_KEY = "stratus.mock.account";
 const AUDIO_CACHE = 3;
 
@@ -68,6 +70,15 @@ function loadAccount(): MockAccount {
     return { ...DEFAULT_ACCOUNT, ...JSON.parse(localStorage.getItem(ACCOUNT_KEY) ?? "{}") };
   } catch {
     return { ...DEFAULT_ACCOUNT };
+  }
+}
+
+function loadCounts(): Record<string, number> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PLAYS_KEY) ?? "{}");
+    return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  } catch {
+    return {};
   }
 }
 
@@ -101,6 +112,8 @@ export class MockBackend implements Backend {
   private reposts: Set<string>;
   private account: MockAccount = loadAccount();
   private playedIds: string[];
+  private playCounts: Record<string, number>;
+  private publicIds: Set<string>;
 
   constructor() {
     const r = rng(42);
@@ -212,6 +225,8 @@ export class MockBackend implements Backend {
     this.follows = loadSet(FOLLOW_KEY, this.users.slice(0, 6).map((u) => u.id));
     this.reposts = loadSet(REPOST_KEY, []);
     this.playedIds = [...loadSet(HISTORY_KEY, [])];
+    this.playCounts = loadCounts();
+    this.publicIds = new Set();
   }
 
   private decorate = (t: MockTrack | Track): Track => {
@@ -292,7 +307,8 @@ export class MockBackend implements Backend {
     if (a.passwordHash != null ? hash(password) !== a.passwordHash : password.length < 8) {
       throw new ApiError(401, "invalid_credentials", "That password is wrong.");
     }
-    for (const key of [LIKES_KEY, FOLLOW_KEY, REPOST_KEY, HISTORY_KEY]) localStorage.removeItem(key);
+    for (const key of [LIKES_KEY, FOLLOW_KEY, REPOST_KEY, HISTORY_KEY, PLAYS_KEY]) localStorage.removeItem(key);
+    this.playCounts = {};
     this.likes.clear();
     this.follows.clear();
     this.reposts.clear();
@@ -308,8 +324,7 @@ export class MockBackend implements Backend {
     const byPlays = [...this.tracks].sort((a, b) => b.playbackCount - a.playbackCount);
     const genre = GENRES[Math.floor(r() * GENRES.length)][0];
     return [
-      { id: "more", title: "More of what you like", subtitle: "Based on your likes", kind: "tracks", items: shuffled(this.tracks).slice(0, 12).map(this.decorate) },
-      { id: "mixes", title: "Mixed for you", kind: "playlists", items: this.playlists.filter((p) => !p.isAlbum) },
+      { id: "mixes", title: "Playlists to try", kind: "playlists", items: this.playlists.filter((p) => !p.isAlbum) },
       { id: "charts", title: "Charts: Top 50", subtitle: "The most played tracks on Nightjar this week", kind: "tracks", display: "list", items: byPlays.slice(0, 10).map(this.decorate) },
       { id: "artists", title: "Artists to watch", kind: "users", items: shuffled(this.users).slice(0, 10).map(this.userOut) },
       { id: "genre", title: `Trending in ${genre}`, kind: "tracks", items: shuffled(this.tracks).slice(0, 12).map(this.decorate) },
@@ -336,8 +351,9 @@ export class MockBackend implements Backend {
   }
 
   private match(q: string) {
-    const needle = q.trim().toLowerCase();
-    const has = (s: string | null | undefined) => !!s && s.toLowerCase().includes(needle);
+    const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+    const needle = norm(q);
+    const has = (s: string | null | undefined) => !!s && !!needle && norm(s).includes(needle);
     return {
       tracks: this.tracks.filter((t) => has(t.title) || has(t.user.username) || has(t.genre)).map(this.decorate),
       users: this.users.filter((u) => has(u.username) || has(u.city)).map(this.userOut),
@@ -361,8 +377,53 @@ export class MockBackend implements Backend {
   async trackComments(id: Id) { await delay(60); return this.comments.get(id) ?? []; }
   async relatedTracks(id: Id) {
     await delay();
+    return this.related(id).map(this.decorate);
+  }
+
+  /** Same genre or same artist, in an order that depends on the seed so different seeds disagree a little. */
+  private related(id: Id): MockTrack[] {
     const t = this.trackById(id);
-    return this.tracks.filter((x) => x.id !== id && (x.genre === t.genre || x.user.id === t.user.id)).slice(0, 12).map(this.decorate);
+    const r = rng(hash(id));
+    return this.tracks
+      .filter((x) => x.id !== id && (x.genre === t.genre || x.user.id === t.user.id))
+      .map((x) => ({ x, k: (x.user.id === t.user.id ? 0.4 : 0) + r() }))
+      .sort((a, b) => b.k - a.k)
+      .map((e) => e.x)
+      .slice(0, 16);
+  }
+
+  /** The same scoring as the hosted server (src/lib/recommend.ts), on the demo's likes, plays and playlists. */
+  async recommendations(): Promise<Section[]> {
+    await delay();
+    const trending: Section[] = [{
+      id: "trending", title: "Trending on Nightjar", kind: "tracks", display: "shelf",
+      items: [...this.tracks].sort((a, b) => b.playbackCount - a.playbackCount).slice(0, 20).map(this.decorate),
+    }];
+    if (!this.account.signedIn) return trending;
+    const known = (id: string) => this.tracks.some((t) => t.id === id);
+    // Sets keep insertion order, so the newest like is last.
+    const likes = [...this.likes].filter(known).reverse();
+    const history = this.playedIds.filter(known);
+    const plays = (id: string) => this.playCounts[id] ?? 1;
+    const own = this.playlists.filter((p) => p.user.id === "me");
+    const seeds = pickSeeds({
+      likes: likes.slice(0, 20).map((id) => ({ id, kind: "like" as const })),
+      topPlays: history.filter((id) => plays(id) > 1).sort((a, b) => plays(b) - plays(a)).map((id) => ({ id, kind: "top" as const, plays: plays(id) })),
+      recentPlays: history.slice(0, 20).map((id) => ({ id, kind: "play" as const })),
+      playlistTracks: own.flatMap((p) => (p.tracks ?? []).slice(-4).reverse().map((t) => ({ id: t.id, kind: "playlist" as const }))).filter((s) => known(s.id)),
+    });
+    if (!seeds.length) return trending;
+    const results: SeedResult[] = seeds.map((seed) => ({ seed, track: this.decorate(this.trackById(seed.id)), related: this.related(seed.id).map(this.decorate) }));
+    const profile = [...likes.slice(0, 20), ...history.slice(0, 30)].map((id) => this.trackById(id));
+    const artists = topArtists(profile, { max: 2, weights: new Map(history.map((id) => [id, plays(id)])) });
+    const artistTracks = artists.map((artist) => ({
+      artist,
+      tracks: this.tracks.filter((t) => t.user.id === artist.id).sort((a, b) => b.playbackCount - a.playbackCount).map(this.decorate),
+    }));
+    const sections = recommendationSections({
+      results, artistTracks, exclude: [...likes, ...history.slice(0, 50)], boostArtists: [...this.follows],
+    });
+    return sections.length ? sections : trending;
   }
 
   async stream(track: Track): Promise<StreamInfo> {
@@ -384,8 +445,8 @@ export class MockBackend implements Backend {
   async playlist(id: Id) {
     await delay();
     const p = this.playlists.find((x) => x.id === id);
-    if (!p) throw new Error(`No playlist ${id}`);
-    return { ...p, tracks: p.tracks?.map((t) => this.decorate(t)) };
+    if (!p) throw new ApiError(404, "not_found", "That playlist doesn't exist.");
+    return this.playlistOut(p);
   }
 
   async user(id: Id) {
@@ -459,7 +520,9 @@ export class MockBackend implements Backend {
   // Account playlists.
 
   private playlistOut(p: Playlist): Playlist {
-    return { ...p, tracks: p.tracks?.map((t) => this.decorate(t)) };
+    const out: Playlist = { ...p, tracks: p.tracks?.map((t) => this.decorate(t)) };
+    if (p.user.id === "me") out.public = this.publicIds.has(p.id);
+    return out;
   }
 
   private ownPlaylist(id: Id) {
@@ -479,9 +542,10 @@ export class MockBackend implements Backend {
     p.duration = tracks.reduce((sum, t) => sum + t.duration, 0);
   }
 
-  async createPlaylist(title: string, trackIds: Id[], _isPublic: boolean, extras: NewPlaylistExtras = {}) {
+  async createPlaylist(title: string, trackIds: Id[], isPublic: boolean, extras: NewPlaylistExtras = {}) {
     await delay(200);
     this.requireAccount();
+    if (!title.trim()) throw new ApiError(400, "invalid_input", "Give the playlist a title.");
     const playlist: Playlist = {
       id: `p-${Date.now().toString(36)}`,
       title,
@@ -495,6 +559,7 @@ export class MockBackend implements Backend {
       likesCount: 0,
     };
     this.setTracks(playlist, trackIds, extras.tracks);
+    if (isPublic) this.publicIds.add(playlist.id);
     this.playlists.unshift(playlist);
     return this.playlistOut(playlist);
   }
@@ -506,8 +571,13 @@ export class MockBackend implements Backend {
       if (!patch.title.trim()) throw new ApiError(400, "invalid_input", "Playlists need a title.");
       p.title = patch.title.trim();
     }
-    if (patch.description !== undefined) p.description = patch.description;
-    if (patch.trackIds) this.setTracks(p, patch.trackIds, patch.tracks);
+    if (patch.description !== undefined) p.description = patch.description || null;
+    if (patch.public !== undefined) {
+      if (patch.public) this.publicIds.add(p.id);
+      else this.publicIds.delete(p.id);
+    }
+    const order = patch.tracks?.map((t) => t.id) ?? patch.trackIds;
+    if (order) this.setTracks(p, order, patch.tracks);
     return this.playlistOut(p);
   }
 
@@ -523,6 +593,12 @@ export class MockBackend implements Backend {
     this.requireAccount();
     this.playedIds = [trackId, ...this.playedIds.filter((id) => id !== trackId)].slice(0, 200);
     saveSet(HISTORY_KEY, new Set(this.playedIds));
+    this.playCounts[trackId] = (this.playCounts[trackId] ?? 0) + 1;
+    try {
+      localStorage.setItem(PLAYS_KEY, JSON.stringify(this.playCounts));
+    } catch {
+      // Counts last for this session.
+    }
   }
 
   async history(cursor?: string | null) {

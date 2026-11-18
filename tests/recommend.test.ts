@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  capPerArtist, isRecommendationSection, pickSeeds, recommendationSections, scoreCandidates, titleKey, topArtists, type Seed, type SeedResult,
+  capPerArtist, isRecommendationSection, songVersion, pickSeeds, recommendationSections, scoreCandidates, titleKey, topArtists, type Seed, type SeedResult,
 } from "../src/lib/recommend.ts";
 import type { Track } from "../src/api/types.ts";
 
@@ -78,6 +78,17 @@ test("scoreCandidates caps artists and keeps previews only as filler", () => {
 test("scoreCandidates boosts followed artists", () => {
   const out = scoreCandidates([result(seed("s"), [tr("first", "x"), tr("second", "followed")])], { boostArtists: ["followed"] });
   assert.equal(out[0].track.id, "second");
+});
+
+test("slowed and sped-up re-uploads by other accounts count as the same song", () => {
+  assert.deepEqual(songVersion("губам slowed"), { base: "губам", version: true });
+  assert.deepEqual(songVersion("Night Drive (Sped Up)"), { base: "nightdrive", version: true });
+  assert.equal(songVersion("Reverberation").version, false, "only whole words");
+  const out = scoreCandidates([result(seed("s"), [
+    tr("v1", "fan1", { title: "губам slowed" }), tr("o", "dj", { title: "губам" }), tr("v2", "fan2", { title: "губам (sped up)" }),
+    tr("w1", "fan3", { title: "Other nightcore" }), tr("w2", "fan4", { title: "Other slowed + reverb" }),
+  ])]);
+  assert.deepEqual(out.map((s) => s.track.id), ["o", "w1"]);
 });
 
 test("titleKey ignores brackets, feat. credits, case and accents", () => {

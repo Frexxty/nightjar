@@ -1,12 +1,14 @@
 <script setup lang="ts">
 // The Library tab on phones: what the desktop sidebar lists under Library and
 // Your playlists, plus Settings, which has no other way in on a phone.
-import { ChevronRight, LogIn, Settings } from "lucide-vue-next";
+import { ChevronRight, LogIn, Plus, Settings } from "lucide-vue-next";
 import Artwork from "@/components/Artwork.vue";
 import { libraryLinks, useYourPlaylists } from "@/lib/nav";
 import { useLibrary } from "@/stores/library";
+import { useUi } from "@/stores/ui";
 
 const library = useLibrary();
+const ui = useUi();
 const playlists = useYourPlaylists();
 </script>
 
@@ -22,8 +24,14 @@ const playlists = useYourPlaylists();
       </RouterLink>
     </nav>
 
+    <h2 class="section-title">Your playlists</h2>
+    <nav class="list">
+      <button class="link playlist new" @click="ui.newPlaylist({ open: true })">
+        <span class="plus"><Plus :size="22" /></span>
+        <span class="label">New playlist</span>
+      </button>
+    </nav>
     <template v-if="playlists.length">
-      <h2 class="section-title">Your playlists</h2>
       <nav class="list">
         <RouterLink v-for="p in playlists" :key="p.id" :to="`/playlist/${p.id}`" class="link playlist">
           <Artwork :src="p.artworkUrl" :size="48" :radius="6" />
@@ -81,4 +89,7 @@ const playlists = useYourPlaylists();
 .sub { font-size: 13px; color: var(--text-2); }
 .chev { color: var(--text-3); flex: none; }
 .list + .list { margin-top: 28px; }
+.list:has(.new) + .list { margin-top: 0; }
+.link.new { width: 100%; text-align: left; color: var(--accent); }
+.plus { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 6px; background: var(--accent-soft); flex: none; }
 </style>

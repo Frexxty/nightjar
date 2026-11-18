@@ -9,9 +9,9 @@ const props = defineProps<{ scrolled: boolean; content?: HTMLElement }>();
 const route = useRoute();
 const router = useRouter();
 
-const ROOTS = new Set(["home", "stream", "search", "library", "import"]);
+const ROOTS = new Set(["home", "stream", "browse", "search", "library"]);
 const LABELS: Record<string, string> = {
-  home: "Home", stream: "Stream", search: "Search", library: "Library", import: "Import",
+  home: "Home", stream: "Stream", browse: "Browse", search: "Search", library: "Library", import: "Import",
   likes: "Likes", playlists: "Playlists", albums: "Albums", following: "Following", history: "History", settings: "Settings",
 };
 
@@ -28,7 +28,7 @@ const title = computed(() => LABELS[String(route.name)] ?? pageTitle.value);
 
 function back() {
   if (hasHistory.value) router.back();
-  else router.push(route.path.startsWith("/library/") ? "/library" : "/");
+  else router.push(route.path.startsWith("/library/") || route.path === "/import" ? "/library" : route.path.startsWith("/browse/") ? "/browse" : "/");
 }
 </script>
 

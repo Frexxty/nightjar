@@ -71,6 +71,8 @@ export interface Playlist {
   /** Present on detail responses, may be omitted in lists. */
   tracks?: Track[];
   permalinkUrl?: string | null;
+  /** Playlists on the signed-in account: whether other people can open it. */
+  public?: boolean;
 }
 
 export interface Comment {
@@ -160,6 +162,13 @@ export interface Backend {
   createPlaylist?(title: string, trackIds: Id[], isPublic: boolean, extras?: NewPlaylistExtras): Promise<Playlist>;
   updatePlaylist?(id: Id, patch: PlaylistPatch): Promise<Playlist>;
   deletePlaylist?(id: Id): Promise<void>;
+
+  /**
+   * Personal shelves: "Recommended for you" (id `for-you`), "Because you liked …"
+   * (`because-<id>`) and "More from artists you play" (`artists-you-play`).
+   * Signed out it may return trending tracks instead. Home shows these first.
+   */
+  recommendations?(): Promise<Section[]>;
 
   /** Records a play. Called fire and forget. `track` is a snapshot, sent for Spotify IDs (docs/spotify.md). */
   addHistory?(trackId: Id, track?: Track): Promise<void>;

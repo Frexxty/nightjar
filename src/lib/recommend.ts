@@ -124,17 +124,48 @@ export interface Scored {
   seeds: string[];
 }
 
+const clean = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[([{].*?[)\]}]/g, " ")
+    .replace(/\b(feat|ft|featuring|prod)\b\.?.*$/, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+
 /** Lower-cased title and artist with brackets, "feat." credits and punctuation removed, to catch re-uploads. */
 export function titleKey(t: Pick<Track, "title" | "user">): string {
-  const clean = (s: string) =>
-    s
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[([{].*?[)\]}]/g, " ")
-      .replace(/\b(feat|ft|featuring|prod)\b\.?.*$/, " ")
-      .replace(/[^\p{L}\p{N}]+/gu, "");
   return `${clean(t.user?.username ?? "")}|${clean(t.title ?? "")}`;
+}
+
+// Fan-made versions of someone else's song, usually uploaded by another account.
+const VERSION = /(?:^|[^\p{L}\p{N}])(slowed|reverb|sped[\s_-]*up|speed[\s_-]*up|nightcore|8d|bass[\s_-]*boosted)(?=$|[^\p{L}\p{N}])/giu;
+
+/**
+ * The title without version words ("slowed", "sped up", "nightcore", "8D",
+ * "reverb", "bass boosted"), and whether it had any. Artist-independent, so a
+ * slowed re-upload by another account matches the original.
+ */
+export function songVersion(title: string): { base: string; version: boolean } {
+  const stripped = title.replace(VERSION, " ");
+  return { base: clean(stripped), version: stripped !== title };
+}
+
+/** Drops fan-made versions of a song when the list already has the song or another version of it. */
+function dropVersions<T extends { track: Track }>(list: T[]): T[] {
+  const originals = new Set<string>();
+  for (const x of list) {
+    const v = songVersion(x.track.title ?? "");
+    if (!v.version && v.base) originals.add(v.base);
+  }
+  const versions = new Set<string>();
+  return list.filter((x) => {
+    const v = songVersion(x.track.title ?? "");
+    if (!v.version || !v.base) return true;
+    if (originals.has(v.base) || versions.has(v.base)) return false;
+    versions.add(v.base);
+    return true;
+  });
 }
 
 /** Keeps at most `n` tracks per artist, in order. */
@@ -201,7 +232,7 @@ export function scoreCandidates(results: SeedResult[], options: ScoreOptions = {
     })
     .sort((a, b) => b.score - a.score || a.first - b.first);
 
-  const capped = capPerArtist(scored.map((s) => ({ ...s, user: s.track.user })), perArtist);
+  const capped = capPerArtist(dropVersions(scored).map((s) => ({ ...s, user: s.track.user })), perArtist);
   const full = capped.filter((s) => !s.track.preview);
   const previews = capped.filter((s) => s.track.preview);
   const picked = full.length >= Math.min(minFill, limit) ? full : [...full, ...previews.slice(0, Math.min(minFill, limit) - full.length)];

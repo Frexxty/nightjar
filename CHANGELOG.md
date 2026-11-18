@@ -2,6 +2,17 @@
 
 Each release's section becomes its GitHub release notes and the notes shown in the in-app update dialog. Add a section before tagging. Releases up to 0.3.1 were called Stratus; their sections are kept as written.
 
+## Unreleased
+
+- Make your own playlists: "New playlist" in Library > Playlists and in the sidebar, with a name, description and public or private. Signed in, they're saved to your account; signed out, on this device.
+- "Add to playlist" in every track menu, on track pages, in the now-playing sheet and the full-screen player, and "Add all to playlist" on playlists, albums, genres and search results. Tracks already in the playlist are skipped.
+- Your playlists can be edited: name, description, public or private, drag to reorder, remove tracks, delete.
+- Home starts with "Made for you": a mix picked from what you like, play most and add to playlists, which you can play, shuffle or save as a playlist. Then "Recommended for you", "Because you liked …" and "More from artists you play". It leaves out what you've already liked or just played, 30-second previews and slowed or sped-up re-uploads.
+- Works with Spotify as your music source too, from your Liked Songs, top tracks and recent plays.
+- New Browse page with genres and moods (Hip Hop, House, Techno, Lo-fi, R&B, Drum & Bass, Chill, Focus and more). On phones it replaces the Import tab; Import is now on the Library tab.
+- Search shows your recent searches and the genres before you type.
+- Track pages show "Similar tracks".
+
 ## 0.4.1
 
 - Resize the desktop window down to 420 pixels wide and 480 pixels tall.
