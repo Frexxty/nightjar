@@ -57,7 +57,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "Frexxty",
+      "owner": "K3S-Studio",
       "repo": "nightjar",
       "releaseType": "release"
     },

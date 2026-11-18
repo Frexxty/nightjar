@@ -15,7 +15,8 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # Blacksmith runner (K3S-Studio org), same image as GitHub's ubuntu-24.04.
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     # Typecheck, Vite and the node tests don't need the Electron binary, and
     # npm ci doesn't fetch it: the electron package (castlabs ECS, from GitHub)
     # has no install script and downloads the binary the first time something

@@ -31,7 +31,7 @@ env:
 
 jobs:
   prepare:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     outputs:
       version: ${{ steps.version.outputs.version }}
       prerelease: ${{ steps.version.outputs.prerelease }}
@@ -88,11 +88,13 @@ jobs:
           # One electron-builder run builds both mac arches, so it writes a
           # single latest-mac.yml listing both zips. x64 cross-builds fine on
           # the arm64 runner because the app has no native modules.
-          - os: macos-15
+          # Blacksmith runners, as in K3S-Studio/yaji. macos-latest is Apple silicon.
+          - os: blacksmith-6vcpu-macos-latest
             target: --mac
             # Where electron-builder leaves the unpacked apps, for the checks.
             unpacked: release/mac-arm64 release/mac
-          - os: windows-latest
+          # Blacksmith Windows is a public beta; swap back to windows-latest if it misbehaves.
+          - os: blacksmith-4vcpu-windows-2025
             target: --win
             unpacked: release/win-unpacked
     runs-on: ${{ matrix.os }}
@@ -164,7 +166,7 @@ jobs:
   # AppImage is missing). Widevine on Linux has no VMP, so nothing to sign.
   build-linux:
     needs: prepare
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -188,7 +190,7 @@ jobs:
     # Wait for build-linux so it can't upload into an already published
     # release, but don't require it to have succeeded.
     if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.build.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - name: Check every asset was uploaded
         env:
