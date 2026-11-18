@@ -62,6 +62,8 @@ export interface Playlist {
   likesCount: number;
   tracks?: Track[];
   permalinkUrl?: string | null;
+  /** Account playlists only: whether people other than the owner can open it. */
+  public?: boolean;
 }
 
 export interface Comment {
