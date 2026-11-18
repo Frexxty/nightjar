@@ -213,13 +213,19 @@ await step("follow, feed, home, unfollow", async () => {
     assert(p2.data.items[0]?.createdAt <= dates.at(-1), "feed page 2 out of order");
   }
   await call("PUT", `/me/likes/tracks/${ctx.track.id}`, { expect: 204 });
-  const home = await call("GET", "/home", { expect: 200 });
-  const titles = home.data.map((s) => s.title);
-  assert(titles.some((t) => t.startsWith("Because you liked")), `no "Because you liked": ${titles.join(" / ")}`);
-  assert(home.data.length >= 4 && home.data.length <= 6, `${home.data.length} sections`);
-  await call("DELETE", `/me/likes/tracks/${ctx.track.id}`, { expect: 204 });
-  for (const id of ids) await call("DELETE", `/me/following/${id}`, { expect: 204 });
-  return `feed ${feed.data.items.length} items; home: ${titles.join(" / ")}`;
+  // Undo the like and the follows even when an assertion fails, so later steps
+  // (likes order, liked flags) start from an empty account.
+  try {
+    const home = await call("GET", "/home", { expect: 200 });
+    const titles = home.data.map((s) => s.title);
+    assert(titles.some((t) => t.startsWith("Because you liked")), `no "Because you liked": ${titles.join(" / ")}`);
+    // Signed in, Home has the recommendation shelves, new uploads, then the public ones, at most 8 (index.ts).
+    assert(home.data.length >= 4 && home.data.length <= 8, `${home.data.length} sections`);
+    return `feed ${feed.data.items.length} items; home: ${titles.join(" / ")}`;
+  } finally {
+    await call("DELETE", `/me/likes/tracks/${ctx.track.id}`, { expect: 204 });
+    for (const id of ids) await call("DELETE", `/me/following/${id}`, { expect: 204 });
+  }
 });
 
 await step("signed-out home", async () => {
