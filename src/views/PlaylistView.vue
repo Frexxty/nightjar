@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ListPlus, MoreHorizontal, Pause, Pencil, Play, Shuffle, Trash2 } from "lucide-vue-next";
+import { Globe, ListMusic, ListPlus, Lock, MoreHorizontal, Pause, Pencil, Play, Shuffle, Trash2 } from "lucide-vue-next";
 import { api, friendlyError, type Playlist, type PlaylistPatch, type Track } from "@/api";
 import LoadState from "@/components/LoadState.vue";
 import PageHero from "@/components/PageHero.vue";
@@ -11,6 +11,7 @@ import { useMenus } from "@/lib/menus";
 import { useLoad } from "@/lib/useLoad";
 import { useLibrary } from "@/stores/library";
 import { isLocalId, useLocalPlaylists } from "@/stores/localPlaylists";
+import { useMyPlaylists } from "@/stores/myPlaylists";
 import { usePlayer } from "@/stores/player";
 import { useUi, type MenuItem } from "@/stores/ui";
 import { artworkRepairFailed, distinctCovers, repairPlaylistArtwork } from "@/spotify/artwork";
@@ -24,6 +25,7 @@ const menus = useMenus();
 const router = useRouter();
 const local = useLocalPlaylists();
 const library = useLibrary();
+const mine = useMyPlaylists();
 
 // Local playlists ("local:" ids) live in the store; everything else comes from the backend.
 const isLocal = isLocalId(props.id);
@@ -74,8 +76,11 @@ function saveRemote(next: Playlist, patch: PlaylistPatch, what: string) {
 }
 
 function syncSidebar(p: Playlist) {
-  library.playlists = library.playlists.map((x) => (x.id === p.id ? { ...x, title: p.title, trackCount: p.trackCount, artworkUrl: p.artworkUrl } : x));
+  library.playlists = library.playlists.map((x) => (x.id === p.id ? { ...x, title: p.title, trackCount: p.trackCount, artworkUrl: p.artworkUrl, public: p.public } : x));
 }
+
+// "Add to playlist" from another page or the now-playing sheet changed this one.
+watch(() => mine.version(props.id), () => !isLocal && void remote.reload());
 
 function withTracks(p: Playlist, list: Track[]): Playlist {
   return { ...p, tracks: list, trackCount: list.length, duration: list.reduce((sum, t) => sum + t.duration, 0) };
@@ -121,21 +126,19 @@ async function repairCovers(title: string, count: number, list: Track[]) {
     });
 }
 
-const renaming = ref(false);
-const draftTitle = ref("");
-const titleInput = ref<HTMLInputElement>();
-async function startRename() {
-  draftTitle.value = playlist.value?.title ?? "";
-  renaming.value = true;
-  await nextTick();
-  titleInput.value?.select();
-}
-function saveRename() {
-  const title = draftTitle.value.trim();
-  renaming.value = false;
-  const p = remote.data.value;
-  if (isLocal) local.rename(props.id, title);
-  else if (p && title && title !== p.title) saveRemote({ ...p, title }, { title }, "rename the playlist");
+function editDetails() {
+  const p = playlist.value;
+  if (!p) return;
+  ui.playlistDialog = {
+    mode: "edit",
+    playlist: p,
+    local: isLocal,
+    save: (patch) => {
+      if (isLocal) return local.update(props.id, { title: patch.title, description: patch.description });
+      const current = remote.data.value;
+      if (current) saveRemote({ ...current, ...patch, description: patch.description !== undefined ? patch.description : current.description }, patch, "save the playlist");
+    },
+  };
 }
 
 function removeTrack(i: number) {
@@ -202,18 +205,16 @@ function editMenu(_t: Track, i: number): MenuItem[] {
       <template v-if="playlist">
         <PageHero :art="heroArt" :mosaic="heroCovers.length === 4 ? heroCovers : undefined" :title="playlist.title" :eyebrow="playlist.isAlbum ? 'Album' : isLocal ? 'Local playlist' : 'Playlist'">
           <template #meta>
-            <form v-if="renaming" class="rename" @submit.prevent="saveRename">
-              <input ref="titleInput" v-model="draftTitle" aria-label="Playlist name" @keydown.esc="renaming = false" />
-              <button class="btn primary" type="submit">Save</button>
-              <button class="btn" type="button" @click="renaming = false">Cancel</button>
-            </form>
-            <span v-if="isLocal" class="owner">Saved on this computer</span>
+            <span v-if="isLocal" class="owner">Saved on this device</span>
             <RouterLink v-else-if="owned" to="/account" class="owner">{{ playlist.user.username }}</RouterLink>
             <RouterLink v-else :to="`/user/${playlist.user.id}`" class="owner">{{ playlist.user.username }}</RouterLink>
             <div class="muted meta">
               {{ playlist.trackCount }} tracks · {{ longDuration(playlist.duration) }}
               <template v-if="!isLocal && !owned && !isSpotify"> · {{ count(playlist.likesCount) }} likes</template>
               <template v-if="playlist.createdAt"> · {{ ago(playlist.createdAt) }}</template>
+              <span v-if="owned && playlist.public !== undefined" class="visibility">
+                · <Globe v-if="playlist.public" :size="12" /><Lock v-else :size="12" /> {{ playlist.public ? "Public" : "Private" }}
+              </span>
             </div>
             <p v-if="playlist.description" class="muted desc">{{ playlist.description }}</p>
           </template>
@@ -225,8 +226,9 @@ function editMenu(_t: Track, i: number): MenuItem[] {
             </button>
             <button class="btn" :disabled="!tracks.length" @click="shuffle"><Shuffle :size="15" /> Shuffle</button>
             <button class="btn" :disabled="!tracks.length" @click="player.addToQueue(tracks)"><ListPlus :size="15" /> Add to queue</button>
+            <button v-if="!editable" class="btn" :disabled="!tracks.length" @click="ui.addToPlaylist(tracks)"><ListMusic :size="15" /> Add all to playlist</button>
             <template v-if="editable">
-              <button class="btn" @click="startRename"><Pencil :size="15" /> Rename</button>
+              <button class="btn" @click="editDetails"><Pencil :size="15" /> Edit details</button>
               <button class="btn" :class="{ danger: confirmDelete }" :disabled="deleting" @click="deletePlaylist">
                 <Trash2 :size="15" /> {{ deleting ? "Deleting…" : confirmDelete ? "Click again to delete" : "Delete" }}
               </button>
@@ -235,7 +237,10 @@ function editMenu(_t: Track, i: number): MenuItem[] {
           </template>
         </PageHero>
         <div class="page">
-          <div v-if="editable && !tracks.length" class="empty">This playlist is empty.</div>
+          <div v-if="editable && !tracks.length" class="empty">
+            This playlist is empty. Add tracks with "Add to playlist…" in any track's menu.
+            <RouterLink to="/browse" class="btn">Browse genres</RouterLink>
+          </div>
           <TrackTable
             v-else
             :tracks="tracks"
@@ -256,7 +261,6 @@ function editMenu(_t: Track, i: number): MenuItem[] {
 .meta { margin-top: 6px; font-size: 12.5px; }
 .desc { margin: 8px 0 0; max-width: 620px; }
 .page { padding-top: 8px; }
-.rename { display: flex; gap: 8px; margin: 2px 0 10px; }
-.rename input { width: min(420px, 100%); font-size: 15px; font-weight: 600; }
+.visibility svg { vertical-align: -1px; }
 .btn.danger { background: #ff5a5a; color: #fff; }
 </style>

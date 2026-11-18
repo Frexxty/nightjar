@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Heart, ListPlus, MessageCircle, MoreHorizontal, Pause, Play, Radio, Repeat2 } from "lucide-vue-next";
+import { Heart, ListMusic, ListPlus, MessageCircle, MoreHorizontal, Pause, Play, Radio, Repeat2 } from "lucide-vue-next";
 import Artwork from "@/components/Artwork.vue";
 import LoadState from "@/components/LoadState.vue";
 import MediaCard from "@/components/MediaCard.vue";
@@ -80,6 +80,7 @@ function play(at?: number) {
             </button>
             <button class="btn" @click="menus.startStation(track)"><Radio :size="15" /> Station</button>
             <button class="btn" @click="player.playNext([track])"><ListPlus :size="15" /> Play next</button>
+            <button class="btn" @click="ui.addToPlaylist([track])"><ListMusic :size="15" /> Add to playlist</button>
             <button class="icon-btn" title="More" @click="ui.openMenu($event, menus.track(track))"><MoreHorizontal :size="18" /></button>
           </template>
           <div class="wave">
@@ -118,7 +119,7 @@ function play(at?: number) {
             </section>
           </div>
 
-          <Shelf v-if="data?.related.length" title="Related tracks">
+          <Shelf v-if="data?.related.length" title="Similar tracks" :subtitle="isSpotify ? 'More from the same artists' : 'Tracks SoundCloud listeners play alongside this one'">
             <MediaCard v-for="t in data.related" :key="t.id" kind="track" :item="t" :siblings="data.related" :source="`related:${track.id}`" />
           </Shelf>
         </div>

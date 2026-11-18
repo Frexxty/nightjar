@@ -256,21 +256,10 @@ export function publicHome(c: Ctx): Promise<Section[]> {
   });
 }
 
-/** "Because you liked X" and "New from artists you follow" for a signed-in account. */
-export async function personalHome(c: Ctx, recentLike: string | null, followIds: string[]): Promise<Section[]> {
-  const sections: Section[] = [];
-  const [liked, fresh] = await Promise.all([
-    recentLike
-      ? Promise.all([scTrack(c, recentLike), relatedTracks(c, recentLike, 12)]).catch(() => null)
-      : Promise.resolve(null),
-    followIds.length ? feed(c, followIds, null, 12, false).catch(() => null) : Promise.resolve(null),
-  ]);
-  if (liked && liked[1].length) {
-    sections.push({ id: `because-${recentLike}`, title: `Because you liked ${liked[0].title}`, kind: "tracks", display: "shelf", items: liked[1] });
-  }
-  const freshTracks = (fresh?.items ?? []).flatMap((i) => (i.kind === "track" ? [i.track] : []));
-  if (freshTracks.length) {
-    sections.push({ id: "following-new", title: "New from artists you follow", kind: "tracks", display: "list", items: freshTracks });
-  }
-  return sections;
+/** "New from artists you follow". Recommendations live in recommendations.ts. */
+export async function followingShelf(c: Ctx, followIds: string[]): Promise<Section[]> {
+  if (!followIds.length) return [];
+  const fresh = await feed(c, followIds, null, 12, false).catch(() => null);
+  const items = (fresh?.items ?? []).flatMap((i) => (i.kind === "track" ? [i.track] : []));
+  return items.length ? [{ id: "following-new", title: "New from artists you follow", kind: "tracks", display: "list", items }] : [];
 }

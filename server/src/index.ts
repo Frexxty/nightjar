@@ -11,6 +11,7 @@ import {
 } from "./http.ts";
 import { mapTrack } from "./map.ts";
 import { cleanSnapshot, isSpotifyTrackId, isTrackRef, mergeInOrder, readTrackList } from "./snapshot.ts";
+import { buildRecommendations, loadSignals, signalsKey } from "./recommendations.ts";
 import { cachedJson, hydrateTracks } from "./soundcloud.ts";
 import { ImportError, fetchSpotifyList, parseSpotifyRef } from "./spotify.ts";
 import { fetchViaBrowser } from "./spotify-browser.ts";
@@ -256,13 +257,36 @@ route("POST", "/me/spotify/token", async (r) => {
 route("GET", "/home", async (r) => {
   const publicSections = await cat.publicHome(c(r));
   if (!r.account) return publicSections;
-  const [like, follows] = await Promise.all([
-    r.env.DB.prepare("SELECT track_id FROM likes WHERE user_id = ?1 AND track_id NOT LIKE 'spotify:%' ORDER BY created_at DESC LIMIT 1").bind(r.account.id).first<{ track_id: string }>(),
-    followIds(r, 50),
+  const [recs, following] = await Promise.all([
+    recommendationsFor(r).catch(() => [] as Section[]),
+    followIds(r, 50).then((ids) => cat.followingShelf(c(r), ids)),
   ]);
-  const personal = await cat.personalHome(c(r), like?.track_id ?? null, follows);
-  const out: Section[] = [...personal, ...publicSections];
-  return out.slice(0, 6);
+  // "Recommended for you" and "Because you liked …" first, then new uploads, then the rest.
+  const firstAfter = recs.findIndex((s) => !s.id.startsWith("because-") && s.id !== "for-you");
+  const personal = firstAfter < 0 ? [...recs, ...following] : [...recs.slice(0, firstAfter), ...following, ...recs.slice(firstAfter)];
+  const ids = new Set(personal.map((s) => s.id));
+  const out: Section[] = [...personal, ...publicSections.filter((s) => !ids.has(s.id))];
+  return out.slice(0, 8);
+});
+
+/** Recommendation shelves for the signed-in account, cached for 15 minutes per set of inputs. */
+async function recommendationsFor(r: Req): Promise<Section[]> {
+  const account = me(r);
+  const signals = await loadSignals(r.env.DB, account.id);
+  const key = `recs-v1/${account.id}/${await signalsKey(signals)}`;
+  return cachedJson(r.ctx, key, 900, () =>
+    buildRecommendations(signals, {
+      tracks: async (ids) => (await hydrateTracks(r.env, r.ctx, ids)).map(mapTrack),
+      related: (id) => cat.relatedTracks(c(r), id, 20),
+      topTracks: (id) => cat.userTopTracks(c(r), id),
+    }));
+}
+
+// Signed out, or with nothing to go on yet: what's trending.
+route("GET", "/me/recommendations", async (r) => {
+  const recs = r.account ? await recommendationsFor(r) : [];
+  if (recs.length) return recs;
+  return (await cat.publicHome(c(r))).filter((s) => s.id === "trending");
 });
 
 async function followIds(r: Req, limit: number): Promise<string[]> {
@@ -397,7 +421,7 @@ route("POST", "/me/history", async (r) => {
   const db = r.env.DB;
   await db.batch([
     ...(spotify ? snapshotWrites(r.env, account.id, [cleanSnapshot(body.track, trackId)]) : []),
-    db.prepare("INSERT INTO history (user_id, track_id, played_at) VALUES (?1, ?2, ?3) ON CONFLICT(user_id, track_id) DO UPDATE SET played_at = ?3")
+    db.prepare("INSERT INTO history (user_id, track_id, played_at) VALUES (?1, ?2, ?3) ON CONFLICT(user_id, track_id) DO UPDATE SET played_at = ?3, play_count = play_count + 1")
       .bind(account.id, trackId, Date.now()),
     db.prepare(
       `DELETE FROM history WHERE user_id = ?1 AND track_id NOT IN
@@ -444,6 +468,7 @@ function playlistFromRow(row: PlaylistRow, tracks?: Track[]): Playlist {
     createdAt: new Date(row.created_at).toISOString(),
     likesCount: 0,
     permalinkUrl: null,
+    public: row.public === 1,
   };
   if (tracks) out.tracks = tracks;
   return out;

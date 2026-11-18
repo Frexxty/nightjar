@@ -6,6 +6,7 @@ The hosted backend for Nightjar, live at `https://nightjar-api.k3s.lat/v1`. It's
 
 ```
 src/index.ts            router, accounts, likes/reposts/follows, account playlists, history, Spotify route
+src/recommendations.ts  GET /v1/me/recommendations and Home's personal shelves (scoring in ../src/lib/recommend.ts)
 src/catalogue.ts        search, tracks, users, SoundCloud playlists, home and feed
 src/soundcloud.ts       api-v2 client: client_id discovery, retries, Cache API, track hydration, waveforms
 src/map.ts              api-v2 objects to Nightjar types (pure)

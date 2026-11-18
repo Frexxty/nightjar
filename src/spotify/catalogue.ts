@@ -7,6 +7,7 @@
 // (GET /tracks?ids=, /albums?ids=), GET /users/{id}, /playlists/{id}/tracks,
 // PUT/DELETE /me/tracks and /me/following (now PUT/DELETE /me/library).
 import { api, type Backend, type Comment, type FeedItem, type Id, type Page, type Playlist, type SearchKind, type SearchResults, type Section, type StreamInfo, type Track, type User } from "@/api";
+import { pickSeeds, recommendationSections, topArtists, type SeedResult, type SeedSignal } from "@/lib/recommend";
 import { useSettings } from "@/stores/settings";
 import { useSpotify } from "./auth";
 import { spGet, spotifyRequest, SpotifyApiError } from "./api";
@@ -76,6 +77,98 @@ export class SpotifyBackend implements Backend {
     // A missing scope or an empty account still shows what loaded; only a total failure is an error.
     if (!sections.length && failed) throw failed.reason;
     return sections;
+  }
+
+  /**
+   * "Recommended for you" without /recommendations (closed to new apps): seeds
+   * are Liked Songs, top tracks and recent plays, and each seed's "related"
+   * tracks are a plain search for its first artist, which also finds
+   * collaborations and features by other artists. At most 5 seed searches and
+   * 2 artist searches, all on endpoints development-mode apps can still use.
+   * Nothing is written to the Spotify library.
+   */
+  async recommendations(): Promise<Section[]> {
+    const [top, recent, saved] = await Promise.allSettled([
+      spGet<SpPaging<SpTrack>>("/me/top/tracks", { limit: 20, time_range: "short_term" }),
+      spGet<SpPaging<{ track: SpTrack; played_at?: string }>>("/me/player/recently-played", { limit: 50 }),
+      spGet<SpPaging<{ track: SpTrack; added_at?: string }>>("/me/tracks", { limit: 20 }),
+    ]);
+    const failed = [top, recent, saved].find((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failed && [top, recent, saved].every((r) => r.status === "rejected")) throw failed.reason;
+
+    const raw = new Map<string, SpTrack>();
+    const tracks = new Map<string, Track>();
+    const keep = (t: SpTrack | null | undefined): Track | null => {
+      if (!t?.id) return null;
+      const track = mapTrack(t);
+      raw.set(track.id, t);
+      tracks.set(track.id, track);
+      return track;
+    };
+    const time = (s: string | undefined) => (s ? Date.parse(s) || null : null);
+    const likes: SeedSignal[] = saved.status === "fulfilled"
+      ? saved.value.items.flatMap((i) => { const t = keep(i.track); return t ? [{ id: t.id, kind: "like" as const, at: time(i.added_at) }] : []; })
+      : [];
+    const playCount = new Map<string, number>();
+    const recentPlays: SeedSignal[] = [];
+    for (const i of recent.status === "fulfilled" ? recent.value.items : []) {
+      const t = keep(i.track);
+      if (!t) continue;
+      if (!playCount.has(t.id)) recentPlays.push({ id: t.id, kind: "play", at: time(i.played_at) });
+      playCount.set(t.id, (playCount.get(t.id) ?? 0) + 1);
+    }
+    const topPlays: SeedSignal[] = top.status === "fulfilled"
+      ? top.value.items.flatMap((x) => { const t = keep(x); return t ? [{ id: t.id, kind: "top" as const, plays: playCount.get(t.id) }] : []; })
+      : [];
+    const seeds = pickSeeds({ likes, topPlays, recentPlays }, { max: 5 });
+    if (!seeds.length) return [];
+
+    // One search per artist name, shared by the seeds and "More from artists you play".
+    const searches = new Map<string, Promise<Track[]>>();
+    const searchArtist = (name: string) => {
+      let hit = searches.get(name);
+      if (!hit) {
+        hit = spGet<{ tracks: SpPaging<SpTrack> }>("/search", { q: name, type: "track", limit: SEARCH_LIMIT })
+          .then((r) => r.tracks.items.filter(Boolean).map((t) => {
+            const track = mapTrack(t);
+            raw.set(track.id, t);
+            return track;
+          }))
+          .catch(() => [] as Track[]);
+        searches.set(name, hit);
+      }
+      return hit;
+    };
+    const firstArtist = (id: string) => raw.get(id)?.artists?.[0] ?? null;
+    const related = await Promise.all(seeds.map((s) => {
+      const a = firstArtist(s.id);
+      return a?.name ? searchArtist(a.name) : Promise.resolve([] as Track[]);
+    }));
+    const results: SeedResult[] = seeds.map((seed, i) => ({ seed, track: tracks.get(seed.id) ?? null, related: related[i] }));
+
+    // Leave out what's already in Liked Songs, checked for the first 40 candidates.
+    const exclude = new Set([...likes.map((l) => l.id), ...recentPlays.map((p) => p.id)]);
+    const candidates: string[] = [];
+    for (let i = 0; i < SEARCH_LIMIT && candidates.length < 40; i++) {
+      for (const list of related) {
+        const t = list[i];
+        if (t && !exclude.has(t.id) && !candidates.includes(t.id) && candidates.length < 40) candidates.push(t.id);
+      }
+    }
+    const inLibrary = await this.contains(candidates).catch(() => [] as boolean[]);
+    candidates.forEach((id, i) => inLibrary[i] && exclude.add(id));
+
+    // Artists you play: counted by first artist, so a duet counts for its lead.
+    const byArtist = [...tracks.values()].map((t) => {
+      const a = firstArtist(t.id);
+      return a?.id ? { ...t, user: { id: `spotify:artist:${a.id}`, username: a.name, avatarUrl: null } } : t;
+    });
+    const artists = topArtists(byArtist, { max: 2, minCount: 2, weights: playCount });
+    const artistTracks = await Promise.all(artists.map(async (artist) => ({
+      artist,
+      tracks: (await searchArtist(artist.username)).filter((t) => raw.get(t.id)?.artists?.some((a) => `spotify:artist:${a.id}` === artist.id)),
+    })));
+    return recommendationSections({ results, artistTracks, exclude });
   }
 
   async feed(): Promise<Page<FeedItem>> {

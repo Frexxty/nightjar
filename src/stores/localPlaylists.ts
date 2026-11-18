@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 import type { Playlist, Track } from "@/api";
+import { planAdd, type AddPlan } from "@/lib/playlistEdit";
 import { useUi } from "./ui";
 
 const KEY = "stratus.localPlaylists";
@@ -15,6 +16,7 @@ export interface LocalPlaylist {
   tracks: Track[];
   /** Where it was imported from, if anywhere. */
   sourceUrl?: string | null;
+  description?: string | null;
 }
 
 export const isLocalId = (id: string) => id.startsWith(LOCAL_PREFIX);
@@ -62,7 +64,7 @@ export const useLocalPlaylists = defineStore("localPlaylists", () => {
     p.updatedAt = new Date().toISOString();
   }
 
-  function create(title: string, tracks: Track[], sourceUrl: string | null = null): LocalPlaylist {
+  function create(title: string, tracks: Track[], sourceUrl: string | null = null, description: string | null = null): LocalPlaylist {
     const now = new Date().toISOString();
     const playlist: LocalPlaylist = {
       id: `${LOCAL_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
@@ -71,6 +73,7 @@ export const useLocalPlaylists = defineStore("localPlaylists", () => {
       updatedAt: now,
       tracks: tracks.map(slim),
       sourceUrl,
+      description: description?.trim() || null,
     };
     playlists.value.unshift(playlist);
     return playlist;
@@ -81,6 +84,26 @@ export const useLocalPlaylists = defineStore("localPlaylists", () => {
     if (!p || !title.trim()) return;
     p.title = title.trim();
     touch(p);
+  }
+
+  function update(id: string, patch: { title?: string; description?: string | null }) {
+    const p = get(id);
+    if (!p) return;
+    if (patch.title?.trim()) p.title = patch.title.trim();
+    if (patch.description !== undefined) p.description = patch.description?.trim() || null;
+    touch(p);
+  }
+
+  /** Appends tracks the playlist doesn't have yet. */
+  function addTracks(id: string, tracks: Track[]): AddPlan | null {
+    const p = get(id);
+    if (!p) return null;
+    const plan = planAdd(p.tracks, tracks);
+    if (plan.added.length) {
+      p.tracks.push(...plan.added.map(slim));
+      touch(p);
+    }
+    return plan;
   }
 
   function remove(id: string) {
@@ -116,7 +139,7 @@ export const useLocalPlaylists = defineStore("localPlaylists", () => {
       title: p.title,
       user: { id: "local", username: "On this computer", avatarUrl: null },
       artworkUrl: p.tracks.find((t) => t.artworkUrl)?.artworkUrl ?? null,
-      description: null,
+      description: p.description ?? null,
       isAlbum: false,
       trackCount: p.tracks.length,
       duration: p.tracks.reduce((sum, t) => sum + t.duration, 0),
@@ -127,5 +150,5 @@ export const useLocalPlaylists = defineStore("localPlaylists", () => {
     };
   }
 
-  return { playlists, get, create, rename, remove, removeTrack, moveTrack, setArtwork, asPlaylist };
+  return { playlists, get, create, rename, update, addTracks, remove, removeTrack, moveTrack, setArtwork, asPlaylist };
 });

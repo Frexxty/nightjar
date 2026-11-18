@@ -64,6 +64,7 @@ export class HttpBackend implements Backend {
   }
 
   home() { return this.get<Section[]>("/home"); }
+  recommendations() { return this.get<Section[]>("/me/recommendations"); }
   feed(cursor?: string | null) { return this.get<Page<FeedItem>>("/feed", { cursor }); }
   search(q: string) { return this.get<SearchResults>("/search", { q }); }
   searchKind(q: string, kind: SearchKind, cursor?: string | null) {

@@ -10,6 +10,8 @@ import ImmersivePlayer from "@/components/ImmersivePlayer.vue";
 import MiniPlayer from "@/components/MiniPlayer.vue";
 import NowPlayingSheet from "@/components/NowPlayingSheet.vue";
 import PhoneHeader from "@/components/PhoneHeader.vue";
+import PlaylistDialog from "@/components/PlaylistDialog.vue";
+import PlaylistPicker from "@/components/PlaylistPicker.vue";
 import TabBar from "@/components/TabBar.vue";
 import UpdateDialog from "@/components/UpdateDialog.vue";
 import WebPrompts from "@/components/WebPrompts.vue";
@@ -146,6 +148,8 @@ onBeforeUnmount(() => {
       <ImmersivePlayer v-if="ui.immersive" />
     </Transition>
     <ContextMenu />
+    <PlaylistPicker />
+    <PlaylistDialog />
     <UpdateDialog />
     <WebPrompts v-if="isWebBuild" />
     <Transition name="toast">

@@ -22,6 +22,7 @@ export function useMenus() {
     const items: MenuItem[] = [
       { label: "Play next", action: () => player.playNext([t]) },
       { label: "Add to queue", action: () => player.addToQueue([t]) },
+      { label: "Add to playlist…", action: () => ui.addToPlaylist([t]) },
       { label: library.isLiked(t) ? "Unlike" : "Like", action: () => library.toggleLike(t) },
       ...(isSpotifyId(t.id) ? [] : [{ label: library.isReposted(t) ? "Remove repost" : "Repost", action: () => library.toggleRepost(t) }]),
       { label: "Start station", action: () => startStation(t) },
@@ -39,6 +40,7 @@ export function useMenus() {
       { label: "Play", action: async () => player.playTracks(await load(), 0, `playlist:${p.id}`) },
       { label: "Play next", action: async () => player.playNext(await load()) },
       { label: "Add to queue", action: async () => player.addToQueue(await load()) },
+      { label: "Add all to playlist…", action: async () => ui.addToPlaylist(await load()) },
       { label: `Open ${p.isAlbum ? "album" : "playlist"}`, action: () => router.push(`/playlist/${p.id}`) },
       { label: `Go to ${p.user.username}`, action: () => router.push(`/user/${p.user.id}`) },
     ];

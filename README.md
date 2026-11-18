@@ -31,12 +31,18 @@ npm run deploy:web # build:web, then deploy it to nightjar-app.k3s.lat
 | Lyrics drawer, synced to playback | Timed comments drawer, synced to playback, with a box to post at the current time |
 | Queue drawer | Up Next with drag-to-reorder, remove, clear, and a History tab |
 | Immersive mode | Blurred drifting artwork, big waveform with comment avatars, comments or queue on the side |
-| Listen Now / Browse | Home (shelves from `/home`) and Stream (the SoundCloud feed with reposts and inline waveforms) |
-| Library | Likes (with filter), Playlists, Albums, Following, History |
-| Album / artist pages | Track, playlist/album and user pages with play, shuffle, like, repost, follow, station |
+| Listen Now | Home: a "Made for you" mix you can play, shuffle or save as a playlist, "Recommended for you", "Because you liked …" and "More from artists you play", then the shelves from `/home`. Stream is the SoundCloud feed with reposts and inline waveforms |
+| Browse | Genre and mood pages (Hip Hop, House, Techno, Lo-fi, R&B, Drum & Bass, Chill, Focus and more) with a track list to play, shuffle or add to a playlist, and related playlists. Empty Search shows recent searches and the same genres |
+| Library | Likes (with filter), Playlists, Albums, Following, History. "New playlist" in Library > Playlists and next to "Your playlists" in the sidebar |
+| Add to playlist | In every track menu, on track pages, in the now-playing sheet and immersive player, and "Add all to playlist" on playlists, albums, genres and search results. Tracks already in the playlist are skipped |
+| Album / artist pages | Track, playlist/album and user pages with play, shuffle, like, repost, follow, station and "Similar tracks". Your own playlists: edit name, description and public/private, drag to reorder, remove tracks, delete |
 | Menu bar, dock menu, media keys | App menu with Controls and View shortcuts, dock menu with now playing, media keys and Now Playing via the Media Session API |
 
 Shortcuts: Space play/pause, ←/→ seek 5s, ⌘←/⌘→ previous/next, ⌘L like, ⌘F search, ⌘1–5 sections, ⌘U queue, ⌘K comments, ⇧⌘F immersive, ⌘[ / ⌘] back/forward.
+
+Recommendations come from what you like, play most and put in playlists. The hosted server merges the related tracks of up to 6 of those, ranks tracks several of them agree on higher, and leaves out what you've liked or just played, previews, and more than 2 tracks per artist ([docs/hosted-api.md](docs/hosted-api.md#recommendations)). With Spotify as the music source the app does the same with your Liked Songs, top tracks and recent plays, using artist search in place of the related-tracks endpoints Spotify closed to new apps. Signed out, Home shows what's trending.
+
+New playlists go to your Nightjar account when you're signed in, and are kept on this device otherwise. With Spotify as the music source, account playlists hold Spotify tracks; nothing is written to your Spotify library.
 
 When the queue runs out it keeps going with `/tracks/{id}/related`, like SoundCloud's autoplay. You can turn that off in Settings, along with comments on waveforms and the immersive background animation. Settings also has theme (dark, light, system) and accent colour.
 
@@ -104,7 +110,7 @@ Tracks where only SoundCloud's 30-second Go+ preview can be played carry a "Prev
 
 The same renderer also ships as a web app at [nightjar-app.k3s.lat](https://nightjar-app.k3s.lat). `npm run build:web` runs Vite with `--mode web`, which reads `.env.web`: it sets `VITE_TARGET=web` and points the default backend at the hosted API (`https://nightjar-api.k3s.lat/v1`, see [docs/hosted-api.md](docs/hosted-api.md)), so the web build never starts on the mock. The output goes to `dist-web/` with absolute paths (`base: "/"`). Everything that needs Electron checks for `window.nightjar` and stays out of the way in a browser: there are no update checks, menus or tray, and the macOS vibrancy rules don't apply because the platform attribute is `web`.
 
-Below 760px wide the layout switches to a phone layout. The sidebar becomes a tab bar (Home, Stream, Search, Library, Import), the top bar becomes a back button and a title, and a mini player sits above the tab bar. Tapping the mini player opens the now-playing sheet, which you close by swiping it down or with the chevron. Queue and comments open as a second sheet on top of it. Track lists turn into compact rows where a tap plays and the menu button or a long press opens an action sheet. The Electron window can't get narrower than 960px, so the desktop app never sees this layout.
+Below 760px wide the layout switches to a phone layout. The sidebar becomes a tab bar (Home, Stream, Browse, Search, Library; Import from Spotify is on the Library tab), the top bar becomes a back button and a title, and a mini player sits above the tab bar. Tapping the mini player opens the now-playing sheet, which you close by swiping it down or with the chevron. Queue and comments open as a second sheet on top of it. Track lists turn into compact rows where a tap plays and the menu button or a long press opens an action sheet. The Electron window can't get narrower than 960px, so the desktop app never sees this layout.
 
 ### Installing on iPhone
 
@@ -158,6 +164,9 @@ src/api/mock.ts          demo backend, with a fake account
 src/api/synth.ts         audio and artwork generator for the mock
 src/stores/player.ts     queue, shuffle, repeat, audio/HLS, media session
 src/stores/library.ts    signed-in user, likes, reposts, follows, history
+src/stores/myPlaylists.ts new playlists and "Add to playlist", to the account or this device
+src/lib/recommend.ts     recommendation scoring, shared with the server
+src/lib/genres.ts        Browse genres and moods
 src/stores/account.ts    sign up, sign in, sign out, delete account
 src/components/          chrome, LCD, waveform, drawer, immersive player, lists, cards
 src/views/               one file per route

@@ -54,13 +54,14 @@ The app works without these. The hosted server has all of them; [docs/hosted-api
 | POST | `/auth/signup`, `/auth/login` | The sign-in page. Both return `{ "token", "user" }`; the app keeps the token with the backend settings | `signup`, `login` |
 | POST | `/auth/logout` | Sign out (the app forgets the token even if this fails) | `logout` |
 | DELETE | `/me` | Delete account in Settings. Body: `{ "password": string }` | `deleteAccount` |
-| PATCH | `/me/playlists/{id}` | Rename, reorder and remove tracks on playlists you own. `trackIds` replaces the whole order | `updatePlaylist` |
+| PATCH | `/me/playlists/{id}` | Rename, edit the description, make public or private, add, reorder and remove tracks on playlists you own. Body: any of `{ "title", "description", "public", "trackIds" }`; `trackIds` replaces the whole order | `updatePlaylist` |
 | DELETE | `/me/playlists/{id}` | Delete a playlist you own | `deletePlaylist` |
 | POST | `/me/history` | Sent once per played track, fire and forget. Body: `{ "trackId": string }` | `addHistory` |
 | GET | `/me/history?cursor=` | The History page when signed in. Without it, History shows plays recorded on this computer | `history` |
+| GET | `/me/recommendations` | `Section[]` shown first on Home. Section ids `for-you` (the "Made for you" mix), `because-<id>` and `artists-you-play`; other ids are ignored. Without it, Home shows `/home` as before | `recommendations` |
 | GET | `/import/spotify?url=` | Reads a Spotify list in the browser, where the app can't read Spotify itself. Returns `SpotifyList` | `importSpotify` |
 
-A playlist counts as yours, and gets the edit buttons, when its `user.id` matches `/me`'s `id` or its id starts with `sp_`.
+A playlist counts as yours, and gets the edit buttons, when its `user.id` matches `/me`'s `id` or its id starts with `sp_`. Return `public: boolean` on your playlists to show them as public or private. With `POST /me/playlists` and `PATCH /me/playlists/{id}`, "New playlist" and "Add to playlist" save to the account; without them, playlists are kept on the device.
 
 ## Importing from Spotify
 

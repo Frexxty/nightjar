@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // Full-window player: blurred, slowly drifting artwork behind large artwork,
 // a full waveform with timed comments, and Up Next / Comments tabs on the side.
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import {
-  ChevronDown, Heart, Loader2, Pause, Play, Repeat, Repeat1, Repeat2, Shuffle, SkipBack, SkipForward,
+  ChevronDown, Heart, Loader2, MoreHorizontal, Pause, Play, Repeat, Repeat1, Repeat2, Shuffle, SkipBack, SkipForward,
 } from "lucide-vue-next";
+import { useMenus } from "@/lib/menus";
 import { useLibrary } from "@/stores/library";
 import { usePlayer } from "@/stores/player";
 import { useSettings } from "@/stores/settings";
@@ -23,6 +24,8 @@ const library = useLibrary();
 const settings = useSettings();
 const ui = useUi();
 const router = useRouter();
+const route = useRoute();
+const menus = useMenus();
 const tab = ref<"comments" | "queue">("comments");
 const track = computed(() => player.current);
 
@@ -33,7 +36,9 @@ function go(path: string) {
   close();
   void router.push(path);
 }
-const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+// The more-menu's "Go to …" items navigate; show the page they open.
+watch(() => route.fullPath, close);
+const onKey = (e: KeyboardEvent) => e.key === "Escape" && !ui.picker && !ui.playlistDialog && close();
 onMounted(() => window.addEventListener("keydown", onKey));
 onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
 </script>
@@ -61,6 +66,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
           <button class="icon-btn" :class="{ on: library.isLiked(track) }" title="Like" @click="library.toggleLike(track)">
             <Heart :size="20" :fill="library.isLiked(track) ? 'currentColor' : 'none'" />
           </button>
+          <button class="icon-btn" title="More" @click="ui.openMenu($event, menus.track(track))"><MoreHorizontal :size="20" /></button>
         </div>
         <Waveform
           :samples="track.waveform"

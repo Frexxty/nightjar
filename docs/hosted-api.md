@@ -42,7 +42,7 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
 | PATCH | `/v1/me/playlists/{id}` | any of `{ "title", "description", "public", "trackIds", "tracks" }` (`trackIds` or `tracks` replaces the whole order) | `Playlist` |
 | DELETE | `/v1/me/playlists/{id}` | none | 204 |
 
-`GET /v1/me/playlists` lists them (newest first). Track IDs are SoundCloud track IDs or Spotify track URIs. On read the server hydrates SoundCloud IDs into full `Track` objects and fills Spotify ones from stored snapshots, in the saved order, skipping tracks SoundCloud no longer has. Send `tracks` instead of (or with) `trackIds` when the list holds Spotify tracks; see [Spotify tracks](#spotify-tracks). The list leaves out `tracks` and reports `trackCount`, `duration` and `artworkUrl` as of the last write. A playlist holds at most 5,000 tracks and an account at most 500 playlists. `GET /v1/playlists/sp_…` returns a private playlist only to its owner and a public one to anyone.
+Playlist responses for account playlists carry `public: true | false`. `GET /v1/me/playlists` lists them (newest first). Track IDs are SoundCloud track IDs or Spotify track URIs. On read the server hydrates SoundCloud IDs into full `Track` objects and fills Spotify ones from stored snapshots, in the saved order, skipping tracks SoundCloud no longer has. Send `tracks` instead of (or with) `trackIds` when the list holds Spotify tracks; see [Spotify tracks](#spotify-tracks). The list leaves out `tracks` and reports `trackCount`, `duration` and `artworkUrl` as of the last write. A playlist holds at most 5,000 tracks and an account at most 500 playlists. `GET /v1/playlists/sp_…` returns a private playlist only to its owner and a public one to anyone.
 
 ## History
 
@@ -51,7 +51,7 @@ The official hosted backend. It implements every route in [BACKEND.md](../BACKEN
 | POST | `/v1/me/history` | `{ "trackId": string, "track"?: Track }` (`track` required for Spotify IDs) | 204 |
 | GET | `/v1/me/history?cursor=` | | `Page<Track>`, most recent first, one entry per track |
 
-The server keeps the 500 most recent tracks per account.
+The server keeps the 500 most recent tracks per account, each with a play count (`history.play_count`, migration `0004_history_play_count.sql`). Playing a track again moves it to the top and adds one to its count. Recommendations use the counts; the route doesn't return them.
 
 ## Spotify tracks
 
@@ -72,7 +72,7 @@ Checks on every snapshot (400 `invalid_input` when one fails):
 
 Storage: table `track_snapshots(user_id, track_id, json, updated_at)` with one row per account and track, written again on every save. Snapshots aren't shared between accounts, so nothing one account sends shows up in another account's lists. A public playlist shows its owner's snapshots to everyone who opens it. Rows that no like, history entry or playlist uses any more are deleted when the account unlikes, edits or deletes a playlist, and now and then after a play.
 
-Reads (`/v1/me/likes/tracks`, `/v1/me/history`, playlists) return the stored snapshot for Spotify IDs, in order with hydrated SoundCloud tracks, and set `liked` and `reposted` the same way for both. Reposts and follows stay SoundCloud-only. "Because you liked …" on Home uses the latest SoundCloud like.
+Reads (`/v1/me/likes/tracks`, `/v1/me/history`, playlists) return the stored snapshot for Spotify IDs, in order with hydrated SoundCloud tracks, and set `liked` and `reposted` the same way for both. Reposts and follows stay SoundCloud-only. Recommendations seed from SoundCloud tracks only, because the server can't ask Spotify for related tracks; Spotify likes and plays are still left out of the results.
 
 ## Spotify import
 
@@ -94,13 +94,33 @@ The desktop app keeps reading Spotify itself (full playlists through a hidden wi
 
 ## Home and feed
 
-- `/v1/home` signed out: "Trending on SoundCloud" (`/charts?kind=trending`, all genres), the "Curated by SoundCloud", "Trending by genre" and "Artists to watch out for" playlist shelves from `/mixed-selections`, and "Artists in the charts". These are cached for 30 minutes. Signed in, "Because you liked …" (related tracks of the latest like) and "New from artists you follow" go first, and the list stops at six sections.
+- `/v1/home` signed out: "Trending on SoundCloud" (`/charts?kind=trending`, all genres), the "Curated by SoundCloud", "Trending by genre" and "Artists to watch out for" playlist shelves from `/mixed-selections`, and "Artists in the charts". These are cached for 30 minutes. Signed in, the [recommendation](#recommendations) shelves and "New from artists you follow" go first, and the list stops at eight sections.
 - "Trending by genre" playlists have IDs like `soundcloud:system-playlists:trending-by-genre:trap`. `GET /v1/playlists/{id}` accepts them.
 - `/v1/feed` merges the latest 30 uploads of each followed user (up to 50 users), newest first, 20 per page. SoundCloud's public API has no reposts feed, so there is no `repostedBy`.
 
+## Recommendations
+
+`GET /v1/me/recommendations` returns `Section[]`. It works without a token: signed out, or for an account with nothing to go on yet, it returns the "Trending on SoundCloud" section from Home. Signed in, it returns up to five shelves, each left out when it would have fewer than 4 tracks:
+
+| `id` | Title | What's in it |
+| --- | --- | --- |
+| `for-you` | Recommended for you | Up to 30 tracks mixed from every seed. The app shows it as the "Made for you" mix, which can be saved as a playlist. |
+| `because-<trackId>` | Because you liked *title* | Up to 12 related tracks of one seed, for up to 3 seeds (newest likes first; played tracks fill in when there are fewer than 2 likes, titled "Because you played …"). Tracks in the first 10 of the mix are skipped. |
+| `artists-you-play` | More from artists you play | Popular tracks of the 2 artists that come up most in recent likes and plays (weighted by play count), at least twice each. `subtitle` names them. |
+
+How it picks:
+
+- Seeds: the 3 newest likes, the 2 most-played tracks (play count 2 or more), and the newest addition to the account's 5 most recently changed playlists, then more of the same until there are 6. A seed's weight halves every 45 days since it was liked, played or added (down to a floor) and drops a little with its position in each list.
+- Each seed's `/tracks/{id}/related` (cached 1 hour) gives candidates. A candidate scores the sum of `seed weight / (1 + 0.12 × rank)` over the seeds that suggested it, times `1 + 0.35 × (seeds − 1)`, times 1.25 when the account follows its artist.
+- Left out: liked tracks, the 50 most recent plays, the seeds, tracks that can't be streamed, and other uploads of the same song (same title and artist after removing brackets and "feat." credits, or a "slowed", "sped up", "nightcore", "8D", "reverb" or "bass boosted" version of a song already in the list). 30-second previews only fill in when there are fewer than 8 full tracks. At most 2 tracks per artist.
+- Upstream calls per uncached request: one batched `/tracks?ids=` lookup, at most 6 `related` lookups and at most 2 artist top-track lookups, all through the usual SoundCloud cache. A seed whose lookup fails is skipped. The result is cached for 15 minutes under a hash of the inputs (newest likes, recent plays and their counts, playlist additions, follow count), so a new like or play gives fresh recommendations on the next request.
+- Spotify tracks don't seed (see [Spotify tracks](#spotify-tracks)).
+
+The scoring code is `src/lib/recommend.ts`, shared with the app, which uses it for the demo backend and the Spotify music source.
+
 ## Caching
 
-The server caches SoundCloud responses with the Cache API: search 5 minutes, tracks, users and related tracks 1 hour, comments and user track lists 10 minutes, waveforms a day. Personal routes and streams aren't cached.
+The server caches SoundCloud responses with the Cache API: search 5 minutes, tracks, users and related tracks 1 hour, comments and user track lists 10 minutes, waveforms a day. Personal routes and streams aren't cached, except computed recommendations (15 minutes, keyed by account and inputs; `liked` and `reposted` flags are added fresh on every response).
 
 ## CORS
 

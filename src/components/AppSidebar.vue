@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
-  Disc3, Heart, History, Home, Import, ListMusic, LogIn, Radio, Search, Settings, Users,
+  Compass, Disc3, Heart, History, Home, Import, ListMusic, LogIn, Plus, Radio, Search, Settings, Users,
 } from "lucide-vue-next";
 import { useLibrary } from "@/stores/library";
 import { useLocalPlaylists } from "@/stores/localPlaylists";
@@ -25,12 +25,13 @@ watch(() => ui.searchFocus, () => {
 
 function search() {
   const q = query.value.trim();
-  if (q) router.push({ path: "/search", query: { q } });
+  router.push(q ? { path: "/search", query: { q } } : { path: "/search" });
 }
 
 const main = [
   { to: "/", label: "Home", icon: Home },
   { to: "/stream", label: "Stream", icon: Radio },
+  { to: "/browse", label: "Browse", icon: Compass },
 ];
 const lib = [
   { to: "/library/likes", label: "Likes", icon: Heart },
@@ -60,20 +61,24 @@ const lib = [
         <component :is="item.icon" :size="17" /> {{ item.label }}
       </RouterLink>
 
+      <div class="heading with-action">
+        Your playlists
+        <button class="add" title="New playlist" aria-label="New playlist" @click="ui.newPlaylist({ open: true })"><Plus :size="15" /></button>
+      </div>
       <template v-if="library.playlists.length || localPlaylists.length">
-        <div class="heading">Your playlists</div>
         <RouterLink v-for="p in library.playlists" :key="p.id" :to="`/playlist/${p.id}`" class="item playlist">
           <Artwork :src="p.artworkUrl" :size="20" :radius="4" />
           <span class="ellipsis">{{ p.title }}</span>
         </RouterLink>
         <template v-if="localPlaylists.length">
-          <div class="subheading">On this computer</div>
+          <div class="subheading">On this device</div>
           <RouterLink v-for="p in localPlaylists" :key="p.id" :to="`/playlist/${p.id}`" class="item playlist">
             <Artwork :src="p.artworkUrl" :size="20" :radius="4" />
             <span class="ellipsis">{{ p.title }}</span>
           </RouterLink>
         </template>
       </template>
+      <button v-else class="item empty-playlists" @click="ui.newPlaylist({ open: true })"><Plus :size="17" /> New playlist</button>
     </nav>
 
     <div class="footer">
@@ -138,5 +143,9 @@ nav { flex: 1; overflow-y: auto; padding: 0 10px 12px; }
 .me:hover { text-decoration: none; }
 .sign-in { height: 32px; padding: 0 10px; margin-left: -4px; border-radius: 7px; color: var(--accent); }
 .sign-in:hover { background: var(--hover); }
+.with-action { display: flex; align-items: center; justify-content: space-between; }
+.add { display: grid; place-items: center; width: 22px; height: 22px; margin-right: -6px; border-radius: 5px; color: var(--text-3); }
+.add:hover { background: var(--hover); color: var(--text); }
+.empty-playlists { width: 100%; color: var(--text-3); }
 .subheading { margin: 10px 10px 4px; font-size: 11px; color: var(--text-3); }
 </style>
