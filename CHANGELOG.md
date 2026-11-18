@@ -2,7 +2,7 @@
 
 Each release's section becomes its GitHub release notes and the notes shown in the in-app update dialog. Add a section before tagging. Releases up to 0.3.1 were called Stratus; their sections are kept as written.
 
-## Unreleased
+## 0.5.0
 
 - Make your own playlists: "New playlist" in Library > Playlists and in the sidebar, with a name, description and public or private. Signed in, they're saved to your account; signed out, on this device.
 - "Add to playlist" in every track menu, on track pages, in the now-playing sheet and the full-screen player, and "Add all to playlist" on playlists, albums, genres and search results. Tracks already in the playlist are skipped.
